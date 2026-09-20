@@ -1,0 +1,136 @@
+export interface UserProfile {
+  id: string
+  role_id: number
+  role_name: string
+  username: string
+  full_name: string
+  email?: string
+  phone?: string
+  permissions: string[]
+}
+
+export interface ProductUnitDetail {
+  id: string
+  unit_id: string
+  unit_code: string
+  unit_name: string
+  conversion_factor: number
+  selling_price: number
+  barcode?: string
+}
+
+export interface ProductPriceTier {
+  id: string
+  min_quantity: number
+  tier_price: number
+}
+
+export interface Product {
+  id: string
+  category_id: string
+  base_unit_id: string
+  sku: string
+  barcode: string
+  name: string
+  brand_id?: string
+  costing_method: string
+  cost_price: number
+  base_selling_price: number
+  min_stock: number
+  max_stock: number
+  tax_percent: number
+  is_weight_embedded: boolean
+  is_active: boolean
+}
+
+export interface ProductDetail {
+  product: Product
+  category_name: string
+  base_unit_code: string
+  base_unit_name: string
+  is_fractional: boolean
+  brand_name?: string
+  units: ProductUnitDetail[]
+  price_tiers: ProductPriceTier[]
+  current_stock: number
+  scanned_quantity?: number | string
+}
+
+export interface CartItem {
+  id: string // local cart unique ID
+  product: Product
+  selected_unit: ProductUnitDetail
+  quantity: number
+  unit_price: number
+  discount_percent: number
+  discount_amount: number
+  tax_amount: number
+  subtotal: number
+}
+
+export interface CashierShift {
+  id: string
+  terminal_id: string
+  user_id: string
+  opened_at: string
+  closed_at?: string
+  opening_cash: number
+  expected_cash?: number
+  actual_cash?: number
+  discrepancy?: number
+  status: 'OPEN' | 'CLOSED'
+}
+
+export interface Customer {
+  id: string
+  code: string
+  name: string
+  phone?: string
+  email?: string
+  credit_limit: number
+  reward_points: number
+  group_name?: string
+}
+
+export interface PaymentMethod {
+  id: string
+  code: string
+  name: string
+  category: 'CASH' | 'QRIS' | 'EDC' | 'POINTS' | 'TRANSFER'
+}
+
+export interface PaymentEntry {
+  payment_method_id: string
+  method_name: string
+  category: string
+  amount: number
+  reference_number?: string
+}
+
+export interface CheckoutResult {
+  sale: {
+    id: string
+    invoice_number: string
+    subtotal: number
+    discount_amount: number
+    tax_amount: number
+    total_amount: number
+    paid_amount: number
+    change_amount: number
+    created_at: string
+  }
+  items_count: number
+  change_amount: number
+  earned_points: number
+  invoice_number: string
+  message: string
+}
+
+export interface HeldOrder {
+  id: string
+  timestamp: string
+  customer?: Customer
+  customer_name: string
+  items: CartItem[]
+  total_amount: number
+}

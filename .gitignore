@@ -1,0 +1,21 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Rust / Tauri
+src-tauri/target/
+**/target/
+src-tauri/gen/
+
+# Environment files
+.env
+.env.*
+!.env.example
+src-tauri/.env
