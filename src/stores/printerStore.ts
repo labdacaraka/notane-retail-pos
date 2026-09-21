@@ -21,12 +21,20 @@ export interface PrinterConfig {
   openDrawer: boolean
 }
 
-// Common Bluetooth ESC/POS Service & Characteristic UUIDs
+// Common Bluetooth Thermal Printer ESC/POS GATT Service UUIDs
 const BT_ESC_POS_SERVICES = [
   '000018f0-0000-1000-8000-00805f9b34fb', // Standard ESC/POS Service
-  '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC Transparent Serial
-  '0000e0ff-0000-1000-8000-00805f9b34fb', // Common Mini Bluetooth Printer
-  '0000ff00-0000-1000-8000-00805f9b34fb',
+  'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Goojprt / PT-210 / MPT-II / Xprinter
+  '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC Transparent Serial (Panda, Zjiang, dsb)
+  '0000e0ff-0000-1000-8000-00805f9b34fb', // Common Mini Bluetooth Printer (MPT / POS-58)
+  '0000ff00-0000-1000-8000-00805f9b34fb', // Custom VSC / Hoin / Milestone
+  '0000fee7-0000-1000-8000-00805f9b34fb', // Tencent / Ali Gen Printer Service
+  '0000ae00-0000-1000-8000-00805f9b34fb', // Zjiang ZJ-5802 / Iware
+  '0000ae30-0000-1000-8000-00805f9b34fb', // ZJ series extended
+  '0000ffff-0000-1000-8000-00805f9b34fb', // Generic OEM Mini Printer
+  '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 / CC2541 BLE modules
+  '0000fff0-0000-1000-8000-00805f9b34fb', // Silicon Labs BLE Printer
+  'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f', // Custom ESC/POS vendor service
 ]
 
 const STORAGE_KEY = 'notane_printer_config'
@@ -310,8 +318,8 @@ export const usePrinterStore = defineStore('printer', () => {
       if (!bluetoothCharacteristic) {
         throw new Error('Koneksi printer bluetooth tidak siap.')
       }
-      // Send in chunks of 512 bytes for Bluetooth LE MTU limits
-      const chunkSize = 512
+      // Kirim dalam potongan kecil (100 bytes) dengan micro-delay agar modul BLE printer mini tidak mengalami buffer overrun
+      const chunkSize = 100
       for (let i = 0; i < buffer.length; i += chunkSize) {
         const chunk = buffer.slice(i, i + chunkSize)
         if (bluetoothCharacteristic.writeValueWithoutResponse) {
@@ -319,6 +327,8 @@ export const usePrinterStore = defineStore('printer', () => {
         } else {
           await bluetoothCharacteristic.writeValue(chunk)
         }
+        // Jeda 20ms antar paket data biner
+        await new Promise((resolve) => setTimeout(resolve, 20))
       }
     } else {
       // VIRTUAL PRINTER: Simulate printing

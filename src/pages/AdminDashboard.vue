@@ -14,8 +14,17 @@ const hubSections = computed(() => {
       category: 'MASTER DATA ENTERPRISE',
       tiles: [
         {
-          title: 'Master Produk',
-          desc: 'SKU, EAN-13, barcode timbangan, multi-UoM & harga bertingkat',
+          title: 'Master Outlet & Gerai',
+          desc: 'Manajemen cabang outlet, penugasan Store Manager, Supervisor penanggung jawab & gudang',
+          icon: 'fluent-color:building-shop-24',
+          path: '/admin/outlets',
+          color: 'from-amber-500 to-orange-600',
+          badge: 'Multi-Outlet',
+          permission: 'master:read',
+        },
+        {
+          title: 'Master Produk & SKU',
+          desc: 'Katalog barang multi-satuan, barcode scanner, tiering harga grosir & HPP',
           icon: 'streamline-ultimate-color:warehouse-cart-packages-2',
           path: '/admin/products',
           color: 'from-amber-400 to-amber-600',

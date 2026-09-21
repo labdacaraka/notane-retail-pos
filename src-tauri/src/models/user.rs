@@ -64,6 +64,7 @@ pub struct LoginResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct SupervisorPinRequest {
+    pub supervisor_id: Option<Uuid>,
     pub pin: String,
     pub action: Option<String>,
 }

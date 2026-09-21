@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import PosLayout from '@/layouts/PosLayout.vue'
 import BarcodeBar from '@/components/pos/BarcodeBar.vue'
 import CartTable from '@/components/pos/CartTable.vue'
@@ -8,10 +8,15 @@ import SupervisorPinModal from '@/components/pos/SupervisorPinModal.vue'
 import HoldRecallModal from '@/components/pos/HoldRecallModal.vue'
 import ProductSearchModal from '@/components/pos/ProductSearchModal.vue'
 import { useCartStore } from '@/stores/cartStore'
+import { api } from '@/services/api'
 import { Tag, User, ShoppingCart } from 'lucide-vue-next'
 import type { CartItem, CheckoutResult } from '@/types'
 
 const cartStore = useCartStore()
+
+onMounted(() => {
+  cartStore.initOutlet()
+})
 
 const barcodeBarRef = ref<any>(null)
 const showQuickPay = ref<boolean>(false)
@@ -81,19 +86,23 @@ function handlePaymentSuccess(result: CheckoutResult) {
   console.log('Transaksi berhasil:', result)
 }
 
-function handleApplyCustomer() {
-  if (customerPhoneInput.value.trim()) {
-    cartStore.selectedCustomer = {
-      id: 'c1000000-0000-0000-0000-000000000002',
-      code: 'MBR-001',
-      name: 'Budi Santoso (Member VIP)',
-      phone: customerPhoneInput.value,
-      credit_limit: 0,
-      reward_points: 250,
-      group_name: 'MEMBER',
+async function handleApplyCustomer() {
+  const query = customerPhoneInput.value.trim()
+  if (query) {
+    try {
+      const res = await api.get('/customers', { params: { search: query } })
+      if (res.data.success && res.data.data && res.data.data.length > 0) {
+        const cust = res.data.data[0]
+        cartStore.applyCustomerToCart(cust)
+      } else {
+        alert('Pelanggan / Member tidak ditemukan dengan nomor/kode tersebut')
+      }
+    } catch (e: any) {
+      alert('Gagal mencari data pelanggan: ' + (e.response?.data?.message || e.message))
     }
   }
   showCustomerModal.value = false
+  customerPhoneInput.value = ''
   barcodeBarRef.value?.focusInput()
 }
 
@@ -139,7 +148,7 @@ async function handleApplyVoucher() {
             <span class="text-sky-700 font-mono">({{ cartStore.selectedCustomer.group_name }})</span>
             <span class="text-slate-600">• Poin: <strong class="text-amber-700">{{ cartStore.selectedCustomer.reward_points }}</strong></span>
           </div>
-          <button @click="cartStore.selectedCustomer = null" class="text-slate-500 hover:text-rose-700 font-bold">
+          <button @click="cartStore.applyCustomerToCart(null)" class="text-slate-500 hover:text-rose-700 font-bold">
             Lepas (X)
           </button>
         </div>

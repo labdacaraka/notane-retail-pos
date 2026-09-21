@@ -16,6 +16,7 @@ import ClientConnectionPage from '@/pages/ClientConnectionPage.vue'
 import SalesPage from '@/pages/SalesPage.vue'
 import PurchasesPage from '@/pages/PurchasesPage.vue'
 import UsersPage from '@/pages/UsersPage.vue'
+import OutletsPage from '@/pages/OutletsPage.vue'
 
 const routes = [
   {
@@ -57,6 +58,12 @@ const routes = [
     name: 'admin-purchases',
     component: PurchasesPage,
     meta: { requiresAuth: true, permission: 'purchasing:read' },
+  },
+  {
+    path: '/admin/outlets',
+    name: 'admin-outlets',
+    component: OutletsPage,
+    meta: { requiresAuth: true, permission: ['outlets:read', 'master:read'] },
   },
   {
     path: '/admin/products',

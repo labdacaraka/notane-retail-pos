@@ -48,10 +48,12 @@ const isLoadingDetail = ref<boolean>(false)
 // Modal New GRN
 const showGrnModal = ref<boolean>(false)
 const isSavingGrn = ref<boolean>(false)
+const outlets = ref<any[]>([])
 const grnForm = ref({
+  outlet_id: '',
   supplier_id: '',
   supplier_invoice_number: '',
-  warehouse_id: 'b0000000-0000-0000-0000-000000000002',
+  warehouse_id: '',
   invoice_date: new Date().toISOString().split('T')[0],
   due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   notes: '',
@@ -120,12 +122,13 @@ function formatDate(dateStr: string): string {
 async function loadData() {
   try {
     isLoading.value = true
-    const [invRes, supRes, whRes, prodRes, poRes] = await Promise.all([
+    const [invRes, supRes, whRes, prodRes, poRes, outRes] = await Promise.all([
       api.get('/inventory/purchases'),
       api.get('/suppliers'),
       api.get('/warehouses'),
       api.get('/products'),
       api.get('/inventory/purchase-orders'),
+      api.get('/outlets'),
     ])
 
     if (invRes.data?.success) invoices.value = invRes.data.data
@@ -133,6 +136,7 @@ async function loadData() {
     if (whRes.data?.success) warehouses.value = whRes.data.data
     if (prodRes.data?.success) products.value = prodRes.data.data
     if (poRes.data?.success) purchaseOrders.value = poRes.data.data
+    if (outRes.data?.success) outlets.value = outRes.data.data
   } catch (err: any) {
     console.error('Gagal memuat data pengadaan:', err)
     showToast('Gagal memuat data pengadaan', 'error')
@@ -218,9 +222,10 @@ function onProductSelected(idx: number, productId: string) {
 
 function openCreateGrnModal() {
   grnForm.value = {
+    outlet_id: outlets.value[0]?.id || '',
     supplier_id: suppliers.value[0]?.id || '',
     supplier_invoice_number: `SJ-${Date.now().toString().slice(-6)}`,
-    warehouse_id: warehouses.value[0]?.id || 'b0000000-0000-0000-0000-000000000002',
+    warehouse_id: warehouses.value[0]?.id || '',
     invoice_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     notes: 'Penerimaan barang masuk dari supplier',
@@ -263,7 +268,8 @@ async function handleSaveGrn() {
     const payload = {
       po_id: null,
       supplier_id: grnForm.value.supplier_id,
-      warehouse_id: grnForm.value.warehouse_id,
+      outlet_id: grnForm.value.outlet_id || undefined,
+      warehouse_id: grnForm.value.warehouse_id || undefined,
       supplier_invoice_number: grnForm.value.supplier_invoice_number,
       invoice_date: grnForm.value.invoice_date,
       due_date: grnForm.value.due_date,
@@ -564,6 +570,7 @@ async function handleDeleteSupplier(supp: any) {
               <thead class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10">
                 <tr>
                   <th class="px-4 py-2.5">No. Faktur GRN</th>
+                  <th class="px-4 py-2.5">Outlet & Gudang</th>
                   <th class="px-4 py-2.5">Faktur / SJ Supplier</th>
                   <th class="px-4 py-2.5">Pemasok (Supplier)</th>
                   <th class="px-4 py-2.5">Tgl Faktur</th>
@@ -581,6 +588,10 @@ async function handleDeleteSupplier(supp: any) {
                 >
                   <td class="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
                     {{ inv.invoice_number }}
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="font-bold text-slate-800">{{ inv.outlet_name || 'Semua / Pusat' }}</div>
+                    <div class="text-[10px] text-blue-700 font-mono">{{ inv.warehouse_name || '-' }}</div>
                   </td>
                   <td class="px-4 py-3 font-mono text-slate-600">
                     {{ inv.supplier_invoice_number }}
@@ -832,7 +843,7 @@ async function handleDeleteSupplier(supp: any) {
           <!-- Body -->
           <div class="p-6 overflow-y-auto space-y-5 flex-1 min-h-0 text-xs">
             <!-- Header Inputs -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Pemasok / Supplier *</label>
                 <select
@@ -841,6 +852,19 @@ async function handleDeleteSupplier(supp: any) {
                 >
                   <option v-for="s in suppliers" :key="s.id" :value="s.id">
                     {{ s.name }} ({{ s.code }})
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Outlet Pemesan</label>
+                <select
+                  v-model="grnForm.outlet_id"
+                  class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-sans text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-slate-800"
+                >
+                  <option value="">-- Tanpa Outlet / Pusat --</option>
+                  <option v-for="o in outlets" :key="o.id" :value="o.id">
+                    {{ o.code }} - {{ o.name }}
                   </option>
                 </select>
               </div>
@@ -856,11 +880,12 @@ async function handleDeleteSupplier(supp: any) {
               </div>
 
               <div>
-                <label class="block font-bold text-slate-700 mb-1">Gudang Penerima *</label>
+                <label class="block font-bold text-slate-700 mb-1">Gudang Penerima</label>
                 <select
                   v-model="grnForm.warehouse_id"
                   class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-sans text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-slate-800"
                 >
+                  <option value="">-- Ikuti Default Gudang Outlet --</option>
                   <option v-for="w in warehouses" :key="w.id" :value="w.id">
                     {{ w.name }} ({{ w.code }})
                   </option>

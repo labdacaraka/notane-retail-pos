@@ -112,8 +112,8 @@ INSERT INTO outlets (id, code, name, address, phone) VALUES
 ('b0000000-0000-0000-0000-000000000001'::uuid, 'OUT-001', 'Notane Retail Flagship Store', 'Jl. Sudirman No. 123, Jakarta', '021-5551234')
 ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO warehouses (id, outlet_id, code, name) VALUES
-('b0000000-0000-0000-0000-000000000002'::uuid, 'b0000000-0000-0000-0000-000000000001'::uuid, 'WH-001', 'Gudang Utama Toko')
+INSERT INTO outlets (id, code, name, is_warehouse) VALUES
+('b0000000-0000-0000-0000-000000000002'::uuid, 'WH-001', 'Gudang Utama Toko', TRUE)
 ON CONFLICT (code) DO NOTHING;
 
 -- 6. Categories

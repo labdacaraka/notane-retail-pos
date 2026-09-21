@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { ShieldAlert, X, Check } from 'lucide-vue-next'
 import { api } from '@/services/api'
 
@@ -15,10 +15,26 @@ const emit = defineEmits<{
   (e: 'approved', supervisor: { id: string; name: string }): void
 }>()
 
+const supervisors = ref<Array<{ id: string; username: string; full_name: string; role_name: string }>>([])
+const selectedSupervisorId = ref<string>('')
 const pin = ref<string>('')
 const isChecking = ref<boolean>(false)
 const errorMessage = ref<string>('')
 const inputRef = ref<HTMLInputElement | null>(null)
+
+async function loadSupervisors() {
+  try {
+    const res = await api.get('/auth/supervisors')
+    if (res.data?.success && Array.isArray(res.data.data)) {
+      supervisors.value = res.data.data
+      if (supervisors.value.length > 0 && !selectedSupervisorId.value) {
+        selectedSupervisorId.value = supervisors.value[0].id
+      }
+    }
+  } catch (err) {
+    console.error('Gagal memuat supervisor:', err)
+  }
+}
 
 function focusInput() {
   setTimeout(() => inputRef.value?.focus(), 50)
@@ -46,6 +62,7 @@ async function verifyPin() {
 
   try {
     const res = await api.post('/auth/supervisor-approve', {
+      supervisor_id: selectedSupervisorId.value || undefined,
       pin: pin.value,
       action: props.actionType || 'SUPERVISOR_OVERRIDE',
     })
@@ -78,8 +95,20 @@ function handleKeyDown(e: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
+  loadSupervisors()
   focusInput()
 })
+
+watch(
+  () => props.show,
+  (val) => {
+    if (val) {
+      clearPin()
+      loadSupervisors()
+      focusInput()
+    }
+  }
+)
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
@@ -104,10 +133,26 @@ onUnmounted(() => {
       </div>
 
       <!-- Body -->
-      <div class="p-5 space-y-4">
+      <div class="p-5 space-y-3.5">
         <p class="text-xs text-slate-600 text-center">
-          {{ description || 'Aksi ini memerlukan persetujuan Supervisor Toko. Masukkan PIN Supervisor di bawah ini:' }}
+          {{ description || 'Aksi ini memerlukan persetujuan Supervisor Toko. Pilih Supervisor dan masukkan PIN di bawah ini:' }}
         </p>
+
+        <!-- Supervisor Selector -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Supervisor Penanggung Jawab:</label>
+          <select
+            v-model="selectedSupervisorId"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-sans focus:bg-white focus:border-amber-600 focus:outline-none"
+          >
+            <option v-for="spv in supervisors" :key="spv.id" :value="spv.id">
+              {{ spv.full_name }} ({{ spv.role_name }})
+            </option>
+            <option v-if="supervisors.length === 0" value="">
+              -- Memuat Supervisor --
+            </option>
+          </select>
+        </div>
 
         <!-- PIN Input Field -->
         <div class="relative">

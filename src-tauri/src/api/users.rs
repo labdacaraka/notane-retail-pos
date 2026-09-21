@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{get, post, put},
     Json, Router,
@@ -9,6 +9,8 @@ use serde::Deserialize;
 use serde_json::json;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
+use crate::utils::jwt::{require_permission, verify_jwt};
+use crate::utils::hash::{hash_secret, verify_secret};
 
 pub fn user_management_routes() -> Router<PgPool> {
     Router::new()
@@ -16,7 +18,14 @@ pub fn user_management_routes() -> Router<PgPool> {
         .route("/users", get(list_users_handler).post(create_user_handler))
         .route("/users/{id}", get(get_user_handler).put(update_user_handler).delete(delete_user_handler))
         .route("/users/{id}/reset-password", post(reset_password_handler))
+        .route("/users/{id}/change-password", post(admin_change_password_handler))
+        .route("/users/{id}/change-pin", post(admin_change_pin_handler))
         .route("/users/{id}/toggle-active", put(toggle_user_active_handler))
+
+        // Self User Profile & Outlets
+        .route("/me/outlets", get(get_my_outlets_handler))
+        .route("/me/change-password", post(self_change_password_handler))
+        .route("/me/change-pin", post(self_change_pin_handler))
 
         // Roles CRUD
         .route("/roles", get(list_roles_handler).post(create_role_handler))
@@ -62,19 +71,45 @@ async fn list_users_handler(
 
     match sqlx::query(&sql).fetch_all(&pool).await {
         Ok(rows) => {
-            let list: Vec<serde_json::Value> = rows.iter().map(|r| json!({
-                "id": r.get::<Uuid, _>("id"),
-                "username": r.get::<String, _>("username"),
-                "full_name": r.get::<String, _>("full_name"),
-                "email": r.get::<Option<String>, _>("email"),
-                "phone": r.get::<Option<String>, _>("phone"),
-                "is_active": r.get::<bool, _>("is_active"),
-                "role_id": r.get::<i32, _>("role_id"),
-                "role_name": r.get::<String, _>("role_name"),
-                "role_description": r.get::<Option<String>, _>("role_description"),
-                "created_at": r.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
-                "updated_at": r.get::<chrono::DateTime<chrono::Utc>, _>("updated_at"),
-            })).collect();
+            let mut list = Vec::new();
+            for r in rows {
+                let uid: Uuid = r.get("id");
+                let outlet_rows = sqlx::query(
+                    "SELECT o.id, o.code, o.name 
+                     FROM user_outlets uo 
+                     JOIN outlets o ON uo.outlet_id = o.id 
+                     WHERE uo.user_id = $1 
+                     ORDER BY o.code ASC",
+                )
+                .bind(uid)
+                .fetch_all(&pool)
+                .await
+                .unwrap_or_default();
+
+                let outlets: Vec<serde_json::Value> = outlet_rows.iter().map(|or| json!({
+                    "id": or.get::<Uuid, _>("id"),
+                    "code": or.get::<String, _>("code"),
+                    "name": or.get::<String, _>("name"),
+                })).collect();
+
+                let outlet_ids: Vec<Uuid> = outlet_rows.iter().map(|or| or.get::<Uuid, _>("id")).collect();
+
+                list.push(json!({
+                    "id": uid,
+                    "username": r.get::<String, _>("username"),
+                    "full_name": r.get::<String, _>("full_name"),
+                    "email": r.get::<Option<String>, _>("email"),
+                    "phone": r.get::<Option<String>, _>("phone"),
+                    "is_active": r.get::<bool, _>("is_active"),
+                    "role_id": r.get::<i32, _>("role_id"),
+                    "role_name": r.get::<String, _>("role_name"),
+                    "role_description": r.get::<Option<String>, _>("role_description"),
+                    "created_at": r.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
+                    "updated_at": r.get::<chrono::DateTime<chrono::Utc>, _>("updated_at"),
+                    "outlet_ids": outlet_ids,
+                    "outlets": outlets,
+                }));
+            }
             (StatusCode::OK, Json(json!({ "success": true, "data": list }))).into_response()
         }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
@@ -101,6 +136,26 @@ async fn get_user_handler(
 
     match sqlx::query(sql).bind(id).fetch_optional(&pool).await {
         Ok(Some(r)) => {
+            let outlet_rows = sqlx::query(
+                "SELECT o.id, o.code, o.name 
+                 FROM user_outlets uo 
+                 JOIN outlets o ON uo.outlet_id = o.id 
+                 WHERE uo.user_id = $1 
+                 ORDER BY o.code ASC",
+            )
+            .bind(id)
+            .fetch_all(&pool)
+            .await
+            .unwrap_or_default();
+
+            let outlets: Vec<serde_json::Value> = outlet_rows.iter().map(|or| json!({
+                "id": or.get::<Uuid, _>("id"),
+                "code": or.get::<String, _>("code"),
+                "name": or.get::<String, _>("name"),
+            })).collect();
+
+            let outlet_ids: Vec<Uuid> = outlet_rows.iter().map(|or| or.get::<Uuid, _>("id")).collect();
+
             let data = json!({
                 "id": r.get::<Uuid, _>("id"),
                 "username": r.get::<String, _>("username"),
@@ -113,6 +168,8 @@ async fn get_user_handler(
                 "permissions": r.get::<serde_json::Value, _>("permissions"),
                 "created_at": r.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
                 "updated_at": r.get::<chrono::DateTime<chrono::Utc>, _>("updated_at"),
+                "outlet_ids": outlet_ids,
+                "outlets": outlets,
             });
             (StatusCode::OK, Json(json!({ "success": true, "data": data }))).into_response()
         }
@@ -130,6 +187,7 @@ struct CreateUserPayload {
     role_id: i32,
     email: Option<String>,
     phone: Option<String>,
+    outlet_ids: Option<Vec<Uuid>>,
 }
 
 async fn create_user_handler(
@@ -172,14 +230,27 @@ async fn create_user_handler(
     .await;
 
     match res {
-        Ok(r) => (StatusCode::CREATED, Json(json!({
-            "success": true,
-            "data": {
-                "id": r.get::<Uuid, _>("id"),
-                "username": r.get::<String, _>("username"),
-                "full_name": r.get::<String, _>("full_name"),
+        Ok(r) => {
+            let new_user_id: Uuid = r.get("id");
+            if let Some(oids) = payload.outlet_ids {
+                for oid in oids {
+                    sqlx::query("INSERT INTO user_outlets (user_id, outlet_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+                        .bind(new_user_id)
+                        .bind(oid)
+                        .execute(&pool)
+                        .await
+                        .ok();
+                }
             }
-        }))).into_response(),
+            (StatusCode::CREATED, Json(json!({
+                "success": true,
+                "data": {
+                    "id": new_user_id,
+                    "username": r.get::<String, _>("username"),
+                    "full_name": r.get::<String, _>("full_name"),
+                }
+            }))).into_response()
+        }
         Err(e) => {
             let msg = if e.to_string().contains("unique") {
                 "Username sudah digunakan, silahkan pilih username lain".to_string()
@@ -197,6 +268,7 @@ struct UpdateUserPayload {
     role_id: i32,
     email: Option<String>,
     phone: Option<String>,
+    outlet_ids: Option<Vec<Uuid>>,
 }
 
 async fn update_user_handler(
@@ -216,10 +288,88 @@ async fn update_user_handler(
     .execute(&pool)
     .await;
 
+    if let Some(oids) = payload.outlet_ids {
+        sqlx::query("DELETE FROM user_outlets WHERE user_id = $1")
+            .bind(id)
+            .execute(&pool)
+            .await
+            .ok();
+
+        for oid in oids {
+            sqlx::query("INSERT INTO user_outlets (user_id, outlet_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+                .bind(id)
+                .bind(oid)
+                .execute(&pool)
+                .await
+                .ok();
+        }
+    }
+
     match res {
         Ok(r) if r.rows_affected() > 0 => (StatusCode::OK, Json(json!({ "success": true, "message": "Data pengguna berhasil diperbarui" }))).into_response(),
         Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "message": "Pengguna tidak ditemukan" }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+async fn get_my_outlets_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let auth_header = headers
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| if h.starts_with("Bearer ") { Some(&h[7..]) } else { None });
+
+    let token = match auth_header {
+        Some(t) => t,
+        None => return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "message": "Autentikasi dibutuhkan" }))).into_response(),
+    };
+
+    let claims = match verify_jwt(token) {
+        Ok(c) => c,
+        Err(e) => return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "message": e }))).into_response(),
+    };
+
+    let is_superadmin = sqlx::query_scalar::<_, bool>(
+        "SELECT (r.name = 'SUPERADMIN') FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1",
+    )
+    .bind(claims.sub)
+    .fetch_one(&pool)
+    .await
+    .unwrap_or(false);
+
+    let rows = if is_superadmin {
+        sqlx::query(
+            "SELECT id, code, name, is_warehouse, default_warehouse_id FROM outlets WHERE is_active = TRUE ORDER BY code ASC"
+        )
+        .fetch_all(&pool)
+        .await
+    } else {
+        sqlx::query(
+            "SELECT o.id, o.code, o.name, o.is_warehouse, o.default_warehouse_id 
+             FROM outlets o 
+             JOIN user_outlets uo ON o.id = uo.outlet_id 
+             WHERE uo.user_id = $1 AND o.is_active = TRUE 
+             ORDER BY o.code ASC"
+        )
+        .bind(claims.sub)
+        .fetch_all(&pool)
+        .await
+    };
+
+    match rows {
+        Ok(r) => {
+            let list: Vec<serde_json::Value> = r.iter().map(|row| json!({
+                "id": row.get::<Uuid, _>("id"),
+                "code": row.get::<String, _>("code"),
+                "name": row.get::<String, _>("name"),
+                "is_warehouse": row.get::<bool, _>("is_warehouse"),
+                "default_warehouse_id": row.get::<Option<Uuid>, _>("default_warehouse_id"),
+            })).collect();
+            (StatusCode::OK, Json(json!({ "success": true, "data": list }))).into_response()
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
     }
 }
 
@@ -275,6 +425,227 @@ async fn reset_password_handler(
     {
         Ok(r) if r.rows_affected() > 0 => (StatusCode::OK, Json(json!({ "success": true, "message": "Password berhasil direset" }))).into_response(),
         Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "message": "Pengguna tidak ditemukan" }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Admin Ganti Password Pengguna
+// ----------------------------------------------------------------------------
+#[derive(Deserialize)]
+struct AdminChangePasswordPayload {
+    new_password: String,
+}
+
+async fn admin_change_password_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<AdminChangePasswordPayload>,
+) -> impl IntoResponse {
+    if let Err(res) = require_permission(&pool, &headers, "users:manage").await {
+        return res.into_response();
+    }
+
+    if payload.new_password.len() < 6 {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": "Password baru minimal 6 karakter" }))).into_response();
+    }
+
+    let password_hash = match hash_secret(&payload.new_password) {
+        Ok(h) => h,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e }))).into_response(),
+    };
+
+    match sqlx::query("UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2")
+        .bind(&password_hash)
+        .bind(id)
+        .execute(&pool)
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => (StatusCode::OK, Json(json!({ "success": true, "message": "Password pengguna berhasil diperbarui" }))).into_response(),
+        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "message": "Pengguna tidak ditemukan" }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Admin Ganti PIN Pengguna (Memerlukan permission users:change_pin)
+// ----------------------------------------------------------------------------
+#[derive(Deserialize)]
+struct AdminChangePinPayload {
+    new_pin: String,
+}
+
+async fn admin_change_pin_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<AdminChangePinPayload>,
+) -> impl IntoResponse {
+    if let Err(res) = require_permission(&pool, &headers, "users:change_pin").await {
+        return res.into_response();
+    }
+
+    let pin = payload.new_pin.trim();
+    if pin.len() < 4 || pin.len() > 6 || !pin.chars().all(|c| c.is_ascii_digit()) {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": "PIN harus berupa 4-6 digit angka" }))).into_response();
+    }
+
+    let pin_hash = match hash_secret(pin) {
+        Ok(h) => h,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e }))).into_response(),
+    };
+
+    match sqlx::query("UPDATE users SET pin_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2")
+        .bind(&pin_hash)
+        .bind(id)
+        .execute(&pool)
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => (StatusCode::OK, Json(json!({ "success": true, "message": "PIN pengguna berhasil diperbarui" }))).into_response(),
+        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "message": "Pengguna tidak ditemukan" }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Pengguna Mandiri (Self): Ganti Password Sendiri
+// ----------------------------------------------------------------------------
+#[derive(Deserialize)]
+struct SelfChangePasswordPayload {
+    current_password: String,
+    new_password: String,
+}
+
+async fn self_change_password_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Json(payload): Json<SelfChangePasswordPayload>,
+) -> impl IntoResponse {
+    let auth_header = match headers.get("Authorization").and_then(|h| h.to_str().ok()) {
+        Some(h) if h.starts_with("Bearer ") => &h[7..],
+        _ => return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "message": "Autentikasi dibutuhkan" }))).into_response(),
+    };
+
+    let claims = match verify_jwt(auth_header) {
+        Ok(c) => c,
+        Err(e) => return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "message": e }))).into_response(),
+    };
+
+    if payload.new_password.len() < 6 {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": "Password baru minimal 6 karakter" }))).into_response();
+    }
+
+    // Ambil password_hash pengguna saat ini
+    let current_hash: Option<String> = match sqlx::query_scalar("SELECT password_hash FROM users WHERE id = $1")
+        .bind(claims.sub)
+        .fetch_optional(&pool)
+        .await
+    {
+        Ok(h) => h,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    };
+
+    let current_hash = match current_hash {
+        Some(h) => h,
+        None => return (StatusCode::NOT_FOUND, Json(json!({ "success": false, "message": "Pengguna tidak ditemukan" }))).into_response(),
+    };
+
+    if !verify_secret(&payload.current_password, &current_hash) {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": "Password lama yang dimasukkan tidak sesuai" }))).into_response();
+    }
+
+    let new_hash = match hash_secret(&payload.new_password) {
+        Ok(h) => h,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e }))).into_response(),
+    };
+
+    match sqlx::query("UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2")
+        .bind(&new_hash)
+        .bind(claims.sub)
+        .execute(&pool)
+        .await
+    {
+        Ok(_) => (StatusCode::OK, Json(json!({ "success": true, "message": "Password Anda berhasil diperbarui" }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Pengguna Mandiri (Self): Ganti PIN Sendiri
+// ----------------------------------------------------------------------------
+#[derive(Deserialize)]
+struct SelfChangePinPayload {
+    current_pin: Option<String>,
+    current_password: Option<String>,
+    new_pin: String,
+}
+
+async fn self_change_pin_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Json(payload): Json<SelfChangePinPayload>,
+) -> impl IntoResponse {
+    let auth_header = match headers.get("Authorization").and_then(|h| h.to_str().ok()) {
+        Some(h) if h.starts_with("Bearer ") => &h[7..],
+        _ => return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "message": "Autentikasi dibutuhkan" }))).into_response(),
+    };
+
+    let claims = match verify_jwt(auth_header) {
+        Ok(c) => c,
+        Err(e) => return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "message": e }))).into_response(),
+    };
+
+    let new_pin = payload.new_pin.trim();
+    if new_pin.len() < 4 || new_pin.len() > 6 || !new_pin.chars().all(|c| c.is_ascii_digit()) {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": "PIN baru harus berupa 4-6 digit angka" }))).into_response();
+    }
+
+    // Ambil data user
+    let user_row = match sqlx::query("SELECT password_hash, pin_hash FROM users WHERE id = $1")
+        .bind(claims.sub)
+        .fetch_optional(&pool)
+        .await
+    {
+        Ok(Some(r)) => r,
+        Ok(None) => return (StatusCode::NOT_FOUND, Json(json!({ "success": false, "message": "Pengguna tidak ditemukan" }))).into_response(),
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    };
+
+    let db_pwd_hash: String = user_row.get("password_hash");
+    let db_pin_hash: String = user_row.get("pin_hash");
+
+    // Verifikasi otentikasi pemilik akun: bisa lewat PIN lama atau password akun
+    let mut verified = false;
+    if let Some(cp) = &payload.current_pin {
+        if verify_secret(cp, &db_pin_hash) {
+            verified = true;
+        }
+    }
+    if !verified {
+        if let Some(pwd) = &payload.current_password {
+            if verify_secret(pwd, &db_pwd_hash) {
+                verified = true;
+            }
+        }
+    }
+
+    if !verified {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": "PIN lama atau password akun yang dimasukkan tidak sesuai" }))).into_response();
+    }
+
+    let new_pin_hash = match hash_secret(new_pin) {
+        Ok(h) => h,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e }))).into_response(),
+    };
+
+    match sqlx::query("UPDATE users SET pin_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2")
+        .bind(&new_pin_hash)
+        .bind(claims.sub)
+        .execute(&pool)
+        .await
+    {
+        Ok(_) => (StatusCode::OK, Json(json!({ "success": true, "message": "PIN Anda berhasil diperbarui" }))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
     }
 }

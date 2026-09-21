@@ -7,7 +7,7 @@ use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct Warehouse {
     pub id: Uuid,
-    pub outlet_id: Uuid,
+    pub outlet_id: Option<Uuid>,
     pub code: String,
     pub name: String,
     pub is_active: bool,
@@ -72,7 +72,8 @@ pub struct StockAdjustmentItemInput {
 pub struct GoodsReceiptNoteRequest {
     pub po_id: Option<Uuid>,
     pub supplier_id: Uuid,
-    pub warehouse_id: Uuid,
+    pub outlet_id: Option<Uuid>,
+    pub warehouse_id: Option<Uuid>,
     pub supplier_invoice_number: String,
     pub invoice_date: NaiveDate,
     pub due_date: NaiveDate,

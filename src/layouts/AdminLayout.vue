@@ -4,17 +4,23 @@ import { LogOut } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'
 import { useNetworkStore } from '@/stores/networkStore'
 import NetworkConnectionModal from '@/components/common/NetworkConnectionModal.vue'
+import UserProfileSecurityModal from '@/components/common/UserProfileSecurityModal.vue'
+import { useLocationStore } from '@/stores/locationStore'
 import { ref, computed, onMounted } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const networkStore = useNetworkStore()
+const locationStore = useLocationStore()
 const showNetworkModal = ref(false)
+const showSecurityModal = ref(false)
+const showLocationDropdown = ref(false)
 
 // 1. Grup Menu Operasional & Master Data Bisnis
 const rawOperationalMenus = [
   { path: '/admin', name: 'Dashboard Hub', icon: 'fluent-color:building-store-24' },
+  { path: '/admin/outlets', name: 'Master Outlet', icon: 'fluent-color:building-shop-24', permission: ['outlets:read', 'master:read'] },
   { path: '/admin/sales', name: 'Penjualan', icon: 'fluent-color:receipt-24', permission: 'report:view' },
   { path: '/admin/purchases', name: 'Pembelian', icon: 'streamline-ultimate-color:delivery-truck-cargo', permission: 'purchasing:read' },
   { path: '/admin/products', name: 'Master Produk', icon: 'streamline-ultimate-color:warehouse-cart-packages-2', permission: 'master:read' },
@@ -50,6 +56,7 @@ const networkMenu = {
 onMounted(() => {
   networkStore.fetchHostStatus()
   authStore.fetchCurrentUser()
+  locationStore.fetchAccessibleOutlets()
 })
 
 function handleLogout() {
@@ -59,7 +66,7 @@ function handleLogout() {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden font-sans select-none">
+  <div class="h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden font-sans select-none" @click="showLocationDropdown = false">
     <!-- 1. TOP NATIVE DESKTOP TITLE BAR -->
     <header class="bg-white border-b border-slate-300 px-5 py-2 flex items-center justify-between shadow-sm z-30 shrink-0">
       <!-- Left: Brand & Outlet Info + Role Switcher Badge -->
@@ -71,9 +78,58 @@ function handleLogout() {
               <span>NOTANE RETAIL POS</span>
               <span class="text-[9px] bg-emerald-100 text-emerald-800 font-mono px-1.5 py-0.5 rounded border border-emerald-300 font-bold">ENTERPRISE</span>
             </div>
-            <div class="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
-              <Icon icon="streamline-ultimate-color:shop-sign-bag" class="w-3.5 h-3.5" />
-              <span>Notane Flagship Store (OUT-001)</span>
+            <!-- Interactive Location Switcher -->
+            <div class="relative mt-1" @click.stop>
+              <button
+                type="button"
+                @click="showLocationDropdown = !showLocationDropdown"
+                class="text-[11px] text-slate-700 bg-slate-100 hover:bg-amber-50 hover:text-amber-900 border border-slate-300 hover:border-amber-300 px-2 py-0.5 rounded-md font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                title="Klik untuk memilih / mengganti lokasi outlet aktif"
+              >
+                <Icon icon="streamline-ultimate-color:shop-sign-bag" class="w-3.5 h-3.5 shrink-0" />
+                <span class="font-mono text-amber-800 text-[10px]">[{{ locationStore.currentOutlet?.code || 'OUT' }}]</span>
+                <span class="max-w-[140px] truncate">{{ locationStore.currentOutlet?.name || 'Pilih Lokasi' }}</span>
+                <Icon icon="fluent:chevron-down-12-filled" class="w-2.5 h-2.5 text-slate-400 ml-0.5" />
+              </button>
+
+              <!-- Dropdown Menu Pilihan Lokasi -->
+              <div
+                v-if="showLocationDropdown"
+                class="absolute left-0 top-full mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-fadeIn"
+              >
+                <div class="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                  <span>Lokasi Akses Anda</span>
+                  <span class="font-mono text-slate-500">{{ locationStore.accessibleOutlets.length }} Lokasi</span>
+                </div>
+                <div class="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                  <button
+                    v-for="loc in locationStore.accessibleOutlets"
+                    :key="loc.id"
+                    type="button"
+                    @click="locationStore.switchLocation(loc.id); showLocationDropdown = false"
+                    class="w-full px-3 py-2 text-left flex items-center justify-between hover:bg-amber-50/80 transition cursor-pointer"
+                    :class="{ 'bg-amber-50 font-bold text-amber-900': loc.id === locationStore.currentOutletId }"
+                  >
+                    <div class="flex items-center gap-2 min-w-0">
+                      <Icon
+                        :icon="loc.is_warehouse ? 'fluent-color:building-warehouse-24' : 'fluent-color:building-shop-24'"
+                        class="w-4 h-4 shrink-0"
+                      />
+                      <div class="truncate">
+                        <div class="leading-tight truncate text-xs">{{ loc.name }}</div>
+                        <div class="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {{ loc.code }} • {{ loc.is_warehouse ? 'Gudang' : 'Toko' }}
+                        </div>
+                      </div>
+                    </div>
+                    <Icon
+                      v-if="loc.id === locationStore.currentOutletId"
+                      icon="fluent:checkmark-circle-16-filled"
+                      class="w-4 h-4 text-emerald-600 shrink-0"
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -111,18 +167,26 @@ function handleLogout() {
           </span>
         </button>
 
-        <!-- User Operator Badge -->
+        <!-- User Operator Badge (Klik untuk Ganti Password / PIN Mandiri) -->
         <div class="h-7 border-l border-slate-300 mx-1"></div>
 
-        <div class="flex items-center gap-2 bg-slate-50 border border-slate-300 px-3 py-1 rounded-lg">
-          <div class="w-6 h-6 rounded-md bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-800 font-black text-xs">
+        <button
+          type="button"
+          @click="showSecurityModal = true"
+          class="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-300 hover:border-indigo-400 px-3 py-1 rounded-lg transition-all cursor-pointer shadow-2xs group"
+          title="Klik untuk ubah Password atau PIN akun Anda"
+        >
+          <div class="w-6 h-6 rounded-md bg-emerald-100 border border-emerald-300 group-hover:bg-indigo-100 group-hover:border-indigo-300 flex items-center justify-center text-emerald-800 group-hover:text-indigo-800 font-black text-xs transition">
             {{ authStore.user?.full_name?.charAt(0) || 'U' }}
           </div>
           <div class="text-left">
-            <div class="text-xs font-bold text-slate-800 leading-none">{{ authStore.user?.full_name }}</div>
-            <div class="text-[9px] text-slate-500 font-mono uppercase leading-none mt-0.5">{{ authStore.user?.role_name }}</div>
+            <div class="text-xs font-bold text-slate-800 group-hover:text-indigo-950 leading-none">{{ authStore.user?.full_name }}</div>
+            <div class="text-[9px] text-slate-500 font-mono uppercase leading-none mt-0.5 flex items-center gap-1">
+              <span>{{ authStore.user?.role_name }}</span>
+              <Icon icon="flat-color-icons:key" class="w-3 h-3 opacity-90" />
+            </div>
           </div>
-        </div>
+        </button>
 
         <button
           @click="handleLogout"
@@ -133,6 +197,12 @@ function handleLogout() {
         </button>
       </div>
     </header>
+
+    <!-- Modal Mandiri Ganti Password & PIN -->
+    <UserProfileSecurityModal
+      :show="showSecurityModal"
+      @close="showSecurityModal = false"
+    />
 
     <!-- 2. TOP DESKTOP COMMAND TILES RIBBON ("Kotak-Kotak di Atas") -->
     <nav class="bg-slate-200/90 border-b border-slate-300 px-3 py-2 shrink-0 overflow-x-auto shadow-inner">

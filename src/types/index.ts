@@ -43,6 +43,14 @@ export interface Product {
   is_active: boolean
 }
 
+export interface CustomerGroupPriceDetail {
+  id: string
+  customer_group_id: number
+  customer_group_name: string
+  product_id: string
+  special_price: number
+}
+
 export interface ProductDetail {
   product: Product
   category_name: string
@@ -52,6 +60,7 @@ export interface ProductDetail {
   brand_name?: string
   units: ProductUnitDetail[]
   price_tiers: ProductPriceTier[]
+  customer_group_prices?: CustomerGroupPriceDetail[]
   current_stock: number
   scanned_quantity?: number | string
 }
@@ -66,12 +75,17 @@ export interface CartItem {
   discount_amount: number
   tax_amount: number
   subtotal: number
+  product_detail?: ProductDetail
 }
 
 export interface CashierShift {
   id: string
   terminal_id: string
   user_id: string
+  outlet_id?: string
+  outlet_name?: string
+  outlet_code?: string
+  default_warehouse_id?: string
   opened_at: string
   closed_at?: string
   opening_cash: number
@@ -83,6 +97,7 @@ export interface CashierShift {
 
 export interface Customer {
   id: string
+  customer_group_id?: number
   code: string
   name: string
   phone?: string
@@ -107,6 +122,26 @@ export interface PaymentEntry {
   reference_number?: string
 }
 
+export interface CheckoutResultItem {
+  product_id: string
+  product_name: string
+  unit_id: string
+  unit_code: string
+  quantity: number
+  unit_selling_price: number
+  discount_percent: number
+  discount_amount: number
+  tax_amount: number
+  subtotal: number
+}
+
+export interface CheckoutResultPayment {
+  payment_method_id: string
+  payment_method_name: string
+  category: string
+  amount: number
+}
+
 export interface CheckoutResult {
   sale: {
     id: string
@@ -119,6 +154,9 @@ export interface CheckoutResult {
     change_amount: number
     created_at: string
   }
+  items?: CheckoutResultItem[]
+  payments?: CheckoutResultPayment[]
+  customer_name?: string
   items_count: number
   change_amount: number
   earned_points: number

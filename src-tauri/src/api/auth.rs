@@ -1,6 +1,9 @@
 use crate::models::user::{LoginRequest, SupervisorPinRequest};
 use crate::services::audit_service::list_audit_logs;
-use crate::services::auth_service::{authenticate_user, get_user_profile, verify_supervisor_pin};
+use crate::services::auth_service::{
+    authenticate_user, get_user_profile, list_store_managers, list_supervisors,
+    verify_supervisor_pin,
+};
 use crate::utils::jwt::verify_jwt;
 use axum::{
     extract::{Query, State},
@@ -16,6 +19,8 @@ use sqlx::PgPool;
 pub fn auth_routes() -> Router<PgPool> {
     Router::new()
         .route("/login", post(login_handler))
+        .route("/supervisors", get(list_supervisors_handler))
+        .route("/store-managers", get(list_store_managers_handler))
         .route("/supervisor-approve", post(supervisor_approve_handler))
         .route("/me", get(me_handler))
         .route("/audit-logs", get(audit_logs_handler))
@@ -92,5 +97,31 @@ async fn audit_logs_handler(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "success": false, "message": err })),
         ),
+    }
+}
+
+async fn list_supervisors_handler(
+    State(pool): State<PgPool>,
+) -> impl IntoResponse {
+    match list_supervisors(&pool).await {
+        Ok(list) => (StatusCode::OK, Json(json!({ "success": true, "data": list }))).into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "message": err })),
+        )
+            .into_response(),
+    }
+}
+
+async fn list_store_managers_handler(
+    State(pool): State<PgPool>,
+) -> impl IntoResponse {
+    match list_store_managers(&pool).await {
+        Ok(list) => (StatusCode::OK, Json(json!({ "success": true, "data": list }))).into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "message": err })),
+        )
+            .into_response(),
     }
 }

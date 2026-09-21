@@ -14,17 +14,23 @@ pub async fn create_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
 pub async fn run_embedded_migrations(pool: &PgPool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("Menjalankan migrasi database terintegrasi...");
 
-    let schema_sql = include_str!("../../migrations/001_initial_schema.sql");
-    sqlx::raw_sql(schema_sql).execute(pool).await?;
-    info!("Migrasi skema 001_initial_schema berhasil dieksekusi.");
+    let migrations: &[(&str, &str)] = &[
+        ("001_initial_schema", include_str!("../../migrations/001_initial_schema.sql")),
+        ("002_seed_data", include_str!("../../migrations/002_seed_data.sql")),
+        ("003_receipt_settings", include_str!("../../migrations/003_receipt_settings.sql")),
+        ("004_pin_management_permission", include_str!("../../migrations/004_pin_management_permission.sql")),
+        ("005_outlets_and_permissions", include_str!("../../migrations/005_outlets_and_permissions.sql")),
+        ("006_decouple_warehouses_and_link_outlets", include_str!("../../migrations/006_decouple_warehouses_and_link_outlets.sql")),
+        ("007_unify_warehouses_into_outlets", include_str!("../../migrations/007_unify_warehouses_into_outlets.sql")),
+        ("008_user_outlets_access_control", include_str!("../../migrations/008_user_outlets_access_control.sql")),
+    ];
 
-    let seed_sql = include_str!("../../migrations/002_seed_data.sql");
-    sqlx::raw_sql(seed_sql).execute(pool).await?;
-    info!("Migrasi seed data 002_seed_data berhasil dieksekusi.");
-
-    let receipt_sql = include_str!("../../migrations/003_receipt_settings.sql");
-    sqlx::raw_sql(receipt_sql).execute(pool).await?;
-    info!("Migrasi 003_receipt_settings berhasil dieksekusi.");
+    for (name, sql) in migrations {
+        match sqlx::raw_sql(*sql).execute(pool).await {
+            Ok(_) => info!("Migrasi {} berhasil dieksekusi.", name),
+            Err(e) => tracing::warn!("Peringatan migrasi {}: {}", name, e),
+        }
+    }
 
     Ok(())
 }

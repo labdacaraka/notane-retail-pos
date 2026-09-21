@@ -154,6 +154,7 @@ async fn checkout_handler(
 #[derive(Deserialize)]
 struct ListSalesQuery {
     shift_id: Option<Uuid>,
+    outlet_id: Option<Uuid>,
     limit: Option<i64>,
 }
 
@@ -162,7 +163,7 @@ async fn list_sales_handler(
     Query(query): Query<ListSalesQuery>,
 ) -> impl IntoResponse {
     let limit = query.limit.unwrap_or(50);
-    match list_sales(&pool, query.shift_id, limit).await {
+    match list_sales(&pool, query.shift_id, query.outlet_id, limit).await {
         Ok(sales) => (StatusCode::OK, Json(json!({ "success": true, "data": sales }))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,

@@ -6,6 +6,7 @@ import { useShiftStore } from '@/stores/shiftStore'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrinterStore } from '@/stores/printerStore'
 import { api } from '@/services/api'
+import { Icon } from '@iconify/vue'
 import type { PaymentEntry, PaymentMethod, CheckoutResult } from '@/types'
 
 const props = defineProps<{
@@ -47,6 +48,27 @@ const totalPaid = computed(() => {
 
 const changeAmount = computed(() => {
   return Math.max(0, totalPaid.value - cartStore.grandTotal)
+})
+
+const receiptConfig = computed(() => {
+  return printerStore.receiptSettings || {
+    store_name: 'NOTANE RETAIL ENTERPRISE',
+    store_tagline: 'Solusi Ritel Pintar & Modern',
+    store_address: 'Jl. Surya Kencana No. 88, Bogor Tengah, Jawa Barat',
+    store_phone: '0812-3456-7890',
+    store_website: 'www.notaneretail.id',
+    tax_id: '01.234.567.8-901.000',
+    header_note: 'Selamat Datang & Selamat Berbelanja',
+    footer_note_1: 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan',
+    footer_note_2: 'Kritik & Saran WA: 0812-3456-7890 | Terima Kasih',
+    social_media: 'IG & TikTok: @notane.retail',
+    paper_width: '58mm',
+    show_phone: true,
+    show_address: true,
+    show_cashier_name: true,
+    show_barcode: true,
+    show_tax_summary: true,
+  }
 })
 
 function formatCurrency(val: number): string {
@@ -106,7 +128,8 @@ async function handleCompletePayment() {
   try {
     const payload = {
       shift_id: shiftStore.currentShift.id,
-      warehouse_id: cartStore.defaultWarehouseId,
+      outlet_id: cartStore.currentOutletId || undefined,
+      warehouse_id: cartStore.defaultWarehouseId || undefined,
       customer_id: cartStore.selectedCustomer?.id,
       voucher_code: cartStore.voucherCode || undefined,
       items: cartStore.items.map((it) => ({
@@ -185,6 +208,9 @@ function handleKey(e: KeyboardEvent) {
 onMounted(() => {
   window.addEventListener('keydown', handleKey)
   setExactCash()
+  if (!printerStore.receiptSettings) {
+    printerStore.fetchReceiptSettings()
+  }
 })
 
 onUnmounted(() => {
@@ -394,46 +420,132 @@ onUnmounted(() => {
       v-else
       class="bg-white border border-slate-300 w-full max-w-sm rounded-2xl shadow-2xl p-4 flex flex-col items-center space-y-4 text-slate-900"
     >
-      <!-- Receipt Paper (Printable) -->
-      <div id="thermal-receipt" class="bg-white text-black font-mono text-xs p-4 rounded border border-slate-200 shadow-sm w-full">
-        <div class="text-center pb-2 border-b border-dashed border-gray-400">
-          <h4 class="font-bold text-sm">NOTANE RETAIL STORE</h4>
-          <p class="text-[10px]">Jl. Sudirman No. 123, Jakarta</p>
-          <p class="text-[10px]">Telp: 021-5551234</p>
-        </div>
+      <!-- Realistic Thermal Receipt Container -->
+      <div class="w-full max-h-[70vh] overflow-y-auto flex justify-center p-2 bg-slate-100 rounded-xl border border-slate-200 shadow-inner">
+        <!-- The Paper Slip -->
+        <div
+          id="thermal-receipt"
+          class="bg-white text-slate-900 shadow-lg font-mono text-[11px] leading-tight p-4 select-none relative transition-all duration-300 w-full"
+          :class="receiptConfig.paper_width === '80mm' ? 'max-w-[340px]' : 'max-w-[280px]'"
+          style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.12));"
+        >
+          <!-- Top Jagged Paper Edge -->
+          <div class="absolute -top-1.5 left-0 right-0 h-2 bg-repeat-x" style="background: radial-gradient(circle, transparent, transparent 50%, #ffffff 50%, #ffffff 100%); background-size: 8px 8px;"></div>
 
-        <div class="py-2 border-b border-dashed border-gray-400 text-[10px] space-y-0.5">
-          <div class="flex justify-between">
-            <span>Nota: {{ receiptData?.invoice_number }}</span>
+          <!-- STORE HEADER -->
+          <div class="text-center pb-2 border-b border-dashed border-slate-400">
+            <div class="font-extrabold text-sm tracking-wide uppercase">{{ receiptConfig.store_name || 'NOTANE RETAIL' }}</div>
+            <div v-if="receiptConfig.store_tagline" class="text-[10px] text-slate-600 italic mt-0.5">{{ receiptConfig.store_tagline }}</div>
+            <div v-if="receiptConfig.show_address && receiptConfig.store_address" class="text-[10px] text-slate-700 mt-1 leading-snug">{{ receiptConfig.store_address }}</div>
+            <div v-if="receiptConfig.show_phone && receiptConfig.store_phone" class="text-[10px] text-slate-700 mt-0.5">Telp: {{ receiptConfig.store_phone }}</div>
+            <div v-if="receiptConfig.store_website" class="text-[10px] text-slate-600">{{ receiptConfig.store_website }}</div>
+            <div v-if="receiptConfig.tax_id" class="text-[9px] text-slate-500 font-mono mt-0.5">NPWP: {{ receiptConfig.tax_id }}</div>
+            <div v-if="receiptConfig.header_note" class="text-[10px] font-semibold text-slate-800 mt-1 border-t border-dotted border-slate-300 pt-1">
+              {{ receiptConfig.header_note }}
+            </div>
           </div>
-          <div class="flex justify-between">
-            <span>Kasir: {{ authStore.user?.full_name }}</span>
-            <span>{{ new Date().toLocaleTimeString('id-ID') }}</span>
-          </div>
-        </div>
 
-        <div class="py-2 border-b border-dashed border-gray-400 space-y-1">
-          <div class="text-[11px] font-bold text-center">TRANSAKSI SUKSES</div>
-          <div class="flex justify-between text-xs font-bold pt-1">
-            <span>TOTAL:</span>
-            <span>Rp {{ receiptData?.sale.total_amount.toLocaleString() }}</span>
+          <!-- TRANSACTION METADATA -->
+          <div class="py-2 text-[10px] space-y-0.5 border-b border-dashed border-slate-400">
+            <div class="flex justify-between">
+              <span>No: {{ receiptData?.invoice_number || receiptData?.sale?.invoice_number }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Tgl: {{ receiptData?.sale?.created_at ? new Date(receiptData.sale.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID') }}</span>
+            </div>
+            <div v-if="receiptConfig.show_cashier_name" class="flex justify-between">
+              <span>Kasir: {{ authStore.user?.full_name || 'Kasir' }}</span>
+            </div>
+            <div v-if="receiptData?.customer_name" class="flex justify-between">
+              <span>Plg: {{ receiptData.customer_name }}</span>
+            </div>
           </div>
-          <div class="flex justify-between text-[11px]">
-            <span>BAYAR:</span>
-            <span>Rp {{ receiptData?.sale.paid_amount.toLocaleString() }}</span>
-          </div>
-          <div class="flex justify-between text-[11px]">
-            <span>KEMBALIAN:</span>
-            <span>Rp {{ receiptData?.change_amount.toLocaleString() }}</span>
-          </div>
-          <div v-if="receiptData?.earned_points" class="text-[10px] text-gray-600 text-center pt-1">
-            +{{ receiptData.earned_points }} Poin Member Diperoleh
-          </div>
-        </div>
 
-        <div class="text-center pt-2 text-[10px] text-gray-600">
-          <p>Terima Kasih Atas Kunjungan Anda</p>
-          <p>Barang yang sudah dibeli tidak dapat ditukar</p>
+          <!-- ITEMS LIST -->
+          <div class="py-2 border-b border-dashed border-slate-400 space-y-1.5">
+            <div v-for="(item, idx) in (receiptData?.items || [])" :key="idx" class="text-[10px]">
+              <div class="font-semibold text-slate-900 truncate">{{ item.product_name }}</div>
+              <div class="flex justify-between text-slate-700">
+                <span>{{ item.quantity }} {{ item.unit_code }} x {{ formatCurrency(item.unit_selling_price) }}</span>
+                <span class="font-bold">{{ formatCurrency(item.subtotal) }}</span>
+              </div>
+              <div v-if="item.discount_amount > 0" class="flex justify-between text-[9px] text-emerald-700">
+                <span>(Diskon)</span>
+                <span>-{{ formatCurrency(item.discount_amount) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TOTALS & PAYMENT -->
+          <div class="py-2 border-b border-dashed border-slate-400 text-[10px] space-y-0.5">
+            <div class="flex justify-between">
+              <span>Subtotal:</span>
+              <span>{{ formatCurrency(receiptData?.sale?.subtotal || 0) }}</span>
+            </div>
+            <div v-if="(receiptData?.sale?.discount_amount || 0) > 0" class="flex justify-between text-emerald-700">
+              <span>Diskon:</span>
+              <span>-{{ formatCurrency(receiptData?.sale?.discount_amount || 0) }}</span>
+            </div>
+            <div v-if="receiptConfig.show_tax_summary && (receiptData?.sale?.tax_amount || 0) > 0" class="flex justify-between text-slate-600">
+              <span>Pajak:</span>
+              <span>{{ formatCurrency(receiptData?.sale?.tax_amount || 0) }}</span>
+            </div>
+            <div class="flex justify-between font-bold text-xs pt-1 border-t border-dotted border-slate-300">
+              <span>TOTAL:</span>
+              <span>{{ formatCurrency(receiptData?.sale?.total_amount || 0) }}</span>
+            </div>
+
+            <!-- Payment Breakdowns -->
+            <div v-if="receiptData?.payments && receiptData.payments.length > 0" class="pt-1 space-y-0.5">
+              <div v-for="(pay, pIdx) in receiptData.payments" :key="pIdx" class="flex justify-between">
+                <span>BAYAR ({{ pay.payment_method_name }}):</span>
+                <span>{{ formatCurrency(pay.amount) }}</span>
+              </div>
+            </div>
+            <div v-else class="flex justify-between pt-1">
+              <span>BAYAR:</span>
+              <span>{{ formatCurrency(receiptData?.sale?.paid_amount || 0) }}</span>
+            </div>
+
+            <div class="flex justify-between font-semibold">
+              <span>KEMBALIAN:</span>
+              <span>{{ formatCurrency(receiptData?.change_amount ?? receiptData?.sale?.change_amount ?? 0) }}</span>
+            </div>
+
+            <div v-if="receiptData?.earned_points" class="text-[10px] text-emerald-700 font-semibold text-center pt-1">
+              +{{ receiptData.earned_points }} Poin Member Diperoleh
+            </div>
+          </div>
+
+          <!-- FOOTER & NOTES -->
+          <div class="text-center pt-2.5 pb-1 space-y-1 text-[10px]">
+            <div v-if="receiptConfig.footer_note_1" class="text-slate-700 leading-snug">
+              {{ receiptConfig.footer_note_1 }}
+            </div>
+            <div v-if="receiptConfig.footer_note_2" class="text-slate-700 leading-snug font-medium">
+              {{ receiptConfig.footer_note_2 }}
+            </div>
+            <div v-if="receiptConfig.social_media" class="text-[9px] text-slate-600 italic">
+              {{ receiptConfig.social_media }}
+            </div>
+
+            <!-- Barcode Simulation -->
+            <div v-if="receiptConfig.show_barcode" class="pt-2 flex flex-col items-center">
+              <div class="tracking-widest font-black text-sm text-slate-800 scale-y-125 select-none font-mono">
+                ||| | | |||| | ||| || |||
+              </div>
+              <div class="text-[8px] tracking-wider text-slate-500 font-mono mt-0.5">
+                {{ receiptData?.invoice_number || receiptData?.sale?.invoice_number }}
+              </div>
+            </div>
+
+            <div class="text-[8px] text-slate-400 font-mono pt-1">
+              *** NOTANE POS CLOUD & LAN ***
+            </div>
+          </div>
+
+          <!-- Bottom Jagged Paper Cut Edge -->
+          <div class="absolute -bottom-1.5 left-0 right-0 h-2 bg-repeat-x" style="background: radial-gradient(circle, transparent, transparent 50%, #ffffff 50%, #ffffff 100%); background-size: 8px 8px; transform: rotate(180deg);"></div>
         </div>
       </div>
 

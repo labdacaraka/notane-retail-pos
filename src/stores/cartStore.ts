@@ -13,7 +13,37 @@ export const useCartStore = defineStore('cart', () => {
       ? JSON.parse(localStorage.getItem('notane_held_orders')!)
       : []
   )
-  const defaultWarehouseId = ref<string>('b0000000-0000-0000-0000-000000000002')
+  const currentOutletId = ref<string>(localStorage.getItem('notane_pos_outlet_id') || '')
+  const defaultWarehouseId = ref<string>(localStorage.getItem('notane_pos_warehouse_id') || '')
+
+  async function setOutlet(outletId: string, warehouseId?: string) {
+    currentOutletId.value = outletId
+    localStorage.setItem('notane_pos_outlet_id', outletId)
+    if (warehouseId) {
+      defaultWarehouseId.value = warehouseId
+      localStorage.setItem('notane_pos_warehouse_id', warehouseId)
+    }
+  }
+
+  async function initOutlet() {
+    if (!currentOutletId.value || !defaultWarehouseId.value) {
+      try {
+        const res = await api.get('/outlets')
+        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          const active = res.data.data.filter((o: any) => o.is_active)
+          const chosen = active.length > 0 ? active[0] : res.data.data[0]
+          currentOutletId.value = chosen.id
+          localStorage.setItem('notane_pos_outlet_id', chosen.id)
+          if (chosen.default_warehouse_id) {
+            defaultWarehouseId.value = chosen.default_warehouse_id
+            localStorage.setItem('notane_pos_warehouse_id', chosen.default_warehouse_id)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to initialize active outlet in cart store:', err)
+      }
+    }
+  }
 
   const subtotal = computed(() => {
     return items.value.reduce((sum, item) => sum + item.unit_price * item.quantity, 0)
@@ -44,9 +74,12 @@ export const useCartStore = defineStore('cart', () => {
     const trimmed = barcode.trim()
     if (!trimmed) return
 
-    const res = await api.get(`/products/barcode/${trimmed}`, {
-      params: { warehouse_id: defaultWarehouseId.value }
-    })
+    const params: Record<string, any> = {}
+    if (defaultWarehouseId.value) {
+      params.warehouse_id = defaultWarehouseId.value
+    }
+
+    const res = await api.get(`/products/barcode/${trimmed}`, { params })
 
     if (res.data.success && res.data.data) {
       const detail: ProductDetail = res.data.data
@@ -74,6 +107,22 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
+  function getBasePriceForCustomer(detail: ProductDetail, unit: ProductUnitDetail): number {
+    // Check if selectedCustomer has a customer_group_id
+    if (selectedCustomer.value && selectedCustomer.value.customer_group_id) {
+      const groupPrices = detail.customer_group_prices || []
+      const foundGroupPrice = groupPrices.find(
+        (gp) => gp.customer_group_id === selectedCustomer.value?.customer_group_id
+      )
+      if (foundGroupPrice && Number(foundGroupPrice.special_price) > 0) {
+        // If non-base unit, multiply by conversion factor
+        const factor = Number(unit.conversion_factor) || 1
+        return Number(foundGroupPrice.special_price) * factor
+      }
+    }
+    return Number(unit.selling_price || detail.product.base_selling_price || 0)
+  }
+
   function addProductToCart(detail: ProductDetail, quantity = 1) {
     const baseUnit: ProductUnitDetail = detail.units[0] || {
       id: '',
@@ -96,10 +145,11 @@ export const useCartStore = defineStore('cart', () => {
     if (existingIndex >= 0) {
       const currentQty = Number(items.value[existingIndex].quantity) || 0
       const newQty = Number((currentQty + qtyToAdd).toFixed(3))
+      items.value[existingIndex].product_detail = detail
       updateQuantity(existingIndex, newQty)
-      recalculateTiers(items.value[existingIndex], detail.price_tiers)
+      recalculateTiers(items.value[existingIndex])
     } else {
-      const price = Number(baseUnit.selling_price)
+      const price = getBasePriceForCustomer(detail, baseUnit)
       const gross = price * qtyToAdd
       const taxPercent = Number(detail.product.tax_percent) || 0
       const tax = (gross * taxPercent) / 100
@@ -114,10 +164,11 @@ export const useCartStore = defineStore('cart', () => {
         discount_amount: 0,
         tax_amount: tax,
         subtotal: gross + tax,
+        product_detail: detail,
       }
 
       items.value.unshift(newItem)
-      recalculateTiers(items.value[0], detail.price_tiers)
+      recalculateTiers(items.value[0])
     }
   }
 
@@ -170,19 +221,32 @@ export const useCartStore = defineStore('cart', () => {
     items.value.unshift(newItem)
   }
 
-  function recalculateTiers(item: CartItem, priceTiers?: { min_quantity: number; tier_price: number }[]) {
-    if (!priceTiers || priceTiers.length === 0) return
+  function recalculateTiers(item: CartItem) {
+    // 1. Dapatkan harga dasar (berdasarkan customer group jika ada)
+    let effectivePrice = item.product_detail
+      ? getBasePriceForCustomer(item.product_detail, item.selected_unit)
+      : item.selected_unit.selling_price
 
-    // Find highest tier matching quantity
-    let matchedTierPrice = item.selected_unit.selling_price
-    for (const tier of priceTiers) {
-      if (item.quantity >= tier.min_quantity) {
-        matchedTierPrice = tier.tier_price
+    // 2. Jika ada price_tiers dan quantity memenuhi tier grosir, tier harga berlaku
+    const priceTiers = item.product_detail?.price_tiers
+    if (priceTiers && priceTiers.length > 0) {
+      for (const tier of priceTiers) {
+        if (item.quantity >= Number(tier.min_quantity)) {
+          effectivePrice = Number(tier.tier_price)
+        }
       }
     }
 
-    item.unit_price = matchedTierPrice
+    item.unit_price = effectivePrice
     recalculateItem(item)
+  }
+
+  function applyCustomerToCart(customer: Customer | null) {
+    selectedCustomer.value = customer
+    // Refresh unit_price semua item di keranjang dengan harga grup baru
+    for (const item of items.value) {
+      recalculateTiers(item)
+    }
   }
 
   function recalculateItem(item: CartItem) {
@@ -303,7 +367,10 @@ export const useCartStore = defineStore('cart', () => {
     voucherCode,
     voucherDiscount,
     heldOrders,
+    currentOutletId,
     defaultWarehouseId,
+    setOutlet,
+    initOutlet,
     subtotal,
     itemDiscounts,
     totalDiscount,
@@ -320,6 +387,7 @@ export const useCartStore = defineStore('cart', () => {
     clearCart,
     applyVoucher,
     removeVoucher,
+    applyCustomerToCart,
     holdCurrentOrder,
     recallOrder,
   }

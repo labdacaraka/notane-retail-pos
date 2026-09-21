@@ -463,6 +463,18 @@ function formatRupiah(val: number): string {
 
             <!-- TAB 3: OPSI TAMPILAN & KERTAS -->
             <div v-show="activeTab === 'display'" class="space-y-5">
+              <!-- Panduan Tipe Hardware Printer Kasir -->
+              <div class="bg-indigo-50/80 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-950 space-y-1.5">
+                <div class="font-bold flex items-center gap-1.5 text-indigo-900">
+                  <Icon icon="streamline-ultimate-color:print-text" class="w-4 h-4 shrink-0" />
+                  <span>Petunjuk Sambungan Hardware Printer Kasir:</span>
+                </div>
+                <div class="text-[11.5px] text-slate-700 leading-relaxed">
+                  • <strong>Printer Bluetooth BLE (Modern/Low Energy):</strong> Hubungkan langsung melalui menu kasir pada tab <em>Bluetooth (BLE)</em>.<br />
+                  • <strong>Printer Bluetooth Classic SPP / Kabel USB:</strong> Pasangkan (pair) printer di Bluetooth OS komputer Anda terlebih dahulu, lalu buka tab <em>Serial Port / USB</em> di menu kasir untuk menghubungkan port virtual COM-nya.
+                </div>
+              </div>
+
               <!-- Paper Width Selection -->
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-2">

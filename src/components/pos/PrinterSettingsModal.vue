@@ -185,12 +185,23 @@ function toggleOpenDrawer() {
           <span>{{ testError }}</span>
         </div>
 
-        <!-- Section 1: Pilihan Metode Koneksi -->
+        <!-- Pemilihan Tipe Koneksi -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-            Pilih Jenis Koneksi Printer
-          </label>
-          <div class="grid grid-cols-3 gap-2.5">
+          <label class="block text-xs font-bold text-slate-700 mb-2">Metode Koneksi Printer Kasir</label>
+          
+          <!-- Panduan Cepat Pemilihan Koneksi -->
+          <div class="mb-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 flex items-start gap-2.5">
+            <Icon icon="streamline-ultimate-color:help-chat-bubble" class="w-5 h-5 shrink-0 mt-0.5" />
+            <div class="space-y-1 text-[11.5px]">
+              <div class="font-bold text-blue-950">Panduan Memilih Koneksi Printer Thermal:</div>
+              <div class="text-slate-700">
+                • <strong>Tab Bluetooth (BLE):</strong> Khusus printer portable nirkabel berlabel <em>Bluetooth Low Energy (BLE)</em>.<br />
+                • <strong>Tab Serial Port / USB:</strong> Untuk printer kabel USB dan juga <strong>Printer Bluetooth Classic SPP (non-BLE)</strong> setelah di-pair di Windows/Mac.
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
             <!-- Tab Serial Port -->
             <button
               type="button"
@@ -200,7 +211,7 @@ function toggleOpenDrawer() {
             >
               <Icon icon="streamline-ultimate-color:usb-port-1" class="w-6 h-6 mb-1.5" />
               <span class="text-xs">Serial Port / USB</span>
-              <span class="text-[10px] text-slate-500 font-mono font-normal">Desktop TM-T82/XP</span>
+              <span class="text-[10px] text-slate-500 font-mono font-normal">Kabel USB & BT Classic</span>
             </button>
 
             <!-- Tab Bluetooth -->
@@ -211,8 +222,8 @@ function toggleOpenDrawer() {
               :class="activeTab === 'BLUETOOTH' ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-500/20 text-emerald-900 font-bold' : 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100'"
             >
               <Icon icon="streamline-ultimate-color:bluetooth-transfer" class="w-6 h-6 mb-1.5" />
-              <span class="text-xs">Bluetooth</span>
-              <span class="text-[10px] text-slate-500 font-mono font-normal">Mobile / Portable</span>
+              <span class="text-xs">Bluetooth (BLE)</span>
+              <span class="text-[10px] text-slate-500 font-mono font-normal">Portable BLE Modern</span>
             </button>
 
             <!-- Tab Simulator -->
@@ -242,7 +253,7 @@ function toggleOpenDrawer() {
             </span>
           </div>
           <p class="text-xs text-slate-600">
-            Digunakan untuk printer thermal kasir desktop berkabel USB atau serial COM (misal: Epson TM-T82, Xprinter XP-58/XP-80, Panda POS).
+            Digunakan untuk <strong>printer berkabel USB</strong> serta <strong>printer Bluetooth Classic SPP</strong> (non-BLE) yang sudah di-pair di Windows/Mac (akan muncul sebagai port COM / Serial virtual).
           </p>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -317,6 +328,25 @@ function toggleOpenDrawer() {
             >
               Putuskan
             </button>
+          </div>
+
+          <!-- Troubleshooting Box -->
+          <div class="bg-amber-50/80 border border-amber-200 rounded-lg p-3 text-[11px] text-amber-900 space-y-1">
+            <div class="font-bold flex items-center gap-1 text-amber-800">
+              <Icon icon="streamline-ultimate-color:alert-triangle" class="w-3.5 h-3.5" />
+              <span>Printer terbaca "Unsupported Device" atau Tidak Muncul?</span>
+            </div>
+            <ul class="list-disc list-inside space-y-0.5 text-slate-700 pl-0.5">
+              <li>
+                <strong>BLE vs Bluetooth Classic:</strong> Browser (Chrome/Edge) menggunakan <em>Web Bluetooth (BLE)</em>. Printer model lama hanya mendukung <em>Bluetooth Classic SPP (RFCOMM)</em> sehingga browser menandainya sebagai <em>unsupported</em>.
+              </li>
+              <li>
+                <strong>Solusi Printer Classic SPP:</strong> Gunakan tab <strong>Kabel USB / Serial</strong> di atas, atau sambungkan via USB ke komputer/laptop. Port Serial mendukung 100% semua printer thermal tanpa batasan protokol BLE.
+              </li>
+              <li>
+                <strong>Sudah Dipasangkan (Paired) di OS:</strong> Putuskan koneksi dari aplikasi lain (misal Android/laptop lain) karena printer thermal bluetooth hanya bisa melayani 1 perangkat aktif dalam satu waktu.
+              </li>
+            </ul>
           </div>
         </div>
 

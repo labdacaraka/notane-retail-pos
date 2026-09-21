@@ -46,6 +46,8 @@ pub fn master_routes(pool: PgPool) -> Router<PgPool> {
         .route("/products/units/{id}", delete(delete_product_unit_handler))
         .route("/products/{id}/price-tiers", post(add_product_tier_handler))
         .route("/products/price-tiers/{id}", delete(delete_product_tier_handler))
+        .route("/products/{id}/customer-group-prices", get(get_product_group_prices_handler).post(save_product_group_price_handler))
+        .route("/products/customer-group-prices/{id}", delete(delete_product_group_price_handler))
 
         // Customers & Customer Groups
         .route("/customers", get(list_customers_handler).post(create_customer_handler))
@@ -78,7 +80,8 @@ pub fn master_routes(pool: PgPool) -> Router<PgPool> {
         .route("/payment-methods", get(list_payment_methods_handler))
         .route("/reason-codes", get(list_reason_codes_handler))
         .route("/warehouses", get(list_warehouses_handler))
-        .route("/outlets", get(list_outlets_handler))
+        .route("/outlets", get(list_outlets_handler).post(create_outlet_handler))
+        .route("/outlets/{id}", get(get_outlet_handler).put(update_outlet_handler).delete(delete_outlet_handler))
 
         // Receipt & Store Settings
         .route("/settings/receipt", get(get_receipt_settings_handler).post(save_receipt_settings_handler).put(save_receipt_settings_handler))
@@ -380,6 +383,82 @@ async fn delete_product_tier_handler(
 ) -> impl IntoResponse {
     match sqlx::query("DELETE FROM product_price_tiers WHERE id = $1").bind(id).execute(&pool).await {
         Ok(_) => (StatusCode::OK, Json(json!({ "success": true, "message": "Tier harga grosir berhasil dihapus" }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct SaveProductGroupPricePayload {
+    customer_group_id: i32,
+    special_price: Decimal,
+}
+
+async fn get_product_group_prices_handler(
+    State(pool): State<PgPool>,
+    Path(product_id): Path<Uuid>,
+) -> impl IntoResponse {
+    let rows = sqlx::query(
+        "SELECT cgp.id, cgp.customer_group_id, cg.name as customer_group_name, cgp.product_id, cgp.special_price
+         FROM customer_group_prices cgp
+         JOIN customer_groups cg ON cgp.customer_group_id = cg.id
+         WHERE cgp.product_id = $1
+         ORDER BY cg.id ASC",
+    )
+    .bind(product_id)
+    .fetch_all(&pool)
+    .await;
+
+    match rows {
+        Ok(r) => {
+            let list: Vec<serde_json::Value> = r
+                .iter()
+                .map(|row| {
+                    json!({
+                        "id": row.get::<Uuid, _>("id"),
+                        "customer_group_id": row.get::<i32, _>("customer_group_id"),
+                        "customer_group_name": row.get::<String, _>("customer_group_name"),
+                        "product_id": row.get::<Uuid, _>("product_id"),
+                        "special_price": row.get::<Decimal, _>("special_price"),
+                    })
+                })
+                .collect();
+            (StatusCode::OK, Json(json!({ "success": true, "data": list }))).into_response()
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+async fn save_product_group_price_handler(
+    State(pool): State<PgPool>,
+    Path(product_id): Path<Uuid>,
+    Json(payload): Json<SaveProductGroupPricePayload>,
+) -> impl IntoResponse {
+    let res = sqlx::query(
+        "INSERT INTO customer_group_prices (customer_group_id, product_id, special_price)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (customer_group_id, product_id) DO UPDATE SET
+            special_price = EXCLUDED.special_price,
+            updated_at = CURRENT_TIMESTAMP
+         RETURNING id",
+    )
+    .bind(payload.customer_group_id)
+    .bind(product_id)
+    .bind(payload.special_price)
+    .fetch_one(&pool)
+    .await;
+
+    match res {
+        Ok(r) => (StatusCode::OK, Json(json!({ "success": true, "id": r.get::<Uuid, _>("id"), "message": "Harga kelompok pelanggan berhasil disimpan" }))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+async fn delete_product_group_price_handler(
+    State(pool): State<PgPool>,
+    Path(id): Path<Uuid>,
+) -> impl IntoResponse {
+    match sqlx::query("DELETE FROM customer_group_prices WHERE id = $1").bind(id).execute(&pool).await {
+        Ok(_) => (StatusCode::OK, Json(json!({ "success": true, "message": "Harga kelompok pelanggan berhasil dihapus" }))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
     }
 }
@@ -1070,12 +1149,12 @@ async fn list_reason_codes_handler(State(pool): State<PgPool>) -> impl IntoRespo
 }
 
 async fn list_warehouses_handler(State(pool): State<PgPool>) -> impl IntoResponse {
-    let rows = sqlx::query("SELECT * FROM warehouses WHERE is_active = true ORDER BY name ASC").fetch_all(&pool).await;
+    let rows = sqlx::query("SELECT id, code, name, is_active FROM outlets WHERE is_warehouse = true AND is_active = true ORDER BY name ASC").fetch_all(&pool).await;
     match rows {
         Ok(r) => {
             let list: Vec<serde_json::Value> = r.iter().map(|w| json!({
                 "id": w.get::<Uuid, _>("id"),
-                "outlet_id": w.get::<Uuid, _>("outlet_id"),
+                "outlet_id": w.get::<Uuid, _>("id"),
                 "code": w.get::<String, _>("code"),
                 "name": w.get::<String, _>("name"),
             })).collect();
@@ -1085,20 +1164,446 @@ async fn list_warehouses_handler(State(pool): State<PgPool>) -> impl IntoRespons
     }
 }
 
-async fn list_outlets_handler(State(pool): State<PgPool>) -> impl IntoResponse {
-    let rows = sqlx::query("SELECT * FROM outlets WHERE is_active = true ORDER BY name ASC").fetch_all(&pool).await;
+#[derive(Debug, Deserialize)]
+pub struct OutletPayload {
+    pub code: String,
+    pub name: String,
+    pub address: Option<String>,
+    pub phone: Option<String>,
+    pub is_active: Option<bool>,
+    pub is_warehouse: Option<bool>,
+    pub manager_id: Option<Uuid>,
+    pub default_warehouse_id: Option<Uuid>,
+    pub supervisor_ids: Option<Vec<Uuid>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListOutletsQuery {
+    pub is_warehouse: Option<bool>,
+}
+
+async fn list_outlets_handler(
+    State(pool): State<PgPool>,
+    Query(query): Query<ListOutletsQuery>,
+) -> impl IntoResponse {
+    let mut sql = "SELECT 
+            o.id, o.code, o.name, o.address, o.phone, o.is_active, o.is_warehouse,
+            o.manager_id, o.default_warehouse_id,
+            u.full_name as manager_name,
+            w.name as default_warehouse_name
+         FROM outlets o
+         LEFT JOIN users u ON o.manager_id = u.id
+         LEFT JOIN outlets w ON o.default_warehouse_id = w.id
+         WHERE 1=1".to_string();
+
+    if let Some(iw) = query.is_warehouse {
+        sql.push_str(&format!(" AND o.is_warehouse = {}", iw));
+    }
+    sql.push_str(" ORDER BY o.code ASC");
+
+    let rows = sqlx::query(&sql)
+    .fetch_all(&pool)
+    .await;
+
     match rows {
         Ok(r) => {
-            let list: Vec<serde_json::Value> = r.iter().map(|o| json!({
-                "id": o.get::<Uuid, _>("id"),
-                "code": o.get::<String, _>("code"),
-                "name": o.get::<String, _>("name"),
-                "address": o.get::<Option<String>, _>("address"),
-                "phone": o.get::<Option<String>, _>("phone"),
-            })).collect();
+            let mut list = Vec::new();
+            for o in r {
+                let oid: Uuid = o.get("id");
+
+                let spv_rows = sqlx::query(
+                    "SELECT u.id, u.username, u.full_name, r.name as role_name
+                     FROM outlet_supervisors os
+                     JOIN users u ON os.user_id = u.id
+                     JOIN roles r ON u.role_id = r.id
+                     WHERE os.outlet_id = $1
+                     ORDER BY u.full_name ASC",
+                )
+                .bind(oid)
+                .fetch_all(&pool)
+                .await
+                .unwrap_or_default();
+
+                let supervisors: Vec<serde_json::Value> = spv_rows.iter().map(|s| json!({
+                    "id": s.get::<Uuid, _>("id"),
+                    "username": s.get::<String, _>("username"),
+                    "full_name": s.get::<String, _>("full_name"),
+                    "role_name": s.get::<String, _>("role_name"),
+                })).collect();
+
+                let wh_rows = sqlx::query(
+                    "SELECT w.id, w.code, w.name, w.is_active 
+                     FROM outlet_warehouses ow
+                     JOIN outlets w ON ow.warehouse_id = w.id
+                     WHERE ow.outlet_id = $1 ORDER BY w.name ASC",
+                )
+                .bind(oid)
+                .fetch_all(&pool)
+                .await
+                .unwrap_or_default();
+
+                let warehouses: Vec<serde_json::Value> = wh_rows.iter().map(|w| json!({
+                    "id": w.get::<Uuid, _>("id"),
+                    "code": w.get::<String, _>("code"),
+                    "name": w.get::<String, _>("name"),
+                    "is_active": w.get::<bool, _>("is_active"),
+                })).collect();
+
+                list.push(json!({
+                    "id": oid,
+                    "code": o.get::<String, _>("code"),
+                    "name": o.get::<String, _>("name"),
+                    "address": o.get::<Option<String>, _>("address"),
+                    "phone": o.get::<Option<String>, _>("phone"),
+                    "is_active": o.get::<bool, _>("is_active"),
+                    "is_warehouse": o.get::<bool, _>("is_warehouse"),
+                    "manager_id": o.get::<Option<Uuid>, _>("manager_id"),
+                    "manager_name": o.get::<Option<String>, _>("manager_name"),
+                    "default_warehouse_id": o.get::<Option<Uuid>, _>("default_warehouse_id"),
+                    "default_warehouse_name": o.get::<Option<String>, _>("default_warehouse_name"),
+                    "supervisors": supervisors,
+                    "warehouses": warehouses,
+                    "warehouses_count": warehouses.len(),
+                    "supervisors_count": supervisors.len(),
+                }));
+            }
             (StatusCode::OK, Json(json!({ "success": true, "data": list }))).into_response()
         }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+async fn get_outlet_handler(
+    State(pool): State<PgPool>,
+    Path(id): Path<Uuid>,
+) -> impl IntoResponse {
+    let outlet = sqlx::query(
+        "SELECT 
+            o.id, o.code, o.name, o.address, o.phone, o.is_active, o.is_warehouse,
+            o.manager_id, o.default_warehouse_id,
+            u.full_name as manager_name,
+            w.name as default_warehouse_name
+         FROM outlets o
+         LEFT JOIN users u ON o.manager_id = u.id
+         LEFT JOIN outlets w ON o.default_warehouse_id = w.id
+         WHERE o.id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&pool)
+    .await;
+
+    match outlet {
+        Ok(Some(o)) => {
+            let spv_rows = sqlx::query(
+                "SELECT u.id, u.username, u.full_name, r.name as role_name
+                 FROM outlet_supervisors os
+                 JOIN users u ON os.user_id = u.id
+                 JOIN roles r ON u.role_id = r.id
+                 WHERE os.outlet_id = $1
+                 ORDER BY u.full_name ASC",
+            )
+            .bind(id)
+            .fetch_all(&pool)
+            .await
+            .unwrap_or_default();
+
+            let supervisors: Vec<serde_json::Value> = spv_rows.iter().map(|s| json!({
+                "id": s.get::<Uuid, _>("id"),
+                "username": s.get::<String, _>("username"),
+                "full_name": s.get::<String, _>("full_name"),
+                "role_name": s.get::<String, _>("role_name"),
+            })).collect();
+
+            let wh_rows = sqlx::query(
+                "SELECT w.id, w.code, w.name, w.is_active 
+                 FROM outlet_warehouses ow
+                 JOIN outlets w ON ow.warehouse_id = w.id
+                 WHERE ow.outlet_id = $1 ORDER BY w.name ASC",
+            )
+            .bind(id)
+            .fetch_all(&pool)
+            .await
+            .unwrap_or_default();
+
+            let warehouses: Vec<serde_json::Value> = wh_rows.iter().map(|w| json!({
+                "id": w.get::<Uuid, _>("id"),
+                "code": w.get::<String, _>("code"),
+                "name": w.get::<String, _>("name"),
+                "is_active": w.get::<bool, _>("is_active"),
+            })).collect();
+
+            (StatusCode::OK, Json(json!({
+                "success": true,
+                "data": json!({
+                    "id": id,
+                    "code": o.get::<String, _>("code"),
+                    "name": o.get::<String, _>("name"),
+                    "address": o.get::<Option<String>, _>("address"),
+                    "phone": o.get::<Option<String>, _>("phone"),
+                    "is_active": o.get::<bool, _>("is_active"),
+                    "is_warehouse": o.get::<bool, _>("is_warehouse"),
+                    "manager_id": o.get::<Option<Uuid>, _>("manager_id"),
+                    "manager_name": o.get::<Option<String>, _>("manager_name"),
+                    "default_warehouse_id": o.get::<Option<Uuid>, _>("default_warehouse_id"),
+                    "default_warehouse_name": o.get::<Option<String>, _>("default_warehouse_name"),
+                    "supervisors": supervisors,
+                    "warehouses": warehouses,
+                })
+            }))).into_response()
+        }
+        Ok(None) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "message": "Outlet tidak ditemukan" }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+async fn create_outlet_handler(
+    State(pool): State<PgPool>,
+    Json(payload): Json<OutletPayload>,
+) -> impl IntoResponse {
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    };
+
+    let outlet_id = Uuid::new_v4();
+    let is_active = payload.is_active.unwrap_or(true);
+    let is_warehouse = payload.is_warehouse.unwrap_or(false);
+
+    let insert_res = sqlx::query(
+        "INSERT INTO outlets (id, code, name, address, phone, is_active, is_warehouse, manager_id, default_warehouse_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+    )
+    .bind(outlet_id)
+    .bind(payload.code.trim())
+    .bind(payload.name.trim())
+    .bind(payload.address.as_deref().map(|s| s.trim()))
+    .bind(payload.phone.as_deref().map(|s| s.trim()))
+    .bind(is_active)
+    .bind(is_warehouse)
+    .bind(payload.manager_id)
+    .bind(payload.default_warehouse_id)
+    .execute(&mut *tx)
+    .await;
+
+    if let Err(e) = insert_res {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": format!("Gagal membuat outlet: {}", e) }))).into_response();
+    }
+
+    let mut final_wh_id = payload.default_warehouse_id;
+
+    if is_warehouse {
+        // Jika outlet ini sendiri adalah gudang, ia adalah gudang mandiri
+        final_wh_id = Some(outlet_id);
+        sqlx::query("UPDATE outlets SET default_warehouse_id = $1 WHERE id = $2")
+            .bind(outlet_id)
+            .bind(outlet_id)
+            .execute(&mut *tx)
+            .await
+            .ok();
+    } else if final_wh_id.is_none() {
+        // Toko ritel belum memilih gudang suplai, cari gudang pertama yang ada
+        let default_wh = sqlx::query_scalar::<_, Uuid>(
+            "SELECT id FROM outlets WHERE is_warehouse = TRUE AND is_active = TRUE ORDER BY created_at ASC LIMIT 1"
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .unwrap_or(None);
+
+        if let Some(wh) = default_wh {
+            final_wh_id = Some(wh);
+            sqlx::query("UPDATE outlets SET default_warehouse_id = $1 WHERE id = $2")
+                .bind(wh)
+                .bind(outlet_id)
+                .execute(&mut *tx)
+                .await
+                .ok();
+        }
+    }
+
+    if let Some(wh_id) = final_wh_id {
+        sqlx::query(
+            "INSERT INTO outlet_warehouses (outlet_id, warehouse_id, is_default) VALUES ($1, $2, TRUE) ON CONFLICT (outlet_id, warehouse_id) DO UPDATE SET is_default = TRUE"
+        )
+        .bind(outlet_id)
+        .bind(wh_id)
+        .execute(&mut *tx)
+        .await
+        .ok();
+    }
+
+    // Assign supervisors
+    if let Some(spv_ids) = payload.supervisor_ids {
+        for spv_id in spv_ids {
+            sqlx::query(
+                "INSERT INTO outlet_supervisors (outlet_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            )
+            .bind(outlet_id)
+            .bind(spv_id)
+            .execute(&mut *tx)
+            .await
+            .ok();
+        }
+    }
+
+    if let Err(e) = tx.commit().await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal commit transaksi: {}", e) }))).into_response();
+    }
+
+    (StatusCode::CREATED, Json(json!({
+        "success": true,
+        "message": if is_warehouse { "Gudang (Warehouse) berhasil dibuat" } else { "Outlet berhasil dibuat" },
+        "data": {
+            "id": outlet_id,
+            "code": payload.code,
+            "name": payload.name,
+            "is_warehouse": is_warehouse,
+            "default_warehouse_id": final_wh_id,
+        }
+    }))).into_response()
+}
+
+async fn update_outlet_handler(
+    State(pool): State<PgPool>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<OutletPayload>,
+) -> impl IntoResponse {
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    };
+
+    let is_active = payload.is_active.unwrap_or(true);
+    let is_warehouse = payload.is_warehouse.unwrap_or(false);
+
+    let update_res = sqlx::query(
+        "UPDATE outlets 
+         SET code = $1, name = $2, address = $3, phone = $4, is_active = $5, 
+             is_warehouse = $6, manager_id = $7, default_warehouse_id = $8, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $9",
+    )
+    .bind(payload.code.trim())
+    .bind(payload.name.trim())
+    .bind(payload.address.as_deref().map(|s| s.trim()))
+    .bind(payload.phone.as_deref().map(|s| s.trim()))
+    .bind(is_active)
+    .bind(is_warehouse)
+    .bind(payload.manager_id)
+    .bind(payload.default_warehouse_id)
+    .bind(id)
+    .execute(&mut *tx)
+    .await;
+
+    if let Err(e) = update_res {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": format!("Gagal memperbarui outlet: {}", e) }))).into_response();
+    }
+
+    // Sync outlet_warehouses
+    if let Some(wh_id) = payload.default_warehouse_id {
+        sqlx::query("UPDATE outlet_warehouses SET is_default = FALSE WHERE outlet_id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .ok();
+
+        sqlx::query(
+            "INSERT INTO outlet_warehouses (outlet_id, warehouse_id, is_default) 
+             VALUES ($1, $2, TRUE) 
+             ON CONFLICT (outlet_id, warehouse_id) DO UPDATE SET is_default = TRUE",
+        )
+        .bind(id)
+        .bind(wh_id)
+        .execute(&mut *tx)
+        .await
+        .ok();
+    }
+
+    // Update supervisors
+    if let Some(spv_ids) = payload.supervisor_ids {
+        sqlx::query("DELETE FROM outlet_supervisors WHERE outlet_id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .ok();
+
+        for spv_id in spv_ids {
+            sqlx::query(
+                "INSERT INTO outlet_supervisors (outlet_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            )
+            .bind(id)
+            .bind(spv_id)
+            .execute(&mut *tx)
+            .await
+            .ok();
+        }
+    }
+
+    if let Err(e) = tx.commit().await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal commit transaksi: {}", e) }))).into_response();
+    }
+
+    (StatusCode::OK, Json(json!({ "success": true, "message": "Outlet berhasil diperbarui" }))).into_response()
+}
+
+async fn delete_outlet_handler(
+    State(pool): State<PgPool>,
+    Path(id): Path<Uuid>,
+) -> impl IntoResponse {
+    let has_sales = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM sales WHERE outlet_id = $1 OR warehouse_id = $1")
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .unwrap_or(0);
+
+    if has_sales > 0 {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": "Outlet/Gudang tidak dapat dihapus karena sudah memiliki riwayat transaksi penjualan" }))).into_response();
+    }
+
+    let has_stocks = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM warehouse_stocks WHERE warehouse_id = $1 AND quantity > 0")
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .unwrap_or(0);
+
+    if has_stocks > 0 {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": "Outlet/Gudang tidak dapat dihapus karena masih memiliki sisa stok barang" }))).into_response();
+    }
+
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    };
+
+    // Detach default_warehouse_id from any outlet that used this outlet as default warehouse
+    sqlx::query("UPDATE outlets SET default_warehouse_id = NULL WHERE default_warehouse_id = $1")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .ok();
+
+    // Delete mapping in outlet_warehouses
+    sqlx::query("DELETE FROM outlet_warehouses WHERE outlet_id = $1 OR warehouse_id = $1")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .ok();
+
+    // Delete outlet_supervisors
+    sqlx::query("DELETE FROM outlet_supervisors WHERE outlet_id = $1")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .ok();
+
+    let del = sqlx::query("DELETE FROM outlets WHERE id = $1").bind(id).execute(&mut *tx).await;
+    match del {
+        Ok(_) => {
+            if let Err(e) = tx.commit().await {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal commit transaksi: {}", e) }))).into_response()
+            } else {
+                (StatusCode::OK, Json(json!({ "success": true, "message": "Outlet/Gudang berhasil dihapus" }))).into_response()
+            }
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": format!("Gagal menghapus outlet: {}", e) }))).into_response(),
     }
 }
 

@@ -8,9 +8,10 @@ use uuid::Uuid;
 pub struct Sale {
     pub id: Uuid,
     pub invoice_number: String,
+    pub outlet_id: Uuid,
     pub shift_id: Uuid,
     pub customer_id: Option<Uuid>,
-    pub warehouse_id: Uuid,
+    pub warehouse_id: Option<Uuid>,
     pub voucher_id: Option<Uuid>,
     pub subtotal: Decimal,
     pub discount_amount: Decimal,
@@ -60,7 +61,8 @@ pub struct SalePayment {
 #[derive(Debug, Deserialize)]
 pub struct CheckoutRequest {
     pub shift_id: Uuid,
-    pub warehouse_id: Uuid,
+    pub outlet_id: Option<Uuid>,
+    pub warehouse_id: Option<Uuid>,
     pub customer_id: Option<Uuid>,
     pub voucher_code: Option<String>,
     pub items: Vec<CheckoutItemInput>,
@@ -86,9 +88,34 @@ pub struct CheckoutPaymentInput {
     pub reference_number: Option<String>,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct CheckoutItemResponse {
+    pub product_id: Uuid,
+    pub product_name: String,
+    pub unit_id: Uuid,
+    pub unit_code: String,
+    pub quantity: Decimal,
+    pub unit_selling_price: Decimal,
+    pub discount_percent: Decimal,
+    pub discount_amount: Decimal,
+    pub tax_amount: Decimal,
+    pub subtotal: Decimal,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct CheckoutPaymentResponse {
+    pub payment_method_id: Uuid,
+    pub payment_method_name: String,
+    pub category: String,
+    pub amount: Decimal,
+}
+
 #[derive(Debug, Serialize)]
 pub struct CheckoutResponse {
     pub sale: Sale,
+    pub items: Vec<CheckoutItemResponse>,
+    pub payments: Vec<CheckoutPaymentResponse>,
+    pub customer_name: Option<String>,
     pub items_count: usize,
     pub change_amount: Decimal,
     pub earned_points: i32,
@@ -98,8 +125,9 @@ pub struct CheckoutResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct VoidSaleRequest {
+    pub supervisor_id: Option<Uuid>,
     pub supervisor_pin: String,
-    pub reason_id: Uuid,
+    pub reason_id: Option<Uuid>,
     pub notes: Option<String>,
 }
 

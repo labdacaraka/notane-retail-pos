@@ -44,14 +44,39 @@ pub async fn process_goods_receipt(
 
     let total_amount = subtotal - total_discount;
 
+    let outlet_id = if let Some(oid) = req.outlet_id {
+        Some(oid)
+    } else {
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM outlets WHERE is_active = TRUE ORDER BY created_at ASC LIMIT 1")
+            .fetch_optional(&mut *tx)
+            .await
+            .unwrap_or(None)
+    };
+
+    let target_wh_id = if let Some(wid) = req.warehouse_id {
+        Some(wid)
+    } else if let Some(oid) = outlet_id {
+        sqlx::query_scalar::<_, Option<Uuid>>("SELECT default_warehouse_id FROM outlets WHERE id = $1")
+            .bind(oid)
+            .fetch_optional(&mut *tx)
+            .await
+            .unwrap_or(None)
+            .flatten()
+    } else {
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM outlets WHERE is_warehouse = TRUE AND is_active = TRUE ORDER BY created_at ASC LIMIT 1")
+            .fetch_optional(&mut *tx)
+            .await
+            .unwrap_or(None)
+    };
+
     sqlx::query(
         "INSERT INTO purchase_invoices (
-            id, invoice_number, supplier_invoice_number, po_id, supplier_id, warehouse_id,
+            id, invoice_number, supplier_invoice_number, po_id, supplier_id, outlet_id, warehouse_id,
             invoice_date, due_date, subtotal, discount_amount, total_amount, payment_status,
             created_at, updated_at, created_by, updated_by
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'UNPAID',
-            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $12, $12
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'UNPAID',
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $13, $13
         )",
     )
     .bind(invoice_id)
@@ -59,7 +84,8 @@ pub async fn process_goods_receipt(
     .bind(&req.supplier_invoice_number)
     .bind(req.po_id)
     .bind(req.supplier_id)
-    .bind(req.warehouse_id)
+    .bind(outlet_id)
+    .bind(target_wh_id)
     .bind(req.invoice_date)
     .bind(req.due_date)
     .bind(subtotal)
@@ -92,67 +118,69 @@ pub async fn process_goods_receipt(
         .await
         .map_err(|e| format!("Gagal mencatat rincian barang masuk: {}", e))?;
 
-        let cost_row = sqlx::query(
-            "SELECT COALESCE(ws.quantity, 0) as current_qty, p.cost_price 
-             FROM products p 
-             LEFT JOIN warehouse_stocks ws ON p.id = ws.product_id AND ws.warehouse_id = $1
-             WHERE p.id = $2",
-        )
-        .bind(req.warehouse_id)
-        .bind(line.product_id)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|e| format!("Database error: {}", e))?;
+        if let Some(wh_id) = target_wh_id {
+            let cost_row = sqlx::query(
+                "SELECT COALESCE(ws.quantity, 0) as current_qty, p.cost_price 
+                 FROM products p 
+                 LEFT JOIN warehouse_stocks ws ON p.id = ws.product_id AND ws.warehouse_id = $1
+                 WHERE p.id = $2",
+            )
+            .bind(wh_id)
+            .bind(line.product_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
 
-        let current_stock: Decimal = cost_row.get("current_qty");
-        let current_cost: Decimal = cost_row.get("cost_price");
+            let current_stock: Decimal = cost_row.get("current_qty");
+            let current_cost: Decimal = cost_row.get("cost_price");
 
-        let new_stock = current_stock + line.received_qty;
-        let new_cost = if new_stock > Decimal::ZERO {
-            ((current_stock * current_cost) + (line.received_qty * line.unit_price)) / new_stock
-        } else {
-            line.unit_price
-        };
+            let new_stock = current_stock + line.received_qty;
+            let new_cost = if new_stock > Decimal::ZERO {
+                ((current_stock * current_cost) + (line.received_qty * line.unit_price)) / new_stock
+            } else {
+                line.unit_price
+            };
 
-        sqlx::query(
-            "UPDATE products SET cost_price = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-        )
-        .bind(new_cost)
-        .bind(line.product_id)
-        .execute(&mut *tx)
-        .await
-        .ok();
+            sqlx::query(
+                "UPDATE products SET cost_price = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+            )
+            .bind(new_cost)
+            .bind(line.product_id)
+            .execute(&mut *tx)
+            .await
+            .ok();
 
-        sqlx::query(
-            "INSERT INTO warehouse_stocks (warehouse_id, product_id, quantity, updated_at)
-            VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-            ON CONFLICT (warehouse_id, product_id)
-            DO UPDATE SET quantity = $3, updated_at = CURRENT_TIMESTAMP",
-        )
-        .bind(req.warehouse_id)
-        .bind(line.product_id)
-        .bind(new_stock)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| format!("Gagal menambah stok: {}", e))?;
+            sqlx::query(
+                "INSERT INTO warehouse_stocks (warehouse_id, product_id, quantity, updated_at)
+                VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                ON CONFLICT (warehouse_id, product_id)
+                DO UPDATE SET quantity = $3, updated_at = CURRENT_TIMESTAMP",
+            )
+            .bind(wh_id)
+            .bind(line.product_id)
+            .bind(new_stock)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Gagal menambah stok: {}", e))?;
 
-        sqlx::query(
-            "INSERT INTO stock_mutations (
-                warehouse_id, product_id, reference_type, reference_id, qty_in, qty_out,
-                balance, cost_price, notes, created_at, updated_at, created_by, updated_by
-            ) VALUES ($1, $2, 'PURCHASE_GRN', $3, $4, 0, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $8, $8)",
-        )
-        .bind(req.warehouse_id)
-        .bind(line.product_id)
-        .bind(invoice_id)
-        .bind(line.received_qty)
-        .bind(new_stock)
-        .bind(line.unit_price)
-        .bind(format!("Penerimaan Barang Masuk No {}", invoice_number))
-        .bind(user_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| format!("Gagal mencatat mutasi stok: {}", e))?;
+            sqlx::query(
+                "INSERT INTO stock_mutations (
+                    warehouse_id, product_id, reference_type, reference_id, qty_in, qty_out,
+                    balance, cost_price, notes, created_at, updated_at, created_by, updated_by
+                ) VALUES ($1, $2, 'PURCHASE_GRN', $3, $4, 0, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $8, $8)",
+            )
+            .bind(wh_id)
+            .bind(line.product_id)
+            .bind(invoice_id)
+            .bind(line.received_qty)
+            .bind(new_stock)
+            .bind(line.unit_price)
+            .bind(format!("Penerimaan Barang Masuk No {}", invoice_number))
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Gagal mencatat mutasi stok: {}", e))?;
+        }
     }
 
     let journal_id = Uuid::new_v4();
@@ -403,13 +431,14 @@ pub async fn get_stock_ledger(
 pub async fn list_purchase_invoices(pool: &PgPool) -> Result<Vec<serde_json::Value>, String> {
     let rows = sqlx::query(
         "SELECT pi.id, pi.invoice_number, pi.supplier_invoice_number, pi.po_id, pi.supplier_id,
-                pi.warehouse_id, pi.invoice_date, pi.due_date, pi.subtotal, pi.tax_amount,
+                pi.outlet_id, pi.warehouse_id, pi.invoice_date, pi.due_date, pi.subtotal, pi.tax_amount,
                 pi.discount_amount, pi.total_amount, pi.paid_amount, pi.payment_status,
                 pi.created_at, s.name as supplier_name, s.code as supplier_code,
-                w.name as warehouse_name
+                w.name as warehouse_name, o.name as outlet_name, o.code as outlet_code
          FROM purchase_invoices pi
          JOIN suppliers s ON pi.supplier_id = s.id
-         JOIN warehouses w ON pi.warehouse_id = w.id
+         LEFT JOIN outlets o ON pi.outlet_id = o.id
+         LEFT JOIN warehouses w ON pi.warehouse_id = w.id
          ORDER BY pi.created_at DESC"
     )
     .fetch_all(pool)
@@ -425,8 +454,11 @@ pub async fn list_purchase_invoices(pool: &PgPool) -> Result<Vec<serde_json::Val
             "supplier_id": r.get::<Uuid, _>("supplier_id"),
             "supplier_name": r.get::<String, _>("supplier_name"),
             "supplier_code": r.get::<String, _>("supplier_code"),
-            "warehouse_id": r.get::<Uuid, _>("warehouse_id"),
-            "warehouse_name": r.get::<String, _>("warehouse_name"),
+            "outlet_id": r.get::<Option<Uuid>, _>("outlet_id"),
+            "outlet_name": r.get::<Option<String>, _>("outlet_name"),
+            "outlet_code": r.get::<Option<String>, _>("outlet_code"),
+            "warehouse_id": r.get::<Option<Uuid>, _>("warehouse_id"),
+            "warehouse_name": r.get::<Option<String>, _>("warehouse_name"),
             "invoice_date": r.get::<chrono::NaiveDate, _>("invoice_date").to_string(),
             "due_date": r.get::<chrono::NaiveDate, _>("due_date").to_string(),
             "subtotal": r.get::<Decimal, _>("subtotal"),
@@ -445,10 +477,11 @@ pub async fn list_purchase_invoices(pool: &PgPool) -> Result<Vec<serde_json::Val
 pub async fn get_purchase_invoice_detail(pool: &PgPool, id: Uuid) -> Result<serde_json::Value, String> {
     let pi_row = sqlx::query(
         "SELECT pi.*, s.name as supplier_name, s.code as supplier_code, s.phone as supplier_phone,
-                w.name as warehouse_name
+                w.name as warehouse_name, o.name as outlet_name, o.code as outlet_code
          FROM purchase_invoices pi
          JOIN suppliers s ON pi.supplier_id = s.id
-         JOIN warehouses w ON pi.warehouse_id = w.id
+         LEFT JOIN outlets o ON pi.outlet_id = o.id
+         LEFT JOIN warehouses w ON pi.warehouse_id = w.id
          WHERE pi.id = $1"
     )
     .bind(id)
@@ -491,8 +524,11 @@ pub async fn get_purchase_invoice_detail(pool: &PgPool, id: Uuid) -> Result<serd
         "supplier_name": pi_row.get::<String, _>("supplier_name"),
         "supplier_code": pi_row.get::<String, _>("supplier_code"),
         "supplier_phone": pi_row.get::<Option<String>, _>("supplier_phone"),
-        "warehouse_id": pi_row.get::<Uuid, _>("warehouse_id"),
-        "warehouse_name": pi_row.get::<String, _>("warehouse_name"),
+        "outlet_id": pi_row.get::<Option<Uuid>, _>("outlet_id"),
+        "outlet_name": pi_row.get::<Option<String>, _>("outlet_name"),
+        "outlet_code": pi_row.get::<Option<String>, _>("outlet_code"),
+        "warehouse_id": pi_row.get::<Option<Uuid>, _>("warehouse_id"),
+        "warehouse_name": pi_row.get::<Option<String>, _>("warehouse_name"),
         "invoice_date": pi_row.get::<chrono::NaiveDate, _>("invoice_date").to_string(),
         "due_date": pi_row.get::<chrono::NaiveDate, _>("due_date").to_string(),
         "subtotal": pi_row.get::<Decimal, _>("subtotal"),
@@ -534,12 +570,14 @@ pub async fn pay_purchase_invoice(pool: &PgPool, id: Uuid) -> Result<String, Str
 
 pub async fn list_purchase_orders(pool: &PgPool) -> Result<Vec<serde_json::Value>, String> {
     let rows = sqlx::query(
-        "SELECT po.id, po.po_number, po.supplier_id, po.warehouse_id, po.order_date,
+        "SELECT po.id, po.po_number, po.supplier_id, po.outlet_id, po.warehouse_id, po.order_date,
                 po.expected_delivery, po.total_amount, po.status, po.notes, po.created_at,
-                s.name as supplier_name, s.code as supplier_code, w.name as warehouse_name
+                s.name as supplier_name, s.code as supplier_code,
+                w.name as warehouse_name, o.name as outlet_name, o.code as outlet_code
          FROM purchase_orders po
          JOIN suppliers s ON po.supplier_id = s.id
-         JOIN warehouses w ON po.warehouse_id = w.id
+         LEFT JOIN outlets o ON po.outlet_id = o.id
+         LEFT JOIN warehouses w ON po.warehouse_id = w.id
          ORDER BY po.created_at DESC"
     )
     .fetch_all(pool)
@@ -553,8 +591,11 @@ pub async fn list_purchase_orders(pool: &PgPool) -> Result<Vec<serde_json::Value
             "supplier_id": r.get::<Uuid, _>("supplier_id"),
             "supplier_name": r.get::<String, _>("supplier_name"),
             "supplier_code": r.get::<String, _>("supplier_code"),
-            "warehouse_id": r.get::<Uuid, _>("warehouse_id"),
-            "warehouse_name": r.get::<String, _>("warehouse_name"),
+            "outlet_id": r.get::<Option<Uuid>, _>("outlet_id"),
+            "outlet_name": r.get::<Option<String>, _>("outlet_name"),
+            "outlet_code": r.get::<Option<String>, _>("outlet_code"),
+            "warehouse_id": r.get::<Option<Uuid>, _>("warehouse_id"),
+            "warehouse_name": r.get::<Option<String>, _>("warehouse_name"),
             "order_date": r.get::<chrono::NaiveDate, _>("order_date").to_string(),
             "expected_delivery": r.get::<Option<chrono::NaiveDate>, _>("expected_delivery").map(|d| d.to_string()),
             "total_amount": r.get::<Decimal, _>("total_amount"),

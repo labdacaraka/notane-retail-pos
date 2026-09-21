@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import PaginationBar from '@/components/common/PaginationBar.vue'
 import SearchableSelect from '@/components/common/SearchableSelect.vue'
-import { Search, Scale, Edit2, Trash2 } from 'lucide-vue-next'
+import { Search, Scale, Edit2, Trash2, Users, Tag, Check } from 'lucide-vue-next'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -159,6 +159,82 @@ async function handleDeleteProduct(id: string, name: string) {
   }
 }
 
+// Customer Group Prices Modal
+const showGroupPriceModal = ref<boolean>(false)
+const selectedProductForGroupPrice = ref<any>(null)
+const customerGroups = ref<any[]>([])
+const productGroupPrices = ref<any[]>([])
+const groupPriceInputs = ref<Record<number, number | null>>({})
+const isSavingGroupPrices = ref<boolean>(false)
+const isLoadingGroupPrices = ref<boolean>(false)
+
+async function openGroupPriceModal(prod: any) {
+  selectedProductForGroupPrice.value = prod
+  groupPriceInputs.value = {}
+  showGroupPriceModal.value = true
+  isLoadingGroupPrices.value = true
+
+  try {
+    const [groupsRes, pricesRes] = await Promise.all([
+      api.get('/customer-groups'),
+      api.get(`/products/${prod.id}/customer-group-prices`),
+    ])
+
+    if (groupsRes.data.success) {
+      customerGroups.value = groupsRes.data.data
+    }
+    if (pricesRes.data.success) {
+      productGroupPrices.value = pricesRes.data.data
+      for (const gp of pricesRes.data.data) {
+        groupPriceInputs.value[gp.customer_group_id] = Number(gp.special_price)
+      }
+    }
+  } catch (err) {
+    console.error('Gagal memuat harga grup pelanggan:', err)
+  } finally {
+    isLoadingGroupPrices.value = false
+  }
+}
+
+async function handleSaveGroupPrice(groupId: number) {
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data')
+    return
+  }
+  const prodId = selectedProductForGroupPrice.value?.id
+  if (!prodId) return
+
+  const inputVal = groupPriceInputs.value[groupId]
+  isSavingGroupPrices.value = true
+
+  try {
+    if (inputVal === null || inputVal === undefined || inputVal <= 0) {
+      // If cleared or zero, delete custom group price (fallback to base price)
+      const existing = productGroupPrices.value.find((gp) => gp.customer_group_id === groupId)
+      if (existing) {
+        await api.delete(`/products/customer-group-prices/${existing.id}`)
+      }
+      groupPriceInputs.value[groupId] = null
+    } else {
+      await api.post(`/products/${prodId}/customer-group-prices`, {
+        customer_group_id: groupId,
+        special_price: Number(inputVal),
+      })
+    }
+
+    // Refresh list
+    const pricesRes = await api.get(`/products/${prodId}/customer-group-prices`)
+    if (pricesRes.data.success) {
+      productGroupPrices.value = pricesRes.data.data
+    }
+    alert('Harga kelompok pelanggan berhasil diperbarui!')
+  } catch (err: any) {
+    alert(err.response?.data?.message || 'Gagal menyimpan harga kelompok pelanggan')
+  } finally {
+    isSavingGroupPrices.value = false
+  }
+}
+
 onMounted(() => {
   fetchProducts()
   fetchMasterMeta()
@@ -253,6 +329,14 @@ onMounted(() => {
               </td>
               <td v-if="authStore.hasPermission('master:write')" class="py-3 px-4 text-center font-sans">
                 <div class="flex items-center justify-center gap-1.5">
+                  <button
+                    @click="openGroupPriceModal(prod)"
+                    title="Atur Harga Kelompok Pelanggan (Grosir / Member)"
+                    class="p-1.5 rounded-md bg-white hover:bg-emerald-50 border border-slate-300 hover:border-emerald-500 text-emerald-600 transition shadow-xs flex items-center gap-1 text-[11px] font-bold"
+                  >
+                    <Users class="w-3.5 h-3.5" />
+                    <span>Harga Grup</span>
+                  </button>
                   <button
                     @click="openEditModal(prod)"
                     title="Edit Produk"
@@ -437,6 +521,93 @@ onMounted(() => {
         <div class="flex justify-end gap-2 pt-4 border-t border-slate-200">
           <button @click="showEditModal = false" class="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-bold">Batal</button>
           <button @click="handleUpdateProduct" class="bg-emerald-600 hover:bg-emerald-700 border border-emerald-700 text-white px-5 py-2 rounded-lg text-xs font-bold shadow-sm">Perbarui Produk</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer Group Prices Modal -->
+    <div
+      v-if="showGroupPriceModal"
+      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+    >
+      <div class="bg-white border border-slate-300 w-full max-w-xl rounded-2xl p-6 space-y-4 shadow-2xl text-slate-900">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div>
+            <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+              <Users class="w-5 h-5 text-emerald-600" />
+              <span>Harga per Kelompok Pelanggan</span>
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Produk: <strong class="text-slate-900">{{ selectedProductForGroupPrice?.name }}</strong> 
+              (Harga Dasar: <span class="font-mono text-emerald-700 font-bold">Rp {{ Number(selectedProductForGroupPrice?.base_selling_price || 0).toLocaleString() }}</span>)
+            </p>
+          </div>
+          <button @click="showGroupPriceModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+        </div>
+
+        <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+          <Tag class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <span>
+            Aturan: Jika harga khusus pada suatu kelompok diisi, harga tersebut yang otomatis berlaku di kasir saat member kelompok tersebut bertransaksi. Jika dikosongkan (atau diisi 0), otomatis berlaku <strong>Harga Jual Dasar (Rp {{ Number(selectedProductForGroupPrice?.base_selling_price || 0).toLocaleString() }})</strong>.
+          </span>
+        </div>
+
+        <!-- Groups Table / List -->
+        <div class="space-y-3 max-h-80 overflow-y-auto pr-1">
+          <div v-if="isLoadingGroupPrices" class="py-8 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+            <span>Memuat kelompok pelanggan...</span>
+          </div>
+
+          <div v-else-if="customerGroups.length === 0" class="py-8 text-center text-slate-500 text-xs">
+            Belum ada kelompok pelanggan terdaftar di sistem.
+          </div>
+
+          <div
+            v-else
+            v-for="grp in customerGroups"
+            :key="grp.id"
+            class="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white hover:border-emerald-300 transition"
+          >
+            <div>
+              <div class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">{{ grp.name }}</span>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">{{ grp.description || 'Tidak ada deskripsi' }}</p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <div class="relative w-44">
+                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">Rp</span>
+                <input
+                  v-model.number="groupPriceInputs[grp.id]"
+                  type="number"
+                  :placeholder="String(selectedProductForGroupPrice?.base_selling_price || 'Harga dasar')"
+                  class="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-slate-900 font-mono font-bold text-right focus:outline-none focus:border-emerald-600"
+                  @keyup.enter="handleSaveGroupPrice(grp.id)"
+                />
+              </div>
+
+              <button
+                @click="handleSaveGroupPrice(grp.id)"
+                :disabled="isSavingGroupPrices"
+                title="Simpan Harga"
+                class="p-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg transition shadow-xs flex items-center justify-center"
+              >
+                <Check class="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+          <button
+            @click="showGroupPriceModal = false"
+            class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-xs"
+          >
+            Selesai
+          </button>
         </div>
       </div>
     </div>

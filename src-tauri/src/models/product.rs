@@ -79,6 +79,25 @@ pub struct ProductPriceTier {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct CustomerGroupPrice {
+    pub id: Uuid,
+    pub customer_group_id: i32,
+    pub product_id: Uuid,
+    pub special_price: Decimal,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CustomerGroupPriceDetail {
+    pub id: Uuid,
+    pub customer_group_id: i32,
+    pub customer_group_name: String,
+    pub product_id: Uuid,
+    pub special_price: Decimal,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProductDetail {
     pub product: Product,
@@ -89,6 +108,7 @@ pub struct ProductDetail {
     pub brand_name: Option<String>,
     pub units: Vec<ProductUnitDetail>,
     pub price_tiers: Vec<ProductPriceTier>,
+    pub customer_group_prices: Vec<CustomerGroupPriceDetail>,
     pub current_stock: Decimal,
     pub scanned_quantity: Option<Decimal>,
 }

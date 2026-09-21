@@ -1,6 +1,9 @@
-use crate::models::product::{Product, ProductDetail, ProductPriceTier, ProductUnitDetail};
+use crate::models::product::{
+    CustomerGroupPriceDetail, Product, ProductDetail, ProductPriceTier, ProductUnitDetail,
+};
 use crate::models::sales::{
-    CheckoutRequest, CheckoutResponse, Sale, SaleItem, VoidSaleRequest,
+    CheckoutItemResponse, CheckoutPaymentResponse, CheckoutRequest, CheckoutResponse, Sale,
+    SaleItem, VoidSaleRequest,
 };
 use crate::models::shift::{CashierShift, CloseShiftRequest, OpenShiftRequest, ShiftSummaryResponse};
 use crate::models::user::SupervisorPinRequest;
@@ -20,7 +23,10 @@ pub async fn open_shift(
     req: OpenShiftRequest,
 ) -> Result<CashierShift, String> {
     let existing = sqlx::query_as::<_, CashierShift>(
-        "SELECT * FROM cashier_shifts WHERE user_id = $1 AND status = 'OPEN'",
+        "SELECT cs.*, o.name as outlet_name, o.code as outlet_code, o.default_warehouse_id
+         FROM cashier_shifts cs
+         LEFT JOIN outlets o ON cs.outlet_id = o.id
+         WHERE cs.user_id = $1 AND cs.status = 'OPEN'",
     )
     .bind(user_id)
     .fetch_optional(pool)
@@ -31,15 +37,83 @@ pub async fn open_shift(
         return Ok(shift);
     }
 
+    let is_superadmin = sqlx::query_scalar::<_, bool>(
+        "SELECT (r.name = 'SUPERADMIN') FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1",
+    )
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    let target_outlet_id = if let Some(oid) = req.outlet_id {
+        if !is_superadmin {
+            let has_access = sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM user_outlets WHERE user_id = $1 AND outlet_id = $2)",
+            )
+            .bind(user_id)
+            .bind(oid)
+            .fetch_one(pool)
+            .await
+            .unwrap_or(false);
+
+            if !has_access {
+                return Err("Akses ditolak: Anda tidak memiliki izin untuk mengoperasikan kasir di outlet ini.".to_string());
+            }
+        }
+        Some(oid)
+    } else {
+        if is_superadmin {
+            sqlx::query_scalar::<_, Uuid>("SELECT id FROM outlets WHERE is_active = TRUE ORDER BY created_at ASC LIMIT 1")
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten()
+        } else {
+            sqlx::query_scalar::<_, Uuid>(
+                "SELECT o.id FROM outlets o 
+                 JOIN user_outlets uo ON o.id = uo.outlet_id 
+                 WHERE uo.user_id = $1 AND o.is_active = TRUE 
+                 ORDER BY o.created_at ASC LIMIT 1",
+            )
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten()
+        }
+    };
+
+    if target_outlet_id.is_none() {
+        return Err("Tidak ada outlet aktif yang dapat diakses oleh akun Anda.".to_string());
+    }
+
+    let mut supervisor_approval_id = None;
+    if let Some(pin) = req.supervisor_pin {
+        if !pin.trim().is_empty() {
+            let spv_res = verify_supervisor_pin(
+                pool,
+                SupervisorPinRequest {
+                    supervisor_id: req.supervisor_id,
+                    pin,
+                    action: Some("SHIFT_OPEN".into()),
+                },
+            )
+            .await?;
+            supervisor_approval_id = Some(spv_res.supervisor_id);
+        }
+    }
+
     let shift = sqlx::query_as::<_, CashierShift>(
         "INSERT INTO cashier_shifts (
-            terminal_id, user_id, opened_at, opening_cash, status, created_at, updated_at, created_by, updated_by
-        ) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, 'OPEN', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $2, $2)
+            terminal_id, user_id, outlet_id, opened_at, opening_cash, status, supervisor_approval_id, created_at, updated_at, created_by, updated_by
+        ) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, 'OPEN', $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $2, $2)
         RETURNING *",
     )
     .bind(&req.terminal_id)
     .bind(user_id)
+    .bind(target_outlet_id)
     .bind(req.opening_cash)
+    .bind(supervisor_approval_id)
     .fetch_one(pool)
     .await
     .map_err(|e| format!("Gagal membuka shift baru: {}", e))?;
@@ -47,24 +121,29 @@ pub async fn open_shift(
     log_audit(
         pool,
         Some(user_id),
-        None,
+        supervisor_approval_id,
         &req.terminal_id,
         "SHIFT_OPEN",
         "cashier_shifts",
         Some(&shift.id.to_string()),
         None,
-        Some(json!({ "opening_cash": req.opening_cash })),
+        Some(json!({ "opening_cash": req.opening_cash, "outlet_id": target_outlet_id })),
         None,
     )
     .await
     .ok();
 
-    Ok(shift)
+    let enriched_shift = get_current_shift(pool, user_id).await?.unwrap_or(shift);
+    Ok(enriched_shift)
 }
 
 pub async fn get_current_shift(pool: &PgPool, user_id: Uuid) -> Result<Option<CashierShift>, String> {
     sqlx::query_as::<_, CashierShift>(
-        "SELECT * FROM cashier_shifts WHERE user_id = $1 AND status = 'OPEN' ORDER BY opened_at DESC LIMIT 1",
+        "SELECT cs.*, o.name as outlet_name, o.code as outlet_code, o.default_warehouse_id 
+         FROM cashier_shifts cs
+         LEFT JOIN outlets o ON cs.outlet_id = o.id
+         WHERE cs.user_id = $1 AND cs.status = 'OPEN' 
+         ORDER BY cs.opened_at DESC LIMIT 1",
     )
     .bind(user_id)
     .fetch_optional(pool)
@@ -148,7 +227,16 @@ pub async fn close_shift(
 
     let mut supervisor_id = None;
     if let Some(pin) = req.supervisor_pin {
-        if let Ok(spv_res) = verify_supervisor_pin(pool, SupervisorPinRequest { pin, action: Some("SHIFT_CLOSE".into()) }).await {
+        if !pin.trim().is_empty() {
+            let spv_res = verify_supervisor_pin(
+                pool,
+                SupervisorPinRequest {
+                    supervisor_id: req.supervisor_id,
+                    pin,
+                    action: Some("SHIFT_CLOSE".into()),
+                },
+            )
+            .await?;
             supervisor_id = Some(spv_res.supervisor_id);
         }
     }
@@ -371,6 +459,29 @@ pub async fn lookup_product(
     .await
     .unwrap_or_default();
 
+    let cgp_rows = sqlx::query(
+        "SELECT cgp.id, cgp.customer_group_id, cg.name as customer_group_name, cgp.product_id, cgp.special_price
+         FROM customer_group_prices cgp
+         JOIN customer_groups cg ON cgp.customer_group_id = cg.id
+         WHERE cgp.product_id = $1 AND cg.is_active = true
+         ORDER BY cg.id ASC",
+    )
+    .bind(product.id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let mut customer_group_prices = Vec::new();
+    for r in cgp_rows {
+        customer_group_prices.push(CustomerGroupPriceDetail {
+            id: r.get("id"),
+            customer_group_id: r.get("customer_group_id"),
+            customer_group_name: r.get("customer_group_name"),
+            product_id: r.get("product_id"),
+            special_price: r.get("special_price"),
+        });
+    }
+
     let current_stock = if let Some(wid) = warehouse_id {
         sqlx::query_scalar::<_, Decimal>(
             "SELECT quantity FROM warehouse_stocks WHERE warehouse_id = $1 AND product_id = $2",
@@ -400,6 +511,7 @@ pub async fn lookup_product(
         brand_name,
         units,
         price_tiers,
+        customer_group_prices,
         current_stock,
         scanned_quantity: parsed.weight,
     })
@@ -429,6 +541,44 @@ pub async fn checkout(
     let invoice_number = format!("INV-{}-{}", now.format("%Y%m%d"), &Uuid::new_v4().to_string()[..8].to_uppercase());
     let sale_id = Uuid::new_v4();
 
+    // 1. Resolve outlet_id
+    let outlet_id = if let Some(oid) = req.outlet_id {
+        oid
+    } else if let Some(shift_oid) = shift.outlet_id {
+        shift_oid
+    } else {
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM outlets WHERE is_active = TRUE ORDER BY created_at ASC LIMIT 1")
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Tidak ada outlet aktif yang ditemukan".to_string())?
+    };
+
+    // 2. Resolve warehouse_id for physical inventory deduction
+    let target_warehouse_id = if let Some(wid) = req.warehouse_id {
+        Some(wid)
+    } else {
+        let default_wh = sqlx::query_scalar::<_, Option<Uuid>>(
+            "SELECT default_warehouse_id FROM outlets WHERE id = $1"
+        )
+        .bind(outlet_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .unwrap_or(None)
+        .flatten();
+
+        if default_wh.is_some() {
+            default_wh
+        } else {
+            sqlx::query_scalar::<_, Uuid>(
+                "SELECT id FROM outlets WHERE is_warehouse = TRUE AND is_active = TRUE ORDER BY created_at ASC LIMIT 1"
+            )
+            .fetch_optional(&mut *tx)
+            .await
+            .unwrap_or(None)
+        }
+    };
+
     let mut subtotal = Decimal::ZERO;
     let mut total_discount = Decimal::ZERO;
     let mut total_tax = Decimal::ZERO;
@@ -436,7 +586,9 @@ pub async fn checkout(
 
     struct PreparedItem {
         product_id: Uuid,
+        product_name: String,
         unit_id: Uuid,
+        unit_code: String,
         qty: Decimal,
         cost_price: Decimal,
         selling_price: Decimal,
@@ -457,66 +609,76 @@ pub async fn checkout(
         .await
         .map_err(|e| format!("Produk tidak ditemukan: {}", e))?;
 
-        let factor = if item.unit_id == product.base_unit_id {
-            Decimal::ONE
+        let (factor, unit_code) = if item.unit_id == product.base_unit_id {
+            let uc = sqlx::query_scalar::<_, String>("SELECT code FROM units WHERE id = $1")
+                .bind(product.base_unit_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .unwrap_or(None)
+                .unwrap_or_else(|| "PCS".to_string());
+            (Decimal::ONE, uc)
         } else {
-            sqlx::query_scalar::<_, Decimal>(
-                "SELECT conversion_factor FROM product_units WHERE product_id = $1 AND unit_id = $2",
-            )
-            .bind(product.id)
-            .bind(item.unit_id)
-            .fetch_optional(&mut *tx)
-            .await
-            .unwrap_or(None)
-            .unwrap_or(Decimal::ONE)
+            let row = sqlx::query("SELECT pu.conversion_factor, u.code as unit_code FROM product_units pu JOIN units u ON pu.unit_id = u.id WHERE pu.product_id = $1 AND pu.unit_id = $2")
+                .bind(product.id)
+                .bind(item.unit_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .unwrap_or(None);
+            if let Some(r) = row {
+                (r.get::<Decimal, _>("conversion_factor"), r.get::<String, _>("unit_code"))
+            } else {
+                (Decimal::ONE, "PCS".to_string())
+            }
         };
 
         let base_qty = item.quantity * factor;
 
-        let current_stock = sqlx::query_scalar::<_, Decimal>(
-            "SELECT quantity FROM warehouse_stocks WHERE warehouse_id = $1 AND product_id = $2 FOR UPDATE",
-        )
-        .bind(req.warehouse_id)
-        .bind(product.id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| format!("Database error: {}", e))?
-        .unwrap_or(Decimal::ZERO);
+        if let Some(wh_id) = target_warehouse_id {
+            let current_stock = sqlx::query_scalar::<_, Decimal>(
+                "SELECT quantity FROM warehouse_stocks WHERE warehouse_id = $1 AND product_id = $2 FOR UPDATE",
+            )
+            .bind(wh_id)
+            .bind(product.id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?
+            .unwrap_or(Decimal::ZERO);
 
-        let new_balance = current_stock - base_qty;
+            let new_balance = current_stock - base_qty;
 
-        sqlx::query(
-            "INSERT INTO warehouse_stocks (warehouse_id, product_id, quantity, updated_at)
-            VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-            ON CONFLICT (warehouse_id, product_id)
-            DO UPDATE SET quantity = $3, updated_at = CURRENT_TIMESTAMP",
-        )
-        .bind(req.warehouse_id)
-        .bind(product.id)
-        .bind(new_balance)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| format!("Gagal memotong stok: {}", e))?;
+            sqlx::query(
+                "INSERT INTO warehouse_stocks (warehouse_id, product_id, quantity, updated_at)
+                VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                ON CONFLICT (warehouse_id, product_id)
+                DO UPDATE SET quantity = $3, updated_at = CURRENT_TIMESTAMP",
+            )
+            .bind(wh_id)
+            .bind(product.id)
+            .bind(new_balance)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Gagal memotong stok: {}", e))?;
 
-        sqlx::query(
-            "INSERT INTO stock_mutations (
-                warehouse_id, product_id, reference_type, reference_id, qty_in, qty_out, 
-                balance, cost_price, notes, created_at, updated_at, created_by, updated_by
-            ) VALUES (
-                $1, $2, 'SALES', $3, 0, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $8, $8
-            )",
-        )
-        .bind(req.warehouse_id)
-        .bind(product.id)
-        .bind(sale_id)
-        .bind(base_qty)
-        .bind(new_balance)
-        .bind(product.cost_price)
-        .bind(format!("Penjualan POS {}", invoice_number))
-        .bind(user_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| format!("Gagal mencatat mutasi stok: {}", e))?;
+            sqlx::query(
+                "INSERT INTO stock_mutations (
+                    warehouse_id, product_id, reference_type, reference_id, qty_in, qty_out, 
+                    balance, cost_price, notes, created_at, updated_at, created_by, updated_by
+                ) VALUES (
+                    $1, $2, 'SALES', $3, 0, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $8, $8
+                )",
+            )
+            .bind(wh_id)
+            .bind(product.id)
+            .bind(sale_id)
+            .bind(base_qty)
+            .bind(new_balance)
+            .bind(product.cost_price)
+            .bind(format!("Penjualan POS {}", invoice_number))
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Gagal mencatat mutasi stok: {}", e))?;
+        }
 
         let line_gross = item.unit_selling_price * item.quantity;
         let line_disc = item.discount_amount.unwrap_or(Decimal::ZERO);
@@ -535,7 +697,9 @@ pub async fn checkout(
 
         prepared_items.push(PreparedItem {
             product_id: product.id,
+            product_name: product.name.clone(),
             unit_id: item.unit_id,
+            unit_code,
             qty: item.quantity,
             cost_price: product.cost_price,
             selling_price: item.unit_selling_price,
@@ -594,20 +758,21 @@ pub async fn checkout(
 
     let sale = sqlx::query_as::<_, Sale>(
         "INSERT INTO sales (
-            id, invoice_number, shift_id, customer_id, warehouse_id, voucher_id,
+            id, invoice_number, outlet_id, shift_id, customer_id, warehouse_id, voucher_id,
             subtotal, discount_amount, tax_amount, total_amount, paid_amount, change_amount,
             total_cost_amount, status, notes, created_at, updated_at, created_by, updated_by
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'COMPLETED', $14,
-            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $15, $15
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'COMPLETED', $15,
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $16, $16
         )
         RETURNING *",
     )
     .bind(sale_id)
     .bind(&invoice_number)
+    .bind(outlet_id)
     .bind(shift.id)
     .bind(req.customer_id)
-    .bind(req.warehouse_id)
+    .bind(target_warehouse_id)
     .bind(voucher_id)
     .bind(subtotal)
     .bind(total_discount)
@@ -622,7 +787,7 @@ pub async fn checkout(
     .await
     .map_err(|e| format!("Gagal menyimpan data penjualan: {}", e))?;
 
-    for pi in prepared_items {
+    for pi in &prepared_items {
         sqlx::query(
             "INSERT INTO sale_items (
                 id, sale_id, product_id, unit_id, quantity, unit_cost_price, unit_selling_price,
@@ -821,11 +986,61 @@ pub async fn checkout(
         .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
     }
 
+    let mut response_payments = Vec::new();
+    for p in &req.payments {
+        let (pm_name, pm_cat) = sqlx::query_as::<_, (String, String)>(
+            "SELECT name, category FROM payment_methods WHERE id = $1",
+        )
+        .bind(p.payment_method_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .unwrap_or(None)
+        .unwrap_or_else(|| ("Tunai".to_string(), "CASH".to_string()));
+
+        response_payments.push(CheckoutPaymentResponse {
+            payment_method_id: p.payment_method_id,
+            payment_method_name: pm_name,
+            category: pm_cat,
+            amount: p.amount,
+        });
+    }
+
+    let customer_name = if let Some(cid) = req.customer_id {
+        sqlx::query_scalar::<_, String>("SELECT name FROM customers WHERE id = $1")
+            .bind(cid)
+            .fetch_optional(&mut *tx)
+            .await
+            .unwrap_or(None)
+    } else {
+        None
+    };
+
+    let response_items: Vec<CheckoutItemResponse> = prepared_items
+        .into_iter()
+        .map(|pi| CheckoutItemResponse {
+            product_id: pi.product_id,
+            product_name: pi.product_name,
+            unit_id: pi.unit_id,
+            unit_code: pi.unit_code,
+            quantity: pi.qty,
+            unit_selling_price: pi.selling_price,
+            discount_percent: pi.disc_percent,
+            discount_amount: pi.disc_amount,
+            tax_amount: pi.tax_amount,
+            subtotal: pi.item_subtotal,
+        })
+        .collect();
+
     tx.commit().await.map_err(|e| format!("Commit error: {}", e))?;
+
+    let items_len = response_items.len();
 
     Ok(CheckoutResponse {
         sale,
-        items_count: req.items.len(),
+        items: response_items,
+        payments: response_payments,
+        customer_name,
+        items_count: items_len,
         change_amount,
         earned_points,
         invoice_number,
@@ -842,6 +1057,7 @@ pub async fn void_sale(
     let spv_res = verify_supervisor_pin(
         pool,
         SupervisorPinRequest {
+            supervisor_id: req.supervisor_id,
             pin: req.supervisor_pin,
             action: Some("VOID_SALE".into()),
         },
@@ -880,41 +1096,43 @@ pub async fn void_sale(
 
         let base_qty = it.quantity * factor;
 
-        let current_stock = sqlx::query_scalar::<_, Decimal>(
-            "SELECT quantity FROM warehouse_stocks WHERE warehouse_id = $1 AND product_id = $2 FOR UPDATE",
-        )
-        .bind(sale.warehouse_id)
-        .bind(it.product_id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| format!("Database error: {}", e))?
-        .unwrap_or(Decimal::ZERO);
+        if let Some(wh_id) = sale.warehouse_id {
+            let current_stock = sqlx::query_scalar::<_, Decimal>(
+                "SELECT quantity FROM warehouse_stocks WHERE warehouse_id = $1 AND product_id = $2 FOR UPDATE",
+            )
+            .bind(wh_id)
+            .bind(it.product_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?
+            .unwrap_or(Decimal::ZERO);
 
-        let new_balance = current_stock + base_qty;
+            let new_balance = current_stock + base_qty;
 
-        sqlx::query(
-            "UPDATE warehouse_stocks SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE warehouse_id = $2 AND product_id = $3",
-        )
-        .bind(new_balance)
-        .bind(sale.warehouse_id)
-        .bind(it.product_id)
-        .execute(&mut *tx).await.map_err(|e| format!("Gagal memulihkan stok: {}", e))?;
+            sqlx::query(
+                "UPDATE warehouse_stocks SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE warehouse_id = $2 AND product_id = $3",
+            )
+            .bind(new_balance)
+            .bind(wh_id)
+            .bind(it.product_id)
+            .execute(&mut *tx).await.map_err(|e| format!("Gagal memulihkan stok: {}", e))?;
 
-        sqlx::query(
-            "INSERT INTO stock_mutations (
-                warehouse_id, product_id, reference_type, reference_id, qty_in, qty_out,
-                balance, cost_price, notes, created_at, updated_at, created_by, updated_by
-            ) VALUES ($1, $2, 'RETURN_IN', $3, $4, 0, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $8, $8)",
-        )
-        .bind(sale.warehouse_id)
-        .bind(it.product_id)
-        .bind(sale.id)
-        .bind(base_qty)
-        .bind(new_balance)
-        .bind(it.unit_cost_price)
-        .bind(format!("Pembatalan / Void Nota {}", sale.invoice_number))
-        .bind(user_id)
-        .execute(&mut *tx).await.map_err(|e| format!("Gagal mencatat mutasi void: {}", e))?;
+            sqlx::query(
+                "INSERT INTO stock_mutations (
+                    warehouse_id, product_id, reference_type, reference_id, qty_in, qty_out,
+                    balance, cost_price, notes, created_at, updated_at, created_by, updated_by
+                ) VALUES ($1, $2, 'RETURN_IN', $3, $4, 0, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $8, $8)",
+            )
+            .bind(wh_id)
+            .bind(it.product_id)
+            .bind(sale.id)
+            .bind(base_qty)
+            .bind(new_balance)
+            .bind(it.unit_cost_price)
+            .bind(format!("Pembatalan / Void Nota {}", sale.invoice_number))
+            .bind(user_id)
+            .execute(&mut *tx).await.map_err(|e| format!("Gagal mencatat mutasi void: {}", e))?;
+        }
     }
 
     if let Some(cid) = sale.customer_id {
@@ -957,12 +1175,40 @@ pub async fn void_sale(
         }
     }
 
+    let effective_reason_id = match req.reason_id {
+        Some(rid) => rid,
+        None => {
+            sqlx::query_scalar::<_, Uuid>(
+                "SELECT id FROM reason_codes WHERE type = 'VOID' ORDER BY code ASC LIMIT 1",
+            )
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None)
+            .unwrap_or_else(|| Uuid::parse_str("f1000000-0000-0000-0000-000000000001").unwrap())
+        }
+    };
+
+    let void_notes = match &req.notes {
+        Some(n) if !n.trim().is_empty() => format!(" | Alasan Void: {}", n.trim()),
+        _ => String::new(),
+    };
+
     sqlx::query(
-        "UPDATE sales SET status = 'VOID', updated_at = CURRENT_TIMESTAMP, updated_by = $1 WHERE id = $2",
+        "UPDATE sales SET status = 'VOID', notes = COALESCE(notes, '') || $1, updated_at = CURRENT_TIMESTAMP, updated_by = $2 WHERE id = $3",
     )
+    .bind(void_notes)
     .bind(user_id)
     .bind(sale.id)
     .execute(&mut *tx).await.map_err(|e| format!("Gagal update status nota: {}", e))?;
+
+    sqlx::query(
+        "UPDATE sale_items SET is_voided = TRUE, void_reason_id = $1, void_authorized_by = $2, updated_at = CURRENT_TIMESTAMP, updated_by = $3 WHERE sale_id = $4",
+    )
+    .bind(effective_reason_id)
+    .bind(spv_res.supervisor_id)
+    .bind(user_id)
+    .bind(sale.id)
+    .execute(&mut *tx).await.map_err(|e| format!("Gagal update status item void: {}", e))?;
 
     let reversal_journal_id = Uuid::new_v4();
     let reversal_number = format!("REV-{}", sale.invoice_number);
@@ -1028,7 +1274,7 @@ pub async fn void_sale(
         "sales",
         Some(&sale.id.to_string()),
         Some(json!({ "invoice_number": sale.invoice_number, "total_amount": sale.total_amount })),
-        Some(json!({ "status": "VOID", "reason_id": req.reason_id, "notes": req.notes })),
+        Some(json!({ "status": "VOID", "reason_id": effective_reason_id, "notes": req.notes })),
         None,
     ).await.ok();
 
@@ -1040,13 +1286,16 @@ pub async fn void_sale(
 pub async fn list_sales(
     pool: &PgPool,
     shift_id: Option<Uuid>,
+    outlet_id: Option<Uuid>,
     limit: i64,
 ) -> Result<Vec<serde_json::Value>, String> {
     let rows = if let Some(sid) = shift_id {
         sqlx::query(
             "SELECT s.*, c.name as customer_name, c.phone as customer_phone,
-                    cs.terminal_id, u.full_name as cashier_name
+                    cs.terminal_id, u.full_name as cashier_name,
+                    o.name as outlet_name, o.code as outlet_code
              FROM sales s
+             LEFT JOIN outlets o ON s.outlet_id = o.id
              LEFT JOIN customers c ON s.customer_id = c.id
              LEFT JOIN cashier_shifts cs ON s.shift_id = cs.id
              LEFT JOIN users u ON cs.user_id = u.id
@@ -1058,11 +1307,31 @@ pub async fn list_sales(
         .fetch_all(pool)
         .await
         .map_err(|e| format!("Database error: {}", e))?
+    } else if let Some(oid) = outlet_id {
+        sqlx::query(
+            "SELECT s.*, c.name as customer_name, c.phone as customer_phone,
+                    cs.terminal_id, u.full_name as cashier_name,
+                    o.name as outlet_name, o.code as outlet_code
+             FROM sales s
+             LEFT JOIN outlets o ON s.outlet_id = o.id
+             LEFT JOIN customers c ON s.customer_id = c.id
+             LEFT JOIN cashier_shifts cs ON s.shift_id = cs.id
+             LEFT JOIN users u ON cs.user_id = u.id
+             WHERE s.outlet_id = $1
+             ORDER BY s.created_at DESC LIMIT $2",
+        )
+        .bind(oid)
+        .bind(limit)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| format!("Database error: {}", e))?
     } else {
         sqlx::query(
             "SELECT s.*, c.name as customer_name, c.phone as customer_phone,
-                    cs.terminal_id, u.full_name as cashier_name
+                    cs.terminal_id, u.full_name as cashier_name,
+                    o.name as outlet_name, o.code as outlet_code
              FROM sales s
+             LEFT JOIN outlets o ON s.outlet_id = o.id
              LEFT JOIN customers c ON s.customer_id = c.id
              LEFT JOIN cashier_shifts cs ON s.shift_id = cs.id
              LEFT JOIN users u ON cs.user_id = u.id
@@ -1078,6 +1347,9 @@ pub async fn list_sales(
         serde_json::json!({
             "id": r.get::<Uuid, _>("id"),
             "invoice_number": r.get::<String, _>("invoice_number"),
+            "outlet_id": r.get::<Uuid, _>("outlet_id"),
+            "outlet_name": r.get::<Option<String>, _>("outlet_name"),
+            "outlet_code": r.get::<Option<String>, _>("outlet_code"),
             "shift_id": r.get::<Uuid, _>("shift_id"),
             "customer_id": r.get::<Option<Uuid>, _>("customer_id"),
             "customer_name": r.get::<Option<String>, _>("customer_name"),
@@ -1108,8 +1380,10 @@ pub async fn get_sale_detail(
 ) -> Result<serde_json::Value, String> {
     let sale_row = sqlx::query(
         "SELECT s.*, c.name as customer_name, c.phone as customer_phone,
-                cs.terminal_id, u.full_name as cashier_name
+                cs.terminal_id, u.full_name as cashier_name,
+                o.name as outlet_name, o.code as outlet_code
          FROM sales s
+         LEFT JOIN outlets o ON s.outlet_id = o.id
          LEFT JOIN customers c ON s.customer_id = c.id
          LEFT JOIN cashier_shifts cs ON s.shift_id = cs.id
          LEFT JOIN users u ON cs.user_id = u.id
@@ -1170,7 +1444,7 @@ pub async fn get_sale_detail(
             "id": r.get::<Uuid, _>("id"),
             "payment_method_id": r.get::<Uuid, _>("payment_method_id"),
             "payment_method_name": r.get::<String, _>("payment_method_name"),
-            "payment_category": r.get::<String, _>("payment_category"),
+            "category": r.get::<String, _>("payment_category"),
             "amount": r.get::<Decimal, _>("amount"),
             "card_number_masked": r.get::<Option<String>, _>("card_number_masked"),
             "reference_number": r.get::<Option<String>, _>("reference_number"),
@@ -1181,6 +1455,9 @@ pub async fn get_sale_detail(
     let sale_data = serde_json::json!({
         "id": sale_row.get::<Uuid, _>("id"),
         "invoice_number": sale_row.get::<String, _>("invoice_number"),
+        "outlet_id": sale_row.get::<Uuid, _>("outlet_id"),
+        "outlet_name": sale_row.get::<Option<String>, _>("outlet_name"),
+        "outlet_code": sale_row.get::<Option<String>, _>("outlet_code"),
         "shift_id": sale_row.get::<Uuid, _>("shift_id"),
         "customer_id": sale_row.get::<Option<Uuid>, _>("customer_id"),
         "customer_name": sale_row.get::<Option<String>, _>("customer_name"),

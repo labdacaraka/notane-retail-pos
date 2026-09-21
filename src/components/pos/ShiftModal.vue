@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { X, Calendar, Lock, Printer } from 'lucide-vue-next'
 import { useShiftStore } from '@/stores/shiftStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocationStore } from '@/stores/locationStore'
+import { api } from '@/services/api'
 
-defineProps<{
+const props = defineProps<{
   show: boolean
   mode: 'OPEN' | 'CLOSE'
 }>()
@@ -16,13 +18,63 @@ const emit = defineEmits<{
 
 const shiftStore = useShiftStore()
 const authStore = useAuthStore()
+const locationStore = useLocationStore()
 
 const openingCash = ref<number>(100000)
 const actualCash = ref<number>(0)
+const supervisors = ref<Array<{ id: string; username: string; full_name: string; role_name: string }>>([])
+const selectedSupervisorId = ref<string>('')
+const selectedOutletId = ref<string>('')
 const supervisorPin = ref<string>('')
 const isSubmitting = ref<boolean>(false)
 const errorMsg = ref<string>('')
 const zReport = ref<any>(null)
+
+async function loadSupervisors() {
+  try {
+    const res = await api.get('/auth/supervisors')
+    if (res.data?.success && Array.isArray(res.data.data)) {
+      supervisors.value = res.data.data
+      if (supervisors.value.length > 0 && !selectedSupervisorId.value) {
+        selectedSupervisorId.value = supervisors.value[0].id
+      }
+    }
+  } catch (err) {
+    console.error('Gagal memuat supervisor:', err)
+  }
+}
+
+async function loadOutlets() {
+  try {
+    await locationStore.fetchAccessibleOutlets()
+    if (locationStore.accessibleOutlets.length > 0) {
+      if (!selectedOutletId.value || !locationStore.accessibleOutlets.some(o => o.id === selectedOutletId.value)) {
+        // Prioritaskan toko jika ada
+        const firstStore = locationStore.storeOutlets[0] || locationStore.accessibleOutlets[0]
+        selectedOutletId.value = firstStore.id
+      }
+    }
+  } catch (err) {
+    console.error('Gagal memuat outlet yang dapat diakses:', err)
+  }
+}
+
+onMounted(() => {
+  loadSupervisors()
+  loadOutlets()
+})
+
+watch(
+  () => props.show,
+  (val) => {
+    if (val) {
+      errorMsg.value = ''
+      supervisorPin.value = ''
+      loadSupervisors()
+      loadOutlets()
+    }
+  }
+)
 
 function formatCurrency(val: number): string {
   return new Intl.NumberFormat('id-ID', {
@@ -34,8 +86,16 @@ function formatCurrency(val: number): string {
 }
 
 async function handleOpenShift() {
+  if (!selectedOutletId.value) {
+    errorMsg.value = 'Cabang / Lokasi shift kasir wajib dipilih'
+    return
+  }
   if (openingCash.value < 0) {
     errorMsg.value = 'Modal awal kasir tidak boleh negatif'
+    return
+  }
+  if (!supervisorPin.value) {
+    errorMsg.value = 'PIN Supervisor penanggung jawab wajib diisi'
     return
   }
 
@@ -43,7 +103,16 @@ async function handleOpenShift() {
   errorMsg.value = ''
 
   try {
-    await shiftStore.openShift(authStore.terminalId, openingCash.value)
+    await shiftStore.openShift(
+      authStore.terminalId,
+      openingCash.value,
+      selectedSupervisorId.value || undefined,
+      supervisorPin.value,
+      selectedOutletId.value
+    )
+    if (locationStore.currentOutletId !== selectedOutletId.value) {
+      await locationStore.switchLocation(selectedOutletId.value)
+    }
     emit('success')
     emit('close')
   } catch (err: any) {
@@ -54,11 +123,20 @@ async function handleOpenShift() {
 }
 
 async function handleCloseShift() {
+  if (!supervisorPin.value) {
+    errorMsg.value = 'PIN Supervisor penanggung jawab wajib diisi'
+    return
+  }
+
   isSubmitting.value = true
   errorMsg.value = ''
 
   try {
-    const res = await shiftStore.closeShift(actualCash.value, supervisorPin.value || undefined)
+    const res = await shiftStore.closeShift(
+      actualCash.value,
+      selectedSupervisorId.value || undefined,
+      supervisorPin.value
+    )
     zReport.value = res
     emit('success')
   } catch (err: any) {
@@ -100,6 +178,28 @@ function printZReport() {
         </div>
 
         <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            Cabang / Lokasi Shift Kasir *
+          </label>
+          <select
+            v-model="selectedOutletId"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-sans focus:bg-white focus:border-emerald-600 focus:outline-none"
+          >
+            <option
+              v-for="outlet in locationStore.accessibleOutlets"
+              :key="outlet.id"
+              :value="outlet.id"
+            >
+              {{ outlet.name }} ({{ outlet.code }}) - {{ outlet.is_warehouse ? 'Gudang' : 'Toko' }}
+            </option>
+            <option v-if="locationStore.accessibleOutlets.length === 0" value="">
+              -- Tidak ada outlet yang dapat diakses --
+            </option>
+          </select>
+          <p class="text-[11px] text-slate-500 mt-1">Stok produk dan harga kasir akan disesuaikan otomatis dengan lokasi shift ini.</p>
+        </div>
+
+        <div>
           <label class="block text-xs font-bold text-slate-700 mb-1.5">
             Modal Awal Kasir / Floating Cash (Rp)
           </label>
@@ -110,6 +210,35 @@ function printZReport() {
             class="w-full bg-slate-50 border-2 border-emerald-600/70 rounded-xl px-4 py-3 text-2xl font-mono text-slate-900 text-right focus:bg-white focus:outline-none focus:border-emerald-600 font-bold"
           />
           <p class="text-[11px] text-slate-500 mt-1">Uang pecahan kecil untuk modal uang kembalian di laci kasir.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            Supervisor Penanggung Jawab *
+          </label>
+          <select
+            v-model="selectedSupervisorId"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-sans focus:bg-white focus:border-emerald-600 focus:outline-none"
+          >
+            <option v-for="spv in supervisors" :key="spv.id" :value="spv.id">
+              {{ spv.full_name }} ({{ spv.role_name }})
+            </option>
+            <option v-if="supervisors.length === 0" value="">
+              -- Memuat Supervisor --
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            PIN Supervisor *
+          </label>
+          <input
+            v-model="supervisorPin"
+            type="password"
+            placeholder="Masukkan 6-digit PIN supervisor terpilih"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 font-mono tracking-widest focus:bg-white focus:border-emerald-600 focus:outline-none"
+          />
         </div>
 
         <div v-if="errorMsg" class="bg-rose-50 border border-rose-300 p-3 rounded-xl text-rose-700 text-xs font-semibold">
@@ -166,14 +295,31 @@ function printZReport() {
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-600 mb-1">
-            PIN Supervisor (Opsional)
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            Supervisor Penanggung Jawab *
+          </label>
+          <select
+            v-model="selectedSupervisorId"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-sans focus:bg-white focus:border-rose-600 focus:outline-none"
+          >
+            <option v-for="spv in supervisors" :key="spv.id" :value="spv.id">
+              {{ spv.full_name }} ({{ spv.role_name }})
+            </option>
+            <option v-if="supervisors.length === 0" value="">
+              -- Memuat Supervisor --
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            PIN Supervisor *
           </label>
           <input
             v-model="supervisorPin"
             type="password"
-            placeholder="PIN jika diperlukan approval"
-            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 font-mono focus:bg-white focus:border-emerald-600 focus:outline-none"
+            placeholder="Masukkan PIN supervisor untuk approval tutup shift"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 font-mono tracking-widest focus:bg-white focus:border-rose-600 focus:outline-none"
           />
         </div>
 

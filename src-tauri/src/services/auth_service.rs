@@ -63,15 +63,91 @@ pub async fn authenticate_user(
     })
 }
 
+#[derive(Debug, serde::Serialize, sqlx::FromRow)]
+pub struct SupervisorItem {
+    pub id: Uuid,
+    pub username: String,
+    pub full_name: String,
+    pub role_name: String,
+}
+
+pub async fn list_supervisors(pool: &PgPool) -> Result<Vec<SupervisorItem>, String> {
+    let rows = sqlx::query_as::<_, SupervisorItem>(
+        "SELECT DISTINCT u.id, u.username, u.full_name, r.name as role_name 
+         FROM users u 
+         JOIN roles r ON u.role_id = r.id 
+         LEFT JOIN role_permissions rp ON r.id = rp.role_id 
+         LEFT JOIN permissions p ON rp.permission_id = p.id 
+         WHERE (p.code IN ('auth:supervisor', 'auth:store_manager') OR r.name IN ('SUPERVISOR', 'STORE_MANAGER', 'SUPERADMIN')) 
+           AND u.is_active = true 
+         ORDER BY u.full_name ASC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    Ok(rows)
+}
+
+pub async fn list_store_managers(pool: &PgPool) -> Result<Vec<SupervisorItem>, String> {
+    let rows = sqlx::query_as::<_, SupervisorItem>(
+        "SELECT DISTINCT u.id, u.username, u.full_name, r.name as role_name 
+         FROM users u 
+         JOIN roles r ON u.role_id = r.id 
+         LEFT JOIN role_permissions rp ON r.id = rp.role_id 
+         LEFT JOIN permissions p ON rp.permission_id = p.id 
+         WHERE (p.code = 'auth:store_manager' OR r.name IN ('STORE_MANAGER', 'SUPERADMIN')) 
+           AND u.is_active = true 
+         ORDER BY u.full_name ASC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    Ok(rows)
+}
+
 pub async fn verify_supervisor_pin(
     pool: &PgPool,
     req: SupervisorPinRequest,
 ) -> Result<SupervisorPinResponse, String> {
-    // Cari user dengan peran SUPERVISOR, STORE_MANAGER, atau SUPERADMIN
+    if let Some(spv_id) = req.supervisor_id {
+        let spv = sqlx::query_as::<_, User>(
+            "SELECT DISTINCT u.* FROM users u 
+             JOIN roles r ON u.role_id = r.id 
+             LEFT JOIN role_permissions rp ON r.id = rp.role_id 
+             LEFT JOIN permissions p ON rp.permission_id = p.id 
+             WHERE u.id = $1 
+               AND (p.code IN ('auth:supervisor', 'auth:store_manager') OR r.name IN ('SUPERVISOR', 'STORE_MANAGER', 'SUPERADMIN')) 
+               AND u.is_active = true 
+             LIMIT 1",
+        )
+        .bind(spv_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| format!("Database error: {}", e))?
+        .ok_or_else(|| "Supervisor tidak ditemukan atau tidak memiliki wewenang otorisasi".to_string())?;
+
+        if verify_secret(&req.pin, &spv.pin_hash) {
+            return Ok(SupervisorPinResponse {
+                success: true,
+                supervisor_id: spv.id,
+                supervisor_name: spv.full_name,
+                message: "Otorisasi Supervisor Berhasil".to_string(),
+            });
+        } else {
+            return Err(format!("PIN untuk supervisor {} tidak valid", spv.full_name));
+        }
+    }
+
+    // Fallback jika supervisor_id tidak ditentukan secara eksplisit
     let supervisors = sqlx::query_as::<_, User>(
-        "SELECT u.* FROM users u 
+        "SELECT DISTINCT u.* FROM users u 
          JOIN roles r ON u.role_id = r.id 
-         WHERE r.name IN ('SUPERVISOR', 'STORE_MANAGER', 'SUPERADMIN') AND u.is_active = true",
+         LEFT JOIN role_permissions rp ON r.id = rp.role_id 
+         LEFT JOIN permissions p ON rp.permission_id = p.id 
+         WHERE (p.code IN ('auth:supervisor', 'auth:store_manager') OR r.name IN ('SUPERVISOR', 'STORE_MANAGER', 'SUPERADMIN')) 
+           AND u.is_active = true",
     )
     .fetch_all(pool)
     .await

@@ -7,6 +7,7 @@ use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct CashierShift {
     pub id: Uuid,
+    pub outlet_id: Option<Uuid>,
     pub terminal_id: String,
     pub user_id: Uuid,
     pub opened_at: DateTime<Utc>,
@@ -19,18 +20,28 @@ pub struct CashierShift {
     pub supervisor_approval_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    #[sqlx(default)]
+    pub outlet_name: Option<String>,
+    #[sqlx(default)]
+    pub outlet_code: Option<String>,
+    #[sqlx(default)]
+    pub default_warehouse_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct OpenShiftRequest {
+    pub outlet_id: Option<Uuid>,
     pub terminal_id: String,
     pub opening_cash: Decimal,
+    pub supervisor_id: Option<Uuid>,
+    pub supervisor_pin: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CloseShiftRequest {
     pub shift_id: Uuid,
     pub actual_cash: Decimal, // Blind count oleh kasir
+    pub supervisor_id: Option<Uuid>,
     pub supervisor_pin: Option<String>,
 }
 

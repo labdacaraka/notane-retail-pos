@@ -49,8 +49,12 @@ const isLoadingDetail = ref<boolean>(false)
 // Modal Void State
 const showVoidModal = ref<boolean>(false)
 const saleToVoid = ref<any>(null)
+const supervisors = ref<Array<{ id: string; username: string; full_name: string; role_name: string }>>([])
+const selectedSupervisorId = ref<string>('')
 const supervisorPin = ref<string>('123456')
-const voidReason = ref<string>('Kesalahan Input Kasir')
+const voidReasonCodes = ref<Array<{ id: string; type: string; code: string; description: string }>>([])
+const selectedReasonId = ref<string>('f1000000-0000-0000-0000-000000000001')
+const voidNotes = ref<string>('')
 const isVoiding = ref<boolean>(false)
 const voidError = ref<string>('')
 
@@ -66,12 +70,19 @@ function showToast(msg: string, type: 'success' | 'error' = 'success') {
   }, 4000)
 }
 
+const outlets = ref<any[]>([])
+const selectedOutletId = ref<string>('')
+
 // Load Data
 async function loadSales() {
   try {
     isLoading.value = true
+    const params: Record<string, any> = {}
+    if (selectedOutletId.value) {
+      params.outlet_id = selectedOutletId.value
+    }
     const [salesRes, statsRes] = await Promise.all([
-      api.get('/sales'),
+      api.get('/sales', { params }),
       api.get('/sales/stats'),
     ])
 
@@ -89,13 +100,59 @@ async function loadSales() {
   }
 }
 
+async function loadOutlets() {
+  try {
+    const res = await api.get('/outlets')
+    if (res.data?.success && Array.isArray(res.data.data)) {
+      outlets.value = res.data.data
+    }
+  } catch (err) {
+    console.error('Gagal memuat daftar outlet:', err)
+  }
+}
+
+async function loadReasonCodes() {
+  try {
+    const res = await api.get('/reason-codes')
+    if (res.data?.success && Array.isArray(res.data.data)) {
+      voidReasonCodes.value = res.data.data.filter((r: any) => r.type === 'VOID')
+      if (voidReasonCodes.value.length > 0) {
+        selectedReasonId.value = voidReasonCodes.value[0].id
+      }
+    }
+  } catch (err) {
+    console.error('Gagal memuat reason codes:', err)
+  }
+}
+
+async function loadSupervisors() {
+  try {
+    const res = await api.get('/auth/supervisors')
+    if (res.data?.success && Array.isArray(res.data.data)) {
+      supervisors.value = res.data.data
+      if (supervisors.value.length > 0 && !selectedSupervisorId.value) {
+        selectedSupervisorId.value = supervisors.value[0].id
+      }
+    }
+  } catch (err) {
+    console.error('Gagal memuat daftar supervisor:', err)
+  }
+}
+
 onMounted(() => {
   loadSales()
+  loadOutlets()
+  loadReasonCodes()
+  loadSupervisors()
 })
 
 // Filter & Pagination
 const filteredSales = computed(() => {
   let list = sales.value
+
+  if (selectedOutletId.value) {
+    list = list.filter((s) => s.outlet_id === selectedOutletId.value)
+  }
 
   if (statusFilter.value !== 'ALL') {
     list = list.filter((s) => s.status === statusFilter.value)
@@ -216,14 +273,26 @@ async function handleReprint(sale: any) {
 
 function openVoidModal(sale: any) {
   saleToVoid.value = sale
+  if (supervisors.value.length > 0 && !selectedSupervisorId.value) {
+    selectedSupervisorId.value = supervisors.value[0].id
+  }
   supervisorPin.value = '123456'
-  voidReason.value = 'Kesalahan Input Kasir'
+  if (voidReasonCodes.value.length > 0) {
+    selectedReasonId.value = voidReasonCodes.value[0].id
+  } else {
+    selectedReasonId.value = 'f1000000-0000-0000-0000-000000000001'
+  }
+  voidNotes.value = ''
   voidError.value = ''
   showVoidModal.value = true
 }
 
 async function confirmVoid() {
   if (!saleToVoid.value) return
+  if (!selectedSupervisorId.value && supervisors.value.length > 0) {
+    voidError.value = 'Silakan pilih Supervisor yang bertanggung jawab'
+    return
+  }
   if (!supervisorPin.value) {
     voidError.value = 'PIN Supervisor wajib diisi'
     return
@@ -232,9 +301,15 @@ async function confirmVoid() {
   try {
     isVoiding.value = true
     voidError.value = ''
+
+    const reasonObj = voidReasonCodes.value.find((r) => r.id === selectedReasonId.value)
+    const noteText = voidNotes.value.trim() || reasonObj?.description || 'Pembatalan Transaksi'
+
     const res = await api.post(`/sales/${saleToVoid.value.id}/void`, {
+      supervisor_id: selectedSupervisorId.value || undefined,
       supervisor_pin: supervisorPin.value,
-      notes: voidReason.value,
+      reason_id: selectedReasonId.value || undefined,
+      notes: noteText,
     })
 
     if (res.data?.success) {
@@ -401,6 +476,21 @@ async function confirmVoid() {
               />
             </div>
 
+            <!-- Outlet Filter -->
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-slate-500">Cabang:</span>
+              <select
+                v-model="selectedOutletId"
+                @change="loadSales"
+                class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-700 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              >
+                <option value="">Semua Cabang Outlet</option>
+                <option v-for="o in outlets" :key="o.id" :value="o.id">
+                  {{ o.code }} - {{ o.name }}
+                </option>
+              </select>
+            </div>
+
             <!-- Status Filter -->
             <div class="flex items-center gap-2">
               <span class="text-xs font-bold text-slate-500">Status:</span>
@@ -439,6 +529,7 @@ async function confirmVoid() {
               <thead class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10">
                 <tr>
                   <th class="px-4 py-2.5">No. Faktur</th>
+                  <th class="px-4 py-2.5">Cabang Outlet</th>
                   <th class="px-4 py-2.5">Waktu Transaksi</th>
                   <th class="px-4 py-2.5">Kasir / Terminal</th>
                   <th class="px-4 py-2.5">Pelanggan</th>
@@ -461,6 +552,12 @@ async function confirmVoid() {
                       <Receipt class="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span>{{ s.invoice_number }}</span>
                     </div>
+                  </td>
+
+                  <!-- Cabang Outlet -->
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="font-bold text-slate-800">{{ s.outlet_name || 'Outlet Utama' }}</div>
+                    <div class="text-[10px] text-amber-700 font-mono">{{ s.outlet_code || '-' }}</div>
                   </td>
 
                   <!-- Waktu Transaksi -->
@@ -820,11 +917,26 @@ async function confirmVoid() {
 
             <div class="space-y-3 text-xs">
               <div>
+                <label class="block font-bold text-slate-700 mb-1">Supervisor Penanggung Jawab *</label>
+                <select
+                  v-model="selectedSupervisorId"
+                  class="w-full px-3.5 py-2 rounded-lg border border-slate-300 bg-white font-sans text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                >
+                  <option v-for="spv in supervisors" :key="spv.id" :value="spv.id">
+                    {{ spv.full_name }} ({{ spv.role_name }})
+                  </option>
+                  <option v-if="supervisors.length === 0" value="">
+                    -- Memuat Supervisor --
+                  </option>
+                </select>
+              </div>
+
+              <div>
                 <label class="block font-bold text-slate-700 mb-1">PIN Otorisasi Supervisor *</label>
                 <input
                   v-model="supervisorPin"
                   type="password"
-                  placeholder="Masukkan 6-digit PIN supervisor (default: 123456)"
+                  placeholder="Masukkan 6-digit PIN supervisor terpilih"
                   class="w-full px-3.5 py-2 rounded-lg border border-slate-300 font-mono text-sm tracking-widest focus:ring-2 focus:ring-rose-500 focus:outline-none"
                 />
               </div>
@@ -832,15 +944,29 @@ async function confirmVoid() {
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Alasan Pembatalan / Void *</label>
                 <select
-                  v-model="voidReason"
+                  v-model="selectedReasonId"
                   class="w-full px-3.5 py-2 rounded-lg border border-slate-300 bg-white font-sans text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                 >
-                  <option value="Kesalahan Input Kasir">Kesalahan Input Kasir</option>
-                  <option value="Pelanggan Membatalkan Transaksi">Pelanggan Membatalkan Transaksi</option>
-                  <option value="Barang Rusak / Tidak Sesuai">Barang Rusak / Tidak Sesuai</option>
-                  <option value="Uji Coba Sistem / Training">Uji Coba Sistem / Training</option>
-                  <option value="Lainnya">Lainnya</option>
+                  <option v-for="rc in voidReasonCodes" :key="rc.id" :value="rc.id">
+                    {{ rc.description }} ({{ rc.code }})
+                  </option>
+                  <option v-if="voidReasonCodes.length === 0" value="f1000000-0000-0000-0000-000000000001">
+                    Kesalahan Salah Pindai / Dobel Input (VOID_ERR)
+                  </option>
+                  <option v-if="voidReasonCodes.length === 0" value="f1000000-0000-0000-0000-000000000002">
+                    Pelanggan Membatalkan Pembelian (VOID_CANCEL)
+                  </option>
                 </select>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Catatan Tambahan (Opsional)</label>
+                <input
+                  v-model="voidNotes"
+                  type="text"
+                  placeholder="Contoh: Pembeli berubah pikiran / salah pilih varian..."
+                  class="w-full px-3.5 py-2 rounded-lg border border-slate-300 font-sans text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                />
               </div>
             </div>
           </div>
