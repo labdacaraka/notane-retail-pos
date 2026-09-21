@@ -56,3 +56,56 @@ pub fn verify_jwt(token: &str) -> Result<Claims, String> {
 
     Ok(token_data.claims)
 }
+
+pub async fn require_permission(
+    pool: &sqlx::PgPool,
+    headers: &axum::http::HeaderMap,
+    required_perm: &str,
+) -> Result<Claims, (axum::http::StatusCode, axum::Json<serde_json::Value>)> {
+    let auth_header = headers
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| if h.starts_with("Bearer ") { Some(&h[7..]) } else { None })
+        .ok_or_else(|| {
+            (
+                axum::http::StatusCode::UNAUTHORIZED,
+                axum::Json(serde_json::json!({ "success": false, "message": "Autentikasi dibutuhkan. Silakan login." })),
+            )
+        })?;
+
+    let claims = verify_jwt(auth_header).map_err(|e| {
+        (
+            axum::http::StatusCode::UNAUTHORIZED,
+            axum::Json(serde_json::json!({ "success": false, "message": e })),
+        )
+    })?;
+
+    if claims.role_name == "SUPERADMIN" {
+        return Ok(claims);
+    }
+
+    let has_perm: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM role_permissions rp
+            JOIN permissions p ON rp.permission_id = p.id
+            WHERE rp.role_id = $1 AND p.code = $2
+        )"
+    )
+    .bind(claims.role_id)
+    .bind(required_perm)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_perm {
+        return Err((
+            axum::http::StatusCode::FORBIDDEN,
+            axum::Json(serde_json::json!({
+                "success": false,
+                "message": format!("Akses ditolak: Peran '{}' tidak memiliki hak akses '{}'", claims.role_name, required_perm)
+            })),
+        ));
+    }
+
+    Ok(claims)
+}

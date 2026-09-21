@@ -12,6 +12,9 @@ import {
   CheckCircle2,
 } from 'lucide-vue-next'
 import { api } from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
+
+const authStore = useAuthStore()
 
 const vouchers = ref<any[]>([])
 const isLoading = ref<boolean>(false)
@@ -120,6 +123,10 @@ async function handleSaveVoucher() {
     valid_until: new Date(voucherForm.value.valid_until).toISOString(),
   }
 
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
   try {
     if (isEditing.value && currentVoucherId.value) {
       await api.put(`/vouchers/${currentVoucherId.value}`, payload)
@@ -134,6 +141,10 @@ async function handleSaveVoucher() {
 }
 
 async function handleDeleteVoucher(id: string, code: string) {
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
   if (!confirm(`Nonaktifkan voucher "${code}"?`)) return
   try {
     await api.delete(`/vouchers/${id}`)
@@ -182,6 +193,7 @@ onMounted(() => {
         </div>
 
         <button
+          v-if="authStore.hasPermission('master:write')"
           @click="openCreateModal"
           class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition active:scale-95 border border-emerald-700"
         >
@@ -264,7 +276,7 @@ onMounted(() => {
               <th class="p-3.5 text-right">Min Belanja</th>
               <th class="p-3.5">Masa Berlaku</th>
               <th class="p-3.5 text-center">Status</th>
-              <th class="p-3.5 text-center">Aksi</th>
+              <th v-if="authStore.hasPermission('master:write')" class="p-3.5 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200 font-sans">
@@ -309,7 +321,7 @@ onMounted(() => {
                   {{ v.status }}
                 </span>
               </td>
-              <td class="p-3.5 text-center">
+              <td v-if="authStore.hasPermission('master:write')" class="p-3.5 text-center">
                 <div class="flex items-center justify-center gap-1.5">
                   <button
                     @click="openEditModal(v)"

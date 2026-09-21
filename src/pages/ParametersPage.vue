@@ -14,6 +14,10 @@ import {
   Clock
 } from 'lucide-vue-next'
 import { api } from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
+
+const authStore = useAuthStore()
+const canWrite = computed(() => authStore.hasPermission('master:write') || authStore.hasPermission('settings:manage'))
 
 type ParamTab = 'units' | 'categories' | 'brands' | 'suppliers'
 const activeTab = ref<ParamTab>('units')
@@ -139,6 +143,10 @@ function openEditModal(item: any) {
 }
 
 async function handleSave() {
+  if (!canWrite.value) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
   try {
     if (activeTab.value === 'units') {
       if (isEditing.value && currentEditId.value) {
@@ -174,6 +182,10 @@ async function handleSave() {
 }
 
 async function handleDelete(id: string, name: string) {
+  if (!canWrite.value) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
   const tabName =
     activeTab.value === 'units'
       ? 'satuan'
@@ -215,6 +227,7 @@ onMounted(() => {
         </div>
 
         <button
+          v-if="canWrite"
           @click="openCreateModal"
           class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow-sm border border-emerald-700 flex items-center gap-2 transition active:scale-95"
         >
@@ -270,7 +283,7 @@ onMounted(() => {
               <th class="p-4">Kode Satuan</th>
               <th class="p-4">Nama Satuan</th>
               <th class="p-4">Tipe Kuantitas</th>
-              <th class="p-4 text-center">Aksi</th>
+              <th v-if="canWrite" class="p-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200 font-sans">
@@ -285,7 +298,7 @@ onMounted(() => {
                   {{ u.is_fractional ? 'Pecahan / Desimal (Timbangan)' : 'Bilangan Bulat (Pieces)' }}
                 </span>
               </td>
-              <td class="p-4 text-center">
+              <td v-if="canWrite" class="p-4 text-center">
                 <div class="flex items-center justify-center gap-2">
                   <button @click="openEditModal(u)" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-blue-700 transition" title="Edit">
                     <Edit2 class="w-3.5 h-3.5" />
@@ -312,14 +325,14 @@ onMounted(() => {
             <tr>
               <th class="p-4">Kode Kategori</th>
               <th class="p-4">Nama Kategori</th>
-              <th class="p-4 text-center">Aksi</th>
+              <th v-if="canWrite" class="p-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200 font-sans">
             <tr v-for="c in paginatedCategories" :key="c.id" class="hover:bg-emerald-50/40 transition">
               <td class="p-4 font-mono font-bold text-emerald-700">{{ c.code }}</td>
               <td class="p-4 font-semibold text-slate-900">{{ c.name }}</td>
-              <td class="p-4 text-center">
+              <td v-if="canWrite" class="p-4 text-center">
                 <div class="flex items-center justify-center gap-2">
                   <button @click="openEditModal(c)" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-blue-700 transition" title="Edit">
                     <Edit2 class="w-3.5 h-3.5" />
@@ -347,7 +360,7 @@ onMounted(() => {
               <th class="p-4">Kode Merek</th>
               <th class="p-4">Nama Brand / Prinsipal</th>
               <th class="p-4">Deskripsi</th>
-              <th class="p-4 text-center">Aksi</th>
+              <th v-if="canWrite" class="p-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200 font-sans">
@@ -355,7 +368,7 @@ onMounted(() => {
               <td class="p-4 font-mono font-bold text-emerald-700">{{ b.code }}</td>
               <td class="p-4 font-semibold text-slate-900">{{ b.name }}</td>
               <td class="p-4 text-slate-600">{{ b.description || '-' }}</td>
-              <td class="p-4 text-center">
+              <td v-if="canWrite" class="p-4 text-center">
                 <div class="flex items-center justify-center gap-2">
                   <button @click="openEditModal(b)" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-blue-700 transition" title="Edit">
                     <Edit2 class="w-3.5 h-3.5" />
@@ -385,7 +398,7 @@ onMounted(() => {
               <th class="p-4">Kontak Person & Telepon</th>
               <th class="p-4">Alamat Gudang</th>
               <th class="p-4 text-center">Tempo Bayar</th>
-              <th class="p-4 text-center">Aksi</th>
+              <th v-if="canWrite" class="p-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200 font-sans">
@@ -406,7 +419,7 @@ onMounted(() => {
                   <span>{{ s.term_of_payment_days }} Hari</span>
                 </span>
               </td>
-              <td class="p-4 text-center">
+              <td v-if="canWrite" class="p-4 text-center">
                 <div class="flex items-center justify-center gap-2">
                   <button @click="openEditModal(s)" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-blue-700 transition" title="Edit">
                     <Edit2 class="w-3.5 h-3.5" />

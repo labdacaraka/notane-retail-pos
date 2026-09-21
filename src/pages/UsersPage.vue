@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 import { Icon } from '@iconify/vue'
+import { ArrowLeft } from 'lucide-vue-next'
 import { api } from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
+
+const router = useRouter()
+const authStore = useAuthStore()
 
 // ============================================================================
 // TABS
@@ -213,6 +220,7 @@ async function saveRolePermissions() {
     await api.put(`/roles/${selectedRole.value.id}/permissions`, { permission_ids: ids })
     toast(`Hak akses "${selectedRole.value.name}" berhasil disimpan`, 'success')
     await fetchRoles()
+    await authStore.fetchCurrentUser()
   } catch (e: any) {
     toast(e.response?.data?.message || e.message, 'error')
   } finally {
@@ -239,6 +247,9 @@ const permissionModuleIcons: Record<string, string> = {
   accounting: 'streamline-ultimate-color:accounting-calculator-1',
   report: 'fluent-color:data-bar-vertical-ascending-24',
   master: 'fluent-color:database-24',
+  users: 'fluent-color:lock-shield-24',
+  settings: 'fluent-color:settings-24',
+  audit: 'fluent-color:shield-checkmark-24',
 }
 
 const permissionModuleLabels: Record<string, string> = {
@@ -249,6 +260,9 @@ const permissionModuleLabels: Record<string, string> = {
   accounting: 'Akuntansi & Jurnal',
   report: 'Laporan & Analitik',
   master: 'Master Data',
+  users: 'Pengguna & Hak Akses',
+  settings: 'Pengaturan Sistem & Struk',
+  audit: 'Jejak Audit Keamanan',
 }
 
 function openCreateRole() {
@@ -329,61 +343,85 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-slate-50">
-    <!-- Toast notifications -->
-    <div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
-      <TransitionGroup name="toast">
-        <div
-          v-for="t in toasts" :key="t.id"
-          class="px-4 py-3 rounded-xl shadow-lg text-sm font-semibold pointer-events-auto flex items-center gap-2 border"
-          :class="{
-            'bg-emerald-50 text-emerald-800 border-emerald-300': t.type === 'success',
-            'bg-rose-50 text-rose-800 border-rose-300': t.type === 'error',
-            'bg-blue-50 text-blue-800 border-blue-300': t.type === 'info',
-          }"
-        >
-          <Icon :icon="t.type === 'success' ? 'fluent-color:checkmark-circle-24' : t.type === 'error' ? 'fluent-color:dismiss-circle-24' : 'fluent-color:checkmark-circle-24'" class="w-5 h-5" />
-          {{ t.msg }}
-        </div>
-      </TransitionGroup>
-    </div>
+  <AdminLayout>
+    <div class="h-full flex flex-col bg-slate-100 overflow-hidden font-sans">
+      <!-- Toast notifications -->
+      <div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+        <TransitionGroup name="toast">
+          <div
+            v-for="t in toasts" :key="t.id"
+            class="px-4 py-3 rounded-xl shadow-lg text-sm font-semibold pointer-events-auto flex items-center gap-2 border"
+            :class="{
+              'bg-emerald-50 text-emerald-800 border-emerald-300': t.type === 'success',
+              'bg-rose-50 text-rose-800 border-rose-300': t.type === 'error',
+              'bg-blue-50 text-blue-800 border-blue-300': t.type === 'info',
+            }"
+          >
+            <Icon :icon="t.type === 'success' ? 'fluent-color:checkmark-circle-24' : t.type === 'error' ? 'fluent-color:dismiss-circle-24' : 'fluent-color:checkmark-circle-24'" class="w-5 h-5" />
+            {{ t.msg }}
+          </div>
+        </TransitionGroup>
+      </div>
 
-    <!-- Page Header -->
-    <div class="bg-white border-b border-slate-200 px-6 py-4 shrink-0">
-      <div class="flex items-center justify-between">
+      <!-- Page Header & Action Bar -->
+      <div class="bg-white border-b border-slate-300 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 shadow-xs shrink-0">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
-            <Icon icon="fluent-color:people-team-24" class="w-6 h-6" />
+          <!-- Tombol Back / Kembali ke Dashboard Hub -->
+          <button
+            type="button"
+            @click="router.push('/admin')"
+            class="px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 hover:text-slate-900 transition shadow-xs flex items-center gap-1.5 text-xs font-bold cursor-pointer active:scale-95"
+            title="Kembali ke Dashboard Hub"
+          >
+            <ArrowLeft class="w-4 h-4 text-slate-600" />
+            <span>Kembali</span>
+          </button>
+
+          <div class="h-6 w-px bg-slate-300"></div>
+
+          <div class="w-10 h-10 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 shadow-xs">
+            <Icon icon="fluent-color:lock-shield-24" class="w-6 h-6" />
           </div>
           <div>
-            <h1 class="text-lg font-extrabold text-slate-900">Manajemen Pengguna & Hak Akses</h1>
-            <p class="text-xs text-slate-500">Kelola pengguna sistem, peran (roles), dan matriks hak akses (RBAC)</p>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-extrabold text-slate-900 tracking-tight">Manajemen Pengguna & Hak Akses</h1>
+              <span class="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                <Icon icon="fluent-color:shield-checkmark-24" class="w-3 h-3" />
+                RBAC Enterprise
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Kelola pengguna sistem, peran (roles), dan matriks hak akses keamanan (RBAC).
+            </p>
           </div>
         </div>
-      </div>
 
-      <!-- Tabs -->
-      <div class="flex gap-1 mt-4 border-b border-slate-200">
-        <button
-          v-for="tab in [
-            { key: 'users', label: 'Pengguna', icon: 'fluent-color:person-24', count: users.length },
-            { key: 'roles', label: 'Roles & Permissions', icon: 'fluent-color:shield-checkmark-24', count: roles.length },
-          ]"
-          :key="tab.key"
-          @click="activeTab = tab.key as Tab"
-          class="flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 transition-all"
-          :class="activeTab === tab.key
-            ? 'border-indigo-500 text-indigo-700 bg-indigo-50/50'
-            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'"
-        >
-          <Icon :icon="tab.icon" class="w-4 h-4" />
-          {{ tab.label }}
-          <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-            :class="activeTab === tab.key ? 'bg-indigo-200 text-indigo-800' : 'bg-slate-200 text-slate-600'"
-          >{{ tab.count }}</span>
-        </button>
+        <!-- Navigation Tabs -->
+        <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-300 shadow-inner">
+          <button
+            v-for="tab in [
+              { key: 'users', label: 'Pengguna', icon: 'fluent-color:person-24', count: users.length },
+              { key: 'roles', label: 'Roles & Permissions', icon: 'fluent-color:shield-checkmark-24', count: roles.length },
+            ]"
+            :key="tab.key"
+            type="button"
+            @click="activeTab = tab.key as Tab"
+            class="flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer"
+            :class="activeTab === tab.key
+              ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 border border-transparent'"
+          >
+            <Icon :icon="tab.icon" class="w-4 h-4" />
+            <span>{{ tab.label }}</span>
+            <span
+              class="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+              :class="activeTab === tab.key ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200 text-slate-600'"
+            >
+              {{ tab.count }}
+            </span>
+          </button>
+        </div>
       </div>
-    </div>
 
     <!-- ================================================================== -->
     <!-- TAB: USERS -->
@@ -882,7 +920,8 @@ onMounted(async () => {
         </div>
       </Transition>
     </Teleport>
-  </div>
+    </div>
+  </AdminLayout>
 </template>
 
 <style scoped>

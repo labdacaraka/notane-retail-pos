@@ -47,9 +47,29 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('notane_user')
   }
 
-  function hasPermission(perm: string): boolean {
-    if (user.value?.role_name === 'SUPERADMIN') return true
-    return user.value?.permissions.includes(perm) || false
+  async function fetchCurrentUser() {
+    if (!token.value) return null
+    try {
+      const res = await api.get('/auth/me')
+      if (res.data?.success && res.data?.data) {
+        user.value = res.data.data
+        localStorage.setItem('notane_user', JSON.stringify(res.data.data))
+        return res.data.data
+      }
+    } catch (err) {
+      console.error('Failed to refresh user profile:', err)
+    }
+    return null
+  }
+
+  function hasPermission(perm: string | string[]): boolean {
+    if (!user.value) return false
+    if (user.value.role_name === 'SUPERADMIN') return true
+    const perms = user.value.permissions || []
+    if (Array.isArray(perm)) {
+      return perm.some(p => perms.includes(p))
+    }
+    return perms.includes(perm)
   }
 
   return {
@@ -60,6 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
     isSupervisor,
     login,
     logout,
+    fetchCurrentUser,
     hasPermission,
   }
 })

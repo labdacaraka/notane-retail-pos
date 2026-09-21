@@ -8,7 +8,6 @@ import {
   WifiOff,
   Activity,
   Server,
-  Monitor,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
@@ -25,10 +24,17 @@ const deviceTypeInput = ref(networkStore.deviceType)
 const pairingCodeInput = ref(networkStore.pairingCode)
 const autoReconnectInput = ref(networkStore.autoReconnect)
 
+import { discoveryService } from '@/services/discoveryService'
+import { offlineStorage } from '@/services/offlineStorage'
+
 const isTestingPing = ref(false)
+const isScanningLan = ref(false)
 const pingResult = ref<{ success: boolean; latency: number; error?: string } | null>(null)
 const isConnecting = ref(false)
 const notification = ref<{ type: 'success' | 'error'; message: string } | null>(null)
+
+const cachedProductsCount = ref(offlineStorage.getCachedProductsCount())
+const pendingQueueCount = ref(offlineStorage.getPendingQueueCount())
 
 const isConnected = computed(() => networkStore.connectionStatus === 'CONNECTED')
 
@@ -40,7 +46,27 @@ onMounted(() => {
   deviceTypeInput.value = networkStore.deviceType
   pairingCodeInput.value = networkStore.pairingCode
   autoReconnectInput.value = networkStore.autoReconnect
+  cachedProductsCount.value = offlineStorage.getCachedProductsCount()
+  pendingQueueCount.value = offlineStorage.getPendingQueueCount()
 })
+
+const handleScanLan = async () => {
+  isScanningLan.value = true
+  try {
+    const servers = await discoveryService.scanLanServers()
+    if (servers.length > 0) {
+      hostInput.value = servers[0].host
+      portInput.value = servers[0].port
+      showNotice('success', `Ditemukan server Notane POS di ${servers[0].host}:${servers[0].port} (${servers[0].latency}ms)`)
+    } else {
+      showNotice('error', 'Tidak ada server Notane POS terdeteksi di subnet lokal.')
+    }
+  } catch (err: any) {
+    showNotice('error', err.message || 'Gagal memindai jaringan.')
+  } finally {
+    isScanningLan.value = false
+  }
+}
 
 const handleTestPing = async () => {
   isTestingPing.value = true
@@ -109,11 +135,7 @@ function showNotice(type: 'success' | 'error', message: string) {
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h1 class="text-base font-extrabold text-slate-900 tracking-tight">Koneksi Terminal Client ke Server Host LAN</h1>
-              <span class="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
-                <Monitor class="w-3 h-3" />
-                Mode Client Station
-              </span>
+              <h1 class="text-base font-extrabold text-slate-900 tracking-tight">Koneksi Terminal Kasir ke Server Host LAN</h1>
             </div>
             <p class="text-xs text-slate-500 mt-0.5">
               Terminal kasir ini mengambil data katalog, pelanggan, dan transaksi secara real-time dari Server Host melalui jaringan lokal (LAN/Wi-Fi).
@@ -292,15 +314,27 @@ function showNotice(type: 'success' | 'error', message: string) {
 
           <!-- Action Footer -->
           <div class="bg-slate-50 border-t border-slate-200 px-6 py-3.5 flex items-center justify-between">
-            <button
-              type="button"
-              @click="handleTestPing"
-              :disabled="isTestingPing"
-              class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg border border-slate-300 transition flex items-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingPing }" />
-              <span>{{ isTestingPing ? 'Menguji...' : 'Uji Sambungan (Ping)' }}</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="handleScanLan"
+                :disabled="isScanningLan"
+                class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-lg border border-blue-300 transition flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isScanningLan }" />
+                <span>{{ isScanningLan ? 'Memindai LAN...' : 'Pindai Server LAN (mDNS)' }}</span>
+              </button>
+
+              <button
+                type="button"
+                @click="handleTestPing"
+                :disabled="isTestingPing"
+                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg border border-slate-300 transition flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingPing }" />
+                <span>{{ isTestingPing ? 'Menguji...' : 'Uji Sambungan (Ping)' }}</span>
+              </button>
+            </div>
 
             <div class="flex items-center gap-2">
               <button
@@ -316,7 +350,7 @@ function showNotice(type: 'success' | 'error', message: string) {
                 type="button"
                 @click="handleConnect"
                 :disabled="isConnecting"
-                class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg border border-blue-700 transition flex items-center gap-2 cursor-pointer shadow-sm active:scale-95"
+                class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg border border-blue-700 transition flex items-center gap-2 cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
               >
                 <Zap class="w-4 h-4" />
                 <span>{{ isConnecting ? 'Menyambungkan...' : (isConnected ? 'Simpan & Sambung Ulang' : 'Sambungkan ke Server') }}</span>
@@ -325,25 +359,29 @@ function showNotice(type: 'success' | 'error', message: string) {
           </div>
         </div>
 
-        <!-- Role Switcher Guidance Note -->
-        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <div class="p-2 bg-amber-100 rounded-lg text-amber-800 shrink-0">
-            <Server class="w-5 h-5" />
+        <!-- Offline Storage Status & Cache Management Card -->
+        <div class="bg-white rounded-xl border border-slate-300 p-5 shadow-xs flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+              <Icon icon="streamline-ultimate-color:hard-drive-1" class="w-6 h-6" />
+            </div>
+            <div>
+              <div class="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <span>Penyimpanan Offline (Offline Storage & Local Cache)</span>
+                <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                  Aktif
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">
+                Katalog produk dan antrean transaksi dicadangkan secara lokal di perangkat ini jika LAN terputus sementara.
+              </p>
+            </div>
           </div>
-          <div class="flex-1">
-            <div class="font-bold text-amber-900 text-xs">Perangkat Ini Dikonfigurasi Sebagai: CLIENT STATION (TERMINAL KASIR)</div>
-            <p class="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
-              Komputer ini hanya bertindak sebagai terminal kasir dan tidak menjalankan server database lokal.
-              Jika komputer ini sebenarnya adalah komputer server toko yang menyimpan database utama, Anda dapat beralih ke <strong>Mode Server Host</strong> melalui tombol ganti peran di bilah atas aplikasi.
-            </p>
-            <div class="mt-2">
-              <button
-                type="button"
-                @click="networkStore.setNodeRole('SERVER')"
-                class="px-3 py-1 bg-amber-700 hover:bg-amber-800 text-white text-[11px] font-bold rounded-md transition cursor-pointer"
-              >
-                Beralih ke Mode Server Host
-              </button>
+
+          <div class="flex items-center gap-3 text-right">
+            <div class="text-xs">
+              <div class="font-bold text-slate-800 font-mono">{{ cachedProductsCount }} Produk di-cache</div>
+              <div class="text-[11px] text-slate-500 font-mono">{{ pendingQueueCount }} Transaksi tertunda</div>
             </div>
           </div>
         </div>

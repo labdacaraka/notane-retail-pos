@@ -16,6 +16,9 @@ import {
   Plus
 } from 'lucide-vue-next'
 import { api } from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
+
+const authStore = useAuthStore()
 
 // Active Tab: 'customers' | 'groups'
 const activeTab = ref<'customers' | 'groups'>('customers')
@@ -124,8 +127,12 @@ function openEditCustomerModal(c: any) {
 }
 
 async function handleSaveCustomer() {
-  if (!customerForm.value.name || !customerForm.value.code) {
-    alert('Nama dan Kode Pelanggan wajib diisi')
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
+  if (!customerForm.value.code || !customerForm.value.name) {
+    alert('Kode dan nama pelanggan wajib diisi')
     return
   }
 
@@ -143,6 +150,10 @@ async function handleSaveCustomer() {
 }
 
 async function handleDeleteCustomer(id: string, name: string) {
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
   if (!confirm(`Nonaktifkan pelanggan "${name}"?`)) return
   try {
     await api.delete(`/customers/${id}`)
@@ -226,7 +237,7 @@ onMounted(() => {
           </p>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div v-if="authStore.hasPermission('master:write')" class="flex items-center gap-2">
           <button
             v-if="activeTab === 'customers'"
             @click="openCreateCustomerModal"
@@ -306,8 +317,8 @@ onMounted(() => {
                 <th class="p-3.5">Grup / Tier</th>
                 <th class="p-3.5">Kontak (HP / Email)</th>
                 <th class="p-3.5 text-right">Poin Loyalti</th>
-                <th class="p-3.5 text-right">Limit Kredit</th>
-                <th class="p-3.5 text-center">Aksi</th>
+                <th class="p-3.5 text-right font-medium">Limit Piutang</th>
+                <th v-if="authStore.hasPermission('master:write')" class="p-3.5 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200 font-sans">
@@ -352,7 +363,7 @@ onMounted(() => {
                 <td class="p-3.5 text-right font-mono text-slate-800 font-medium">
                   {{ formatCurrency(c.credit_limit) }}
                 </td>
-                <td class="p-3.5 text-center">
+                <td v-if="authStore.hasPermission('master:write')" class="p-3.5 text-center">
                   <div class="flex items-center justify-center gap-1.5">
                     <button
                       @click="openEditCustomerModal(c)"
@@ -390,8 +401,8 @@ onMounted(() => {
               <tr>
                 <th class="p-3.5">ID</th>
                 <th class="p-3.5">Nama Grup Pelanggan</th>
-                <th class="p-3.5">Deskripsi</th>
-                <th class="p-3.5 text-center">Aksi</th>
+                <th class="p-3.5">Deskripsi / Benefit Grup</th>
+                <th v-if="authStore.hasPermission('master:write')" class="p-3.5 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200 font-sans">
@@ -399,7 +410,7 @@ onMounted(() => {
                 <td class="p-3.5 font-mono text-slate-500 font-bold">#{{ g.id }}</td>
                 <td class="p-3.5 font-bold text-slate-900 tracking-wide">{{ g.name }}</td>
                 <td class="p-3.5 text-slate-600">{{ g.description || '-' }}</td>
-                <td class="p-3.5 text-center">
+                <td v-if="authStore.hasPermission('master:write')" class="p-3.5 text-center">
                   <div class="flex items-center justify-center gap-1.5">
                     <button
                       @click="openEditGroupModal(g)"

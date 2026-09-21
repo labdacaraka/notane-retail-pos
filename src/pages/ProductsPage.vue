@@ -5,6 +5,9 @@ import PaginationBar from '@/components/common/PaginationBar.vue'
 import SearchableSelect from '@/components/common/SearchableSelect.vue'
 import { Search, Scale, Edit2, Trash2 } from 'lucide-vue-next'
 import { api } from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
+
+const authStore = useAuthStore()
 
 const products = ref<any[]>([])
 const categories = ref<any[]>([])
@@ -91,6 +94,10 @@ async function fetchMasterMeta() {
 }
 
 async function handleCreateProduct() {
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
   try {
     await api.post('/products', form.value)
     showCreateModal.value = false
@@ -101,6 +108,10 @@ async function handleCreateProduct() {
 }
 
 function openEditModal(prod: any) {
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
   editingId.value = prod.id
   editForm.value = {
     sku: prod.sku,
@@ -120,6 +131,10 @@ function openEditModal(prod: any) {
 }
 
 async function handleUpdateProduct() {
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
   if (!editingId.value) return
   try {
     await api.put(`/products/${editingId.value}`, editForm.value)
@@ -131,6 +146,10 @@ async function handleUpdateProduct() {
 }
 
 async function handleDeleteProduct(id: string, name: string) {
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data (master:read)')
+    return
+  }
   if (!confirm(`Nonaktifkan produk "${name}"?`)) return
   try {
     await api.delete(`/products/${id}`)
@@ -160,6 +179,7 @@ onMounted(() => {
         </div>
 
         <button
+          v-if="authStore.hasPermission('master:write')"
           @click="showCreateModal = true"
           class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition active:scale-95 border border-emerald-700 cursor-pointer"
         >
@@ -199,7 +219,7 @@ onMounted(() => {
               <th class="py-3 px-4 text-right">HPP (Cost)</th>
               <th class="py-3 px-4 text-right">Harga Jual</th>
               <th class="py-3 px-4 text-center">Stok Gudang</th>
-              <th class="py-3 px-4 text-center">Aksi</th>
+              <th v-if="authStore.hasPermission('master:write')" class="py-3 px-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200 font-mono">
@@ -231,7 +251,7 @@ onMounted(() => {
                   {{ prod.stock_qty }} {{ prod.unit_code }}
                 </span>
               </td>
-              <td class="py-3 px-4 text-center font-sans">
+              <td v-if="authStore.hasPermission('master:write')" class="py-3 px-4 text-center font-sans">
                 <div class="flex items-center justify-center gap-1.5">
                   <button
                     @click="openEditModal(prod)"

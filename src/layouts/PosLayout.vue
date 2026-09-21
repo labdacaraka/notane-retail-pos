@@ -77,8 +77,18 @@ onUnmounted(() => {
         </div>
 
         <div class="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-300 text-xs">
-          <span class="bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-slate-700 font-mono font-bold">
-            {{ authStore.terminalId }}
+          <!-- Terminal ID Pill -->
+          <span class="px-2 py-0.5 rounded text-[11px] font-bold border flex items-center gap-1 bg-blue-50 text-blue-800 border-blue-300">
+            <span>💻 Terminal</span>
+            <span class="font-mono opacity-80">{{ authStore.terminalId }}</span>
+          </span>
+
+          <!-- Offline Storage Badge -->
+          <span
+            class="bg-amber-50 text-amber-800 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 font-mono"
+            title="Katalog produk dan buffer transaksi offline aktif"
+          >
+            💾 Offline OK
           </span>
 
           <!-- Interactive Network Status Badge -->

@@ -12,6 +12,8 @@ const emit = defineEmits<{
 
 const networkStore = useNetworkStore()
 
+import { discoveryService } from '@/services/discoveryService'
+
 const hostInput = ref(networkStore.targetHost)
 const portInput = ref(networkStore.targetPort)
 const deviceIdInput = ref(networkStore.deviceId)
@@ -21,6 +23,7 @@ const pairingCodeInput = ref(networkStore.pairingCode)
 const autoReconnectInput = ref(networkStore.autoReconnect)
 
 const isTestingPing = ref(false)
+const isScanningLan = ref(false)
 const pingResult = ref<{ success: boolean; latency: number; error?: string } | null>(null)
 const isConnecting = ref(false)
 const connectionError = ref<string>('')
@@ -39,6 +42,25 @@ onMounted(() => {
 
 const closeModal = () => {
   emit('update:modelValue', false)
+}
+
+const handleScanLan = async () => {
+  isScanningLan.value = true
+  connectionError.value = ''
+  try {
+    const found = await discoveryService.scanLanServers()
+    if (found.length > 0) {
+      hostInput.value = found[0].host
+      portInput.value = found[0].port
+      pingResult.value = { success: true, latency: found[0].latency }
+    } else {
+      connectionError.value = 'Tidak ada server Notane POS terdeteksi di subnet lokal'
+    }
+  } catch (err: any) {
+    connectionError.value = err.message || 'Gagal memindai jaringan'
+  } finally {
+    isScanningLan.value = false
+  }
 }
 
 const handleTestPing = async () => {
@@ -188,6 +210,17 @@ const handleDisconnect = () => {
           <div class="flex items-center gap-2 pt-1">
             <button
               type="button"
+              @click="handleScanLan"
+              :disabled="isScanningLan"
+              class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-sm border border-blue-300 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <span v-if="isScanningLan" class="animate-spin">⌛</span>
+              <span v-else>🔍</span>
+              <span>{{ isScanningLan ? 'Memindai...' : 'Pindai LAN (mDNS)' }}</span>
+            </button>
+
+            <button
+              type="button"
               @click="handleTestPing"
               :disabled="isTestingPing"
               class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-sm border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
@@ -196,7 +229,7 @@ const handleDisconnect = () => {
               <span v-else>📡</span>
               <span>Uji Latensi (Ping Test)</span>
             </button>
-            <span class="text-[10px] text-slate-500">Tes respons server sebelum menyambungkan</span>
+            <span class="text-[10px] text-slate-500">Otomatis deteksi IP server di LAN</span>
           </div>
         </div>
 

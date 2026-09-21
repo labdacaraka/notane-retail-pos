@@ -2,147 +2,160 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AdminLayout from '@/layouts/AdminLayout.vue'
-import { useNetworkStore } from '@/stores/networkStore'
+import { useAuthStore } from '@/stores/authStore'
 import { ArrowUpRight } from 'lucide-vue-next'
 
 const router = useRouter()
-const networkStore = useNetworkStore()
+const authStore = useAuthStore()
 
-const hubSections = computed(() => [
-  {
-    category: 'MASTER DATA ENTERPRISE',
-    tiles: [
-      {
-        title: 'Master Produk',
-        desc: 'SKU, EAN-13, barcode timbangan, multi-UoM & harga bertingkat',
-        icon: 'streamline-ultimate-color:warehouse-cart-packages-2',
-        path: '/admin/products',
-        color: 'from-amber-400 to-amber-600',
-        badge: 'Katalog Barang',
-      },
-      {
-        title: 'Pelanggan & Member',
-        desc: 'Registrasi pelanggan, tier membership, saldo reward poin & piutang',
-        icon: 'fluent-color:people-team-24',
-        path: '/admin/customers',
-        color: 'from-blue-400 to-indigo-600',
-        badge: 'Loyalti Member',
-      },
-      {
-        title: 'Voucher & Promo',
-        desc: 'Kupon promo diskon persentase, nominal tetap & tanggal berlaku',
-        icon: 'fluent-color:gift-card-24',
-        path: '/admin/vouchers',
-        color: 'from-rose-400 to-pink-600',
-        badge: 'Promosi',
-      },
-      {
-        title: 'Parameter Retail',
-        desc: 'Satuan UoM pecahan/desimal, kategori barang, merek & distributor',
-        icon: 'fluent-color:settings-24',
-        path: '/admin/parameters',
-        color: 'from-teal-400 to-emerald-600',
-        badge: 'Konfigurasi',
-      },
-    ],
-  },
-  {
-    category: 'TRANSAKSI & OPERASIONAL BISNIS',
-    tiles: [
-      {
-        title: 'Transaksi Penjualan',
-        desc: 'Rekapitulasi penjualan kasir, riwayat faktur POS, cetak ulang struk thermal & void',
-        icon: 'fluent-color:receipt-24',
-        path: '/admin/sales',
-        color: 'from-amber-400 to-amber-600',
-        badge: 'Sales Audit',
-      },
-      {
-        title: 'Pengadaan & Pembelian',
-        desc: 'Penerimaan faktur masuk (GRN), tagihan hutang supplier, PO & data pemasok',
-        icon: 'streamline-ultimate-color:delivery-truck-cargo',
-        path: '/admin/purchases',
-        color: 'from-blue-500 to-indigo-600',
-        badge: 'Procurement',
-      },
-      {
-        title: 'Layar Kasir POS',
-        desc: 'Buka terminal register kasir penjualan keyboard-driven F1-F12',
-        icon: 'streamline-ultimate-color:shopping-cart-full',
-        path: '/',
-        color: 'from-emerald-400 to-teal-600',
-        badge: 'Front-Office POS',
-      },
-      {
-        title: 'Stok & Stock Opname',
-        desc: 'Kartu stok, mutasi gudang, stock opname fisik & penyesuaian selisih',
-        icon: 'streamline-ultimate-color:warehouse-storage-2',
-        path: '/admin/inventory',
-        color: 'from-orange-500 to-amber-600',
-        badge: 'Warehouse & Opname',
-      },
-    ],
-  },
-  {
-    category: 'JARINGAN & PENGATURAN SISTEM',
-    tiles: [
-      networkStore.isServerNode
-        ? {
-            title: 'Kendali Server Host',
-            desc: 'Start/Stop background daemon server, pantau kasir terkoneksi & kelola jaringan LAN',
-            icon: 'fluent-color:database-24',
-            path: '/admin/server-control',
-            color: 'from-purple-500 to-indigo-600',
-            badge: 'Mode Server Host',
-          }
-        : {
-            title: 'Koneksi Server LAN',
-            desc: 'Pengaturan IP server host, port, kode pairing & uji latensi koneksi kasir ke server',
-            icon: 'fluent-color:wifi-24',
-            path: '/admin/client-connection',
-            color: 'from-blue-500 to-cyan-600',
-            badge: 'Mode Client Station',
-          },
-      {
-        title: 'Pengaturan Struk Kasir',
-        desc: 'Identitas toko, alamat, no telp, NPWP, pesan footer, dan format thermal printer',
-        icon: 'fluent-color:document-text-24',
-        path: '/admin/receipt-settings',
-        color: 'from-purple-500 to-indigo-600',
-        badge: 'Thermal Receipt',
-      },
-    ],
-  },
-  {
-    category: 'KEAMANAN & MANAJEMEN SISTEM',
-    tiles: [
-      {
-        title: 'Pengguna & Hak Akses',
-        desc: 'Manajemen akun staf, assignment role, dan konfigurasi matriks hak akses RBAC per modul',
-        icon: 'fluent-color:lock-shield-24',
-        path: '/admin/users',
-        color: 'from-indigo-500 to-purple-700',
-        badge: 'RBAC Security',
-      },
-      {
-        title: 'Jurnal & Laba Rugi',
-        desc: 'Buku jurnal umum double-entry & laporan laba rugi real-time',
-        icon: 'streamline-ultimate-color:accounting-calculator-1',
-        path: '/admin/accounting',
-        color: 'from-emerald-500 to-teal-700',
-        badge: 'Accounting Ledger',
-      },
-      {
-        title: 'Jejak Audit 360°',
-        desc: 'Perekaman log audit keamanan, otorisasi supervisor & aktivitas sistem',
-        icon: 'fluent-color:shield-checkmark-24',
-        path: '/admin/audit-logs',
-        color: 'from-slate-600 to-slate-800',
-        badge: 'Security Logs',
-      },
-    ],
-  },
-])
+const hubSections = computed(() => {
+  const allSections = [
+    {
+      category: 'MASTER DATA ENTERPRISE',
+      tiles: [
+        {
+          title: 'Master Produk',
+          desc: 'SKU, EAN-13, barcode timbangan, multi-UoM & harga bertingkat',
+          icon: 'streamline-ultimate-color:warehouse-cart-packages-2',
+          path: '/admin/products',
+          color: 'from-amber-400 to-amber-600',
+          badge: 'Katalog Barang',
+          permission: 'master:read',
+        },
+        {
+          title: 'Pelanggan & Member',
+          desc: 'Registrasi pelanggan, tier membership, saldo reward poin & piutang',
+          icon: 'fluent-color:people-team-24',
+          path: '/admin/customers',
+          color: 'from-blue-400 to-indigo-600',
+          badge: 'Loyalti Member',
+          permission: 'master:read',
+        },
+        {
+          title: 'Voucher & Promo',
+          desc: 'Kupon promo diskon persentase, nominal tetap & tanggal berlaku',
+          icon: 'fluent-color:gift-card-24',
+          path: '/admin/vouchers',
+          color: 'from-rose-400 to-pink-600',
+          badge: 'Promosi',
+          permission: 'master:read',
+        },
+        {
+          title: 'Parameter Retail',
+          desc: 'Satuan UoM pecahan/desimal, kategori barang, merek & distributor',
+          icon: 'fluent-color:settings-24',
+          path: '/admin/parameters',
+          color: 'from-teal-400 to-emerald-600',
+          badge: 'Konfigurasi',
+          permission: ['settings:manage', 'master:write'],
+        },
+      ],
+    },
+    {
+      category: 'TRANSAKSI & OPERASIONAL BISNIS',
+      tiles: [
+        {
+          title: 'Transaksi Penjualan',
+          desc: 'Rekapitulasi penjualan kasir, riwayat faktur POS, cetak ulang struk thermal & void',
+          icon: 'fluent-color:receipt-24',
+          path: '/admin/sales',
+          color: 'from-amber-400 to-amber-600',
+          badge: 'Sales Audit',
+          permission: 'report:view',
+        },
+        {
+          title: 'Pengadaan & Pembelian',
+          desc: 'Penerimaan faktur masuk (GRN), tagihan hutang supplier, PO & data pemasok',
+          icon: 'streamline-ultimate-color:delivery-truck-cargo',
+          path: '/admin/purchases',
+          color: 'from-blue-500 to-indigo-600',
+          badge: 'Procurement',
+          permission: 'purchasing:read',
+        },
+        {
+          title: 'Layar Kasir POS',
+          desc: 'Buka terminal register kasir penjualan keyboard-driven F1-F12',
+          icon: 'streamline-ultimate-color:shopping-cart-full',
+          path: '/',
+          color: 'from-emerald-400 to-teal-600',
+          badge: 'Front-Office POS',
+          permission: 'pos:checkout',
+        },
+        {
+          title: 'Stok & Stock Opname',
+          desc: 'Kartu stok, mutasi gudang, stock opname fisik & penyesuaian selisih',
+          icon: 'streamline-ultimate-color:warehouse-storage-2',
+          path: '/admin/inventory',
+          color: 'from-orange-500 to-amber-600',
+          badge: 'Warehouse & Opname',
+          permission: 'inventory:read',
+        },
+      ],
+    },
+    {
+      category: 'JARINGAN & PENGATURAN SISTEM',
+      tiles: [
+        {
+          title: 'Koneksi Server LAN',
+          desc: 'Pengaturan IP server host, port, kode pairing & uji latensi koneksi kasir ke server',
+          icon: 'fluent-color:wifi-24',
+          path: '/admin/client-connection',
+          color: 'from-blue-500 to-cyan-600',
+          badge: 'Koneksi Server',
+          permission: undefined,
+        },
+        {
+          title: 'Pengaturan Struk Kasir',
+          desc: 'Identitas toko, alamat, no telp, NPWP, pesan footer, dan format thermal printer',
+          icon: 'fluent-color:document-text-24',
+          path: '/admin/receipt-settings',
+          color: 'from-purple-500 to-indigo-600',
+          badge: 'Thermal Receipt',
+          permission: 'settings:manage',
+        },
+      ],
+    },
+    {
+      category: 'KEAMANAN & MANAJEMEN SISTEM',
+      tiles: [
+        {
+          title: 'Pengguna & Hak Akses',
+          desc: 'Manajemen akun staf, assignment role, dan konfigurasi matriks hak akses RBAC per modul',
+          icon: 'fluent-color:lock-shield-24',
+          path: '/admin/users',
+          color: 'from-indigo-500 to-purple-700',
+          badge: 'RBAC Security',
+          permission: 'users:manage',
+        },
+        {
+          title: 'Jurnal & Laba Rugi',
+          desc: 'Buku jurnal umum double-entry & laporan laba rugi real-time',
+          icon: 'streamline-ultimate-color:accounting-calculator-1',
+          path: '/admin/accounting',
+          color: 'from-emerald-500 to-teal-700',
+          badge: 'Accounting Ledger',
+          permission: 'accounting:read',
+        },
+        {
+          title: 'Jejak Audit 360°',
+          desc: 'Perekaman log audit keamanan, otorisasi supervisor & aktivitas sistem',
+          icon: 'fluent-color:shield-checkmark-24',
+          path: '/admin/audit-logs',
+          color: 'from-slate-600 to-slate-800',
+          badge: 'Security Logs',
+          permission: ['audit:read', 'report:view'],
+        },
+      ],
+    },
+  ]
+
+  return allSections
+    .map((sec) => ({
+      ...sec,
+      tiles: sec.tiles.filter((t) => !t.permission || authStore.hasPermission(t.permission)),
+    }))
+    .filter((sec) => sec.tiles.length > 0)
+})
 </script>
 
 <template>

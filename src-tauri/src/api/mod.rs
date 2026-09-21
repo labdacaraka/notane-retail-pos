@@ -46,7 +46,7 @@ pub fn create_pos_router(pool: PgPool, ws_state: AppState) -> Router {
     let api_routes = Router::new()
         .nest("/auth", auth::auth_routes())
         .merge(pos::pos_routes())
-        .merge(master::master_routes())
+        .merge(master::master_routes(pool.clone()))
         .nest("/inventory", inventory::inventory_routes())
         .merge(inventory::inventory_routes())
         .merge(reports::report_routes())

@@ -1,9 +1,11 @@
 use crate::models::product::{Brand, Category, CreateProductRequest, Product, Unit};
 use crate::models::settings::{ReceiptSettings, UpdateReceiptSettingsRequest};
+use crate::utils::jwt::require_permission;
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
-    response::IntoResponse,
+    extract::{Path, Query, Request, State},
+    http::{Method, StatusCode},
+    middleware::{from_fn_with_state, Next},
+    response::{IntoResponse, Response},
     routing::{delete, get, post, put},
     Json, Router,
 };
@@ -14,7 +16,28 @@ use serde_json::json;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
-pub fn master_routes() -> Router<PgPool> {
+async fn master_write_middleware(
+    State(pool): State<PgPool>,
+    req: Request,
+    next: Next,
+) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
+    let method = req.method();
+    if method == Method::GET || method == Method::OPTIONS {
+        return Ok(next.run(req).await);
+    }
+
+    let required_perm = if req.uri().path().contains("/settings/receipt") {
+        "settings:manage"
+    } else {
+        "master:write"
+    };
+
+    require_permission(&pool, req.headers(), required_perm).await?;
+
+    Ok(next.run(req).await)
+}
+
+pub fn master_routes(pool: PgPool) -> Router<PgPool> {
     Router::new()
         // Products
         .route("/products", get(list_products_handler).post(create_product_handler))
@@ -59,6 +82,7 @@ pub fn master_routes() -> Router<PgPool> {
 
         // Receipt & Store Settings
         .route("/settings/receipt", get(get_receipt_settings_handler).post(save_receipt_settings_handler).put(save_receipt_settings_handler))
+        .layer(from_fn_with_state(pool, master_write_middleware))
 }
 
 // ============================================================================

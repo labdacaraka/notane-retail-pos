@@ -30,7 +30,10 @@ INSERT INTO permissions (code, description) VALUES
 ('accounting:write', 'Membuat entri jurnal manual'),
 ('report:view', 'Mengakses seluruh laporan analitik'),
 ('master:read', 'Melihat master data produk dan pelanggan'),
-('master:write', 'Mengubah master data produk, harga, dan supplier')
+('master:write', 'Mengubah master data produk, harga, dan supplier'),
+('users:manage', 'Mengelola akun staf dan matriks hak akses peran'),
+('settings:manage', 'Mengatur konfigurasi sistem toko dan desain cetak struk'),
+('audit:read', 'Melihat log aktivitas sistem dan jejak audit keamanan')
 ON CONFLICT (code) DO NOTHING;
 
 -- 3. Role Permissions Mapping

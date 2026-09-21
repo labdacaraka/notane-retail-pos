@@ -22,7 +22,7 @@ const routes = [
     path: '/',
     name: 'pos',
     component: PosRegister,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'pos:checkout' },
   },
   {
     path: '/login',
@@ -44,67 +44,67 @@ const routes = [
     path: '/admin/server-control',
     name: 'admin-server-control',
     component: ServerControlPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'settings:manage' },
   },
   {
     path: '/admin/sales',
     name: 'admin-sales',
     component: SalesPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'report:view' },
   },
   {
     path: '/admin/purchases',
     name: 'admin-purchases',
     component: PurchasesPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'purchasing:read' },
   },
   {
     path: '/admin/products',
     name: 'admin-products',
     component: ProductsPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'master:read' },
   },
   {
     path: '/admin/customers',
     name: 'admin-customers',
     component: CustomersPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'master:read' },
   },
   {
     path: '/admin/vouchers',
     name: 'admin-vouchers',
     component: VouchersPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'master:read' },
   },
   {
     path: '/admin/parameters',
     name: 'admin-parameters',
     component: ParametersPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: ['settings:manage', 'master:write'] },
   },
   {
     path: '/admin/inventory',
     name: 'admin-inventory',
     component: InventoryPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'inventory:read' },
   },
   {
     path: '/admin/accounting',
     name: 'admin-accounting',
     component: AccountingPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'accounting:read' },
   },
   {
     path: '/admin/audit-logs',
     name: 'admin-audit-logs',
     component: AuditLogPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: ['audit:read', 'report:view'] },
   },
   {
     path: '/admin/receipt-settings',
     name: 'admin-receipt-settings',
     component: ReceiptSettingsPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'settings:manage' },
   },
   {
     path: '/admin/client-connection',
@@ -116,7 +116,7 @@ const routes = [
     path: '/admin/users',
     name: 'admin-users',
     component: UsersPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, permission: 'users:manage' },
   },
 ]
 
@@ -128,10 +128,42 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('notane_token')
   if (to.meta.requiresAuth && !token) {
-    next({ name: 'login' })
-  } else {
-    next()
+    return next({ name: 'login' })
   }
+
+  // Permission Verification
+  const requiredPerm = to.meta.permission as string | string[] | undefined
+  if (requiredPerm) {
+    const userStr = localStorage.getItem('notane_user')
+    let user: any = null
+    try {
+      user = userStr ? JSON.parse(userStr) : null
+    } catch {}
+
+    if (user) {
+      if (user.role_name === 'SUPERADMIN') {
+        return next()
+      }
+
+      const perms: string[] = user.permissions || []
+      const hasPerm = Array.isArray(requiredPerm)
+        ? requiredPerm.some(p => perms.includes(p))
+        : perms.includes(requiredPerm)
+
+      if (!hasPerm) {
+        console.warn(`[AuthGuard] Akses ditolak untuk rute ${to.path}. Dibutuhkan wewenang:`, requiredPerm)
+        // Jika kasir mencoba akses menu admin yang tidak berhak, redirect ke POS
+        if (perms.includes('pos:checkout') && to.path.startsWith('/admin')) {
+          return next({ path: '/' })
+        }
+        if (to.path !== '/admin') {
+          return next({ path: '/admin' })
+        }
+      }
+    }
+  }
+
+  next()
 })
 
 export default router

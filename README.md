@@ -3,9 +3,29 @@
 **Notane Retail POS Enterprise** adalah aplikasi kasir & ERP ritel hybrid modern berperforma tinggi yang dibangun dengan arsitektur **Hybrid Desktop & Distributed Server**. Aplikasi ini menggabungkan kecepatan native desktop menggunakan **Tauri v2 + Rust** dan antarmuka interaktif yang elegan menggunakan **Vue 3 + Tailwind CSS**.
 
 Sistem dirancang untuk mendukung operasional ritel tunggal maupun multi-kasir:
-- **Server Host**: Berfungsi sebagai server backend utama (REST API, WebSocket, PostgreSQL) sekaligus dapat menjalankan antarmuka POS lokal.
-- **Thin Client / Multi-Terminal Kasir**: Mesin kasir cabang/counter lain dapat terhubung ke Server Host secara realtime melalui jaringan LAN/Wi-Fi dengan kode pairing/IP address.
+- **Server Host (PC Utama / Kasir 1)**: Berfungsi sebagai server backend utama (REST API, WebSocket, PostgreSQL) sekaligus dapat menjalankan antarmuka POS lokal atau berjalan sebagai background tray daemon.
+- **Client (PC Kasir Tambahan / Thin Client)**: Mesin kasir cabang/counter lain terhubung ke Server Host secara realtime melalui jaringan LAN/Wi-Fi menggunakan mDNS Discovery/Server Selector, dilengkapi Offline Storage.
 - **Server-Only Mode (Daemon / Headless)**: Dapat dideploy sebagai backend service murni di server Linux/Docker/Cloud tanpa GUI.
+
+```
+                        +-----------------------------+
+                        |       Jaringan Toko         |
+                        |   (Router / Switch LAN)     |
+                        +-----------------------------+
+                                       |
+             +-------------------------+-------------------------+
+             |                                                   |
+             v                                                   v
+  +-----------------------+                           +-----------------------+
+  |      MODE SERVER      |                           |      MODE CLIENT      |
+  |  (PC Utama / Kasir 1) |                           |  (PC Kasir Tambahan)  |
+  +-----------------------+                           +-----------------------+
+  | * System Tray Only    |                           | * UI Kasir (Vue 3)    |
+  | * Axum Web Server     | <=== REST & WebSocket === | * Server Selector     |
+  | * PostgreSQL          |      (Port: 8080 LAN)     | * Offline Storage     |
+  | * mDNS Broadcaster    |                           | * mDNS Discovery      |
+  +-----------------------+                           +-----------------------+
+```
 
 ---
 
@@ -66,53 +86,69 @@ Sebelum menginstal dan menjalankan proyek di PC atau server baru, pastikan peran
 
 ---
 
-## 🚀 Panduan Instalasi di PC Baru (Development)
+## 🚀 Panduan Instalasi Cepat (One-Click Developer Setup)
 
-### 1. Clone Repository
+Bagi developer baru, Anda **tidak perlu menginstal dan mengonfigurasi PostgreSQL secara manual**. Proyek ini telah dilengkapi dengan skrip otomasi dan Docker Compose.
+
+### 1. Clone Repository & Jalankan Otomasi Setup
 ```bash
 git clone git@github.com:labdacaraka/notane-retail-pos.git
 cd notane-retail-pos
+
+# Jalankan skrip setup otomatis (membuat .env, menginstal npm, dan menyiapkan database)
+npm run setup
 ```
 
-### 2. Instalasi Dependensi Frontend
+### 2. Mengaktifkan Database (Zero-Config)
+Jika Anda menggunakan Docker, Anda cukup menjalankan:
 ```bash
-npm install
+npm run db:up
 ```
+> Database PostgreSQL 16 akan otomatis berjalan di port `5432` dengan konfigurasi siap pakai (`postgres:postgres@127.0.0.1:5432/notane_pos`).
+> Untuk mematikan database, jalankan `npm run db:down`.
 
-### 3. Konfigurasi Environment (`.env`)
-Salin file template `.env.example` ke `.env`:
-```bash
-cp .env.example .env
-```
-Sesuaikan konfigurasi koneksi database PostgreSQL Anda pada file `.env`:
-```env
-DATABASE_URL=postgres://username:password@localhost:5432/notane_pos
-PORT=8080
-RUST_LOG=info,notane_retail_pos=debug
-```
+*(Opsional: Jika PC Anda sudah memiliki instalasi PostgreSQL lokal, skrip `npm run setup` akan otomatis mendeteksinya).*
 
-### 4. Siapkan Database PostgreSQL
-Buat database di PostgreSQL:
-```bash
-# Contoh menggunakan psql:
-createdb notane_pos
-# atau masuk ke psql:
-psql -U postgres -c "CREATE DATABASE notane_pos;"
-```
-> **Catatan**: Skema tabel dan data awal (seeding) akan dieksekusi secara otomatis oleh aplikasi saat pertama kali dijalankan via migrasi SQLx bawaan (`src-tauri/migrations`).
+### 3. Menjalankan Aplikasi
 
-### 5. Menjalankan Aplikasi dalam Mode Pengembangan
+Terdapat dua cara untuk menjalankan aplikasi selama tahap pengembangan:
 
-#### Opsi A: Menjalankan Aplikasi Desktop (Tauri GUI + Backend + Frontend)
+#### Opsi A: Aplikasi Desktop Lengkap (Direkomendasikan - Satu Perintah)
 ```bash
 npm run tauri dev
 ```
+> Tauri akan otomatis mengompilasi backend Rust (Axum API di port 8080) sekaligus meluncurkan frontend Vite dalam jendela desktop native.
 
-#### Opsi B: Menjalankan Frontend Saja (Web Browser)
-Jika ingin mengembangkan frontend antarmuka kasir/back-office di browser (`http://localhost:5173`):
-```bash
-npm run dev
-```
+#### Opsi B: Mode Web Browser (`http://localhost:5173`)
+Frontend memerlukan backend API yang aktif di port `8080` untuk proses autentikasi dan database. Jalankan pada **2 terminal terpisah**:
+
+1. **Terminal 1 (Jalankan Backend Server):**
+   ```bash
+   npm run server
+   ```
+   *(Menjalankan backend Rust Axum di port 8080 & port kontrol 8081 tanpa membuka jendela desktop)*.
+
+2. **Terminal 2 (Jalankan Frontend):**
+   ```bash
+   npm run dev
+   ```
+   Buka browser di `http://localhost:5173`.
+
+> ⚠️ **Catatan Penting (Network Error saat Login)**: Jika Anda hanya menjalankan `npm run dev` tanpa menjalankan backend server (`npm run server` atau `npm run tauri dev`), proses login akan menampilkan pesan *Network Error* karena browser tidak dapat terhubung ke port 8080.
+
+---
+
+### 🔑 Akun & Kredensial Default (Seed Data)
+
+Setelah database dan backend berjalan, migrasi awal akan otomatis menyiapkan akun demo siap pakai:
+
+| Peran (Role) | Username | Password | PIN Otorisasi | Hak Akses Utama |
+| :--- | :--- | :--- | :--- | :--- |
+| **Administrator** | `admin` | `admin123` | `123456` | Akses penuh sistem, master data, user & RBAC, laporan |
+| **Supervisor** | `spv` | `spv123` | `123456` | Operasional kasir, otorisasi void/diskon, audit |
+| **Kasir** | `kasir1` | `kasir123` | `111111` | Buka/tutup shift, transaksi POS, hold/recall |
+
+*(Pada halaman login, Anda juga dapat mengklik tombol shortcut **"Admin"**, **"Supervisor"**, atau **"Kasir"** untuk auto-fill username & password).*
 
 ---
 
@@ -169,14 +205,20 @@ sudo systemctl start notane-pos
 ---
 
 ## 📦 Build Installer Desktop (Distribution)
-
-Untuk mendistribusikan installer aplikasi ke komputer kasir (format `.msi`/`.exe` di Windows, `.dmg` di macOS, `.deb`/`.AppImage` di Linux):
-
-```bash
-npm run tauri build
-```
-Hasil installer akan tersedia di folder:
-`src-tauri/target/release/bundle/`
+ 
+ ### 1. Installer Standar Tauri
+ Untuk mendistribusikan installer aplikasi ke komputer kasir (format `.msi`/`.exe` di Windows, `.dmg` di macOS, `.deb`/`.AppImage` di Linux):
+ 
+ ```bash
+ npm run tauri build
+ ```
+ Hasil installer akan tersedia di folder:
+ `src-tauri/target/release/bundle/`
+ 
+ ### 2. Installer Satu-Klik untuk Pengguna Awam (Opsi A: Bundled Silent PostgreSQL)
+ Untuk pengguna toko/kasir awam yang menginstal aplikasi di komputer baru tanpa perlu tahu cara menginstal PostgreSQL secara terpisah:
+ Gunakan skrip Inno Setup yang tersedia di [installer/windows/](installer/windows/README.md).
+ Installer ini akan otomatis memasang aplikasi sekaligus mengonfigurasi engine database PostgreSQL secara *silent* di balik layar. Pengguna akhir cukup klik *"Next > Install > Finish"*.
 
 ---
 
