@@ -109,3 +109,23 @@ pub async fn require_permission(
 
     Ok(claims)
 }
+
+pub fn extract_claims(headers: &axum::http::HeaderMap) -> Result<Claims, (axum::http::StatusCode, axum::Json<serde_json::Value>)> {
+    let auth_header = headers
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| if h.starts_with("Bearer ") { Some(&h[7..]) } else { None })
+        .ok_or_else(|| {
+            (
+                axum::http::StatusCode::UNAUTHORIZED,
+                axum::Json(serde_json::json!({ "success": false, "message": "Autentikasi dibutuhkan. Silakan login." })),
+            )
+        })?;
+
+    verify_jwt(auth_header).map_err(|e| {
+        (
+            axum::http::StatusCode::UNAUTHORIZED,
+            axum::Json(serde_json::json!({ "success": false, "message": e })),
+        )
+    })
+}

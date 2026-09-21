@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import { Icon } from '@iconify/vue'
-import { ArrowLeft } from 'lucide-vue-next'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
 // ============================================================================
@@ -61,6 +58,31 @@ const canChangePin = computed(() => {
          authStore.user?.permissions?.includes('users:change_pin') ||
          authStore.user?.permissions?.includes('users:manage')
 })
+
+// Cek apakah pengguna saat ini berhak melakukan Impersonate
+const canImpersonate = computed(() => {
+  return authStore.user?.role_name === 'SUPERADMIN' || 
+         authStore.hasPermission('users:impersonate')
+})
+
+const isImpersonatingTarget = ref<string | null>(null)
+
+async function handleImpersonate(targetUser: any) {
+  if (!confirm(`Masuk sebagai "${targetUser.full_name}" (${targetUser.role_name}) tanpa login ulang?\n\nAnda dapat kembali ke akun asli Anda kapan saja lewat banner di atas.`)) {
+    return
+  }
+
+  isImpersonatingTarget.value = targetUser.id
+  try {
+    await authStore.impersonateUser(targetUser.id)
+    alert(`Mode impersonate aktif! Anda sekarang bertindak sebagai "${targetUser.full_name}".`)
+    await fetchUsers()
+  } catch (err: any) {
+    alert(err.response?.data?.message || err.message || 'Gagal melakukan impersonate')
+  } finally {
+    isImpersonatingTarget.value = null
+  }
+}
 
 const isSelectedRoleSuperadmin = computed(() => {
   const r = roles.value.find(role => role.id === userForm.value.role_id)
@@ -468,19 +490,6 @@ onMounted(async () => {
       <!-- Page Header & Action Bar -->
       <div class="bg-white border-b border-slate-300 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 shadow-xs shrink-0">
         <div class="flex items-center gap-3">
-          <!-- Tombol Back / Kembali ke Dashboard Hub -->
-          <button
-            type="button"
-            @click="router.push('/admin')"
-            class="px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 hover:text-slate-900 transition shadow-xs flex items-center gap-1.5 text-xs font-bold cursor-pointer active:scale-95"
-            title="Kembali ke Dashboard Hub"
-          >
-            <ArrowLeft class="w-4 h-4 text-slate-600" />
-            <span>Kembali</span>
-          </button>
-
-          <div class="h-6 w-px bg-slate-300"></div>
-
           <div class="w-10 h-10 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 shadow-xs">
             <Icon icon="fluent-color:lock-shield-24" class="w-6 h-6" />
           </div>
@@ -629,7 +638,7 @@ onMounted(async () => {
                 <td class="px-4 py-3">
                   <div v-if="user.role_name === 'SUPERADMIN'">
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                      <Icon icon="fluent-color:shield-keyhole-24" class="w-3.5 h-3.5" />
+                      <Icon icon="fluent-color:shield-checkmark-24" class="w-3.5 h-3.5" />
                       Semua Lokasi
                     </span>
                   </div>
@@ -641,7 +650,7 @@ onMounted(async () => {
                       :class="o.is_warehouse ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-blue-50 text-blue-800 border-blue-200'"
                       :title="`${o.code} - ${o.name} (${o.is_warehouse ? 'Gudang' : 'Toko'})`"
                     >
-                      <Icon :icon="o.is_warehouse ? 'fluent-color:building-retail-shield-24' : 'fluent-color:building-shop-24'" class="w-3 h-3" />
+                      <Icon :icon="o.is_warehouse ? 'streamline-ultimate-color:warehouse-storage-2' : 'fluent-color:building-store-24'" class="w-3 h-3" />
                       {{ o.name }}
                     </span>
                   </div>
@@ -668,6 +677,16 @@ onMounted(async () => {
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-end gap-1">
+                    <button
+                      v-if="canImpersonate && user.id !== authStore.user?.id && user.is_active"
+                      @click="handleImpersonate(user)"
+                      :disabled="isImpersonatingTarget === user.id"
+                      title="Masuk langsung sebagai pengguna ini (Impersonate)"
+                      class="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 transition cursor-pointer flex items-center gap-1 font-bold text-xs shadow-xs active:scale-95 mr-1"
+                    >
+                      <Icon icon="fluent-color:people-sync-20" class="w-3.5 h-3.5" />
+                      <span>Impersonate</span>
+                    </button>
                     <button @click="openEditUser(user)" title="Edit Data" class="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600 transition cursor-pointer">
                       <Icon icon="fluent-color:edit-24" class="w-4 h-4" />
                     </button>
@@ -949,7 +968,7 @@ onMounted(async () => {
                 <div class="flex items-center justify-between mb-2">
                   <div>
                     <p class="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-                      <Icon icon="fluent-color:building-shop-24" class="w-4 h-4" />
+                      <Icon icon="fluent-color:building-store-24" class="w-4 h-4" />
                       Hak Akses Outlet & Lokasi
                     </p>
                     <p class="text-[11px] text-slate-500">Tentukan outlet atau gudang yang diizinkan untuk dikelola/dibuka oleh akun ini.</p>
@@ -975,7 +994,7 @@ onMounted(async () => {
 
                 <!-- Info if role is SUPERADMIN -->
                 <div v-if="isSelectedRoleSuperadmin" class="p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-800 flex items-start gap-2.5">
-                  <Icon icon="fluent-color:shield-keyhole-24" class="w-5 h-5 shrink-0 mt-0.5" />
+                  <Icon icon="fluent-color:shield-checkmark-24" class="w-5 h-5 shrink-0 mt-0.5" />
                   <div>
                     <strong class="font-bold">Akses Penuh Seluruh Cabang:</strong>
                     <div class="text-[11px] text-purple-700 mt-0.5">

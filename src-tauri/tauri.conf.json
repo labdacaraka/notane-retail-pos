@@ -12,11 +12,21 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Notane Retail POS - Enterprise Edition",
         "width": 1280,
         "height": 800,
         "resizable": true,
         "fullscreen": false
+      },
+      {
+        "label": "customer-display",
+        "title": "Notane - Layar Hadap Pelanggan (Customer Display)",
+        "url": "/customer-display",
+        "width": 1024,
+        "height": 600,
+        "resizable": true,
+        "visible": false
       }
     ],
     "security": {

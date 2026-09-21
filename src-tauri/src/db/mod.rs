@@ -23,6 +23,8 @@ pub async fn run_embedded_migrations(pool: &PgPool) -> Result<(), Box<dyn std::e
         ("006_decouple_warehouses_and_link_outlets", include_str!("../../migrations/006_decouple_warehouses_and_link_outlets.sql")),
         ("007_unify_warehouses_into_outlets", include_str!("../../migrations/007_unify_warehouses_into_outlets.sql")),
         ("008_user_outlets_access_control", include_str!("../../migrations/008_user_outlets_access_control.sql")),
+        ("009_product_outlet_prices", include_str!("../../migrations/009_product_outlet_prices.sql")),
+        ("010_impersonate_permission", include_str!("../../migrations/010_impersonate_permission.sql")),
     ];
 
     for (name, sql) in migrations {

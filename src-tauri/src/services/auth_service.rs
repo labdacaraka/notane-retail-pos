@@ -46,6 +46,14 @@ pub async fn authenticate_user(
         12, // 12 hours shift token
     )?;
 
+    let outlet_ids = sqlx::query_scalar::<_, Uuid>(
+        "SELECT outlet_id FROM user_outlets WHERE user_id = $1",
+    )
+    .bind(user.id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
     let profile = UserProfile {
         id: user.id,
         role_id: user.role_id,
@@ -55,6 +63,7 @@ pub async fn authenticate_user(
         email: user.email,
         phone: user.phone,
         permissions,
+        outlet_ids,
     };
 
     Ok(LoginResponse {
@@ -191,6 +200,14 @@ pub async fn get_user_profile(pool: &PgPool, user_id: Uuid) -> Result<UserProfil
     .await
     .map_err(|e| format!("Permission error: {}", e))?;
 
+    let outlet_ids = sqlx::query_scalar::<_, Uuid>(
+        "SELECT outlet_id FROM user_outlets WHERE user_id = $1",
+    )
+    .bind(user.id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
     Ok(UserProfile {
         id: user.id,
         role_id: user.role_id,
@@ -200,5 +217,6 @@ pub async fn get_user_profile(pool: &PgPool, user_id: Uuid) -> Result<UserProfil
         email: user.email,
         phone: user.phone,
         permissions,
+        outlet_ids,
     })
 }

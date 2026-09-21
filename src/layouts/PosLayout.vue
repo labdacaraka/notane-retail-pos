@@ -12,6 +12,7 @@ import ShiftModal from '@/components/pos/ShiftModal.vue'
 import NetworkConnectionModal from '@/components/common/NetworkConnectionModal.vue'
 import PrinterSettingsModal from '@/components/pos/PrinterSettingsModal.vue'
 import UserProfileSecurityModal from '@/components/common/UserProfileSecurityModal.vue'
+import { openCustomerDisplayWindow } from '@/services/customerDisplayChannel'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -44,12 +45,17 @@ function handleCloseShiftModal() {
 }
 
 function openCustomerDisplay() {
-  window.open('/customer-display', '_blank', 'width=1024,height=600')
+  openCustomerDisplayWindow()
 }
 
 function handleLogout() {
   authStore.logout()
   router.push({ name: 'login' })
+}
+
+async function handleExitImpersonation() {
+  await authStore.stopImpersonating()
+  alert('Anda telah kembali ke akun asli Anda.')
 }
 
 onMounted(() => {
@@ -70,6 +76,29 @@ onUnmounted(() => {
 
 <template>
   <div class="h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden select-none">
+    <!-- Impersonation Active Banner -->
+    <div
+      v-if="authStore.isImpersonating"
+      class="bg-gradient-to-r from-purple-800 via-indigo-800 to-purple-900 text-white px-4 py-2 flex items-center justify-between shadow-md z-40 text-xs shrink-0 border-b border-purple-950"
+    >
+      <div class="flex items-center gap-2.5 font-medium">
+        <span class="p-1 rounded-md bg-purple-600/60 border border-purple-400/40 text-white animate-pulse">
+          <Icon icon="fluent-color:people-sync-24" class="w-4 h-4" />
+        </span>
+        <span>
+          Mode Impersonate: Anda sedang login sebagai <strong>{{ authStore.user?.full_name }}</strong> (<span class="font-mono text-purple-200 font-bold">{{ authStore.user?.role_name }}</span>).
+        </span>
+      </div>
+
+      <button
+        @click="handleExitImpersonation"
+        class="bg-white/15 hover:bg-white text-white hover:text-purple-950 border border-white/30 px-3 py-1 rounded-lg font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+      >
+        <Icon icon="flat-color-icons:leave" class="w-4 h-4" />
+        <span>Kembali ke Akun Asli ({{ authStore.impersonator?.full_name || authStore.impersonator?.username || 'Admin' }})</span>
+      </button>
+    </div>
+
     <!-- Top POS Header Bar -->
     <header class="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between select-none shadow-xs">
       <!-- Left: Logo & Station Status -->
@@ -152,7 +181,7 @@ onUnmounted(() => {
             class="bg-indigo-50 text-indigo-900 border border-indigo-200 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1.5 shadow-xs"
             :title="'Cabang transaksi terkunci pada: ' + (shiftStore.currentShift?.outlet_name || 'Outlet Aktif')"
           >
-            <Icon icon="fluent-color:building-shop-24" class="w-4 h-4 shrink-0" />
+            <Icon icon="fluent-color:building-store-24" class="w-4 h-4 shrink-0" />
             <span class="max-w-[140px] truncate">{{ shiftStore.currentShift?.outlet_name || locationStore.currentOutlet?.name || 'Cabang Aktif' }}</span>
             <span v-if="shiftStore.currentShift?.outlet_code" class="text-[10px] font-mono text-indigo-600 font-bold">[{{ shiftStore.currentShift?.outlet_code }}]</span>
           </span>
@@ -170,7 +199,7 @@ onUnmounted(() => {
         </div>
         <div v-else class="flex items-center gap-2">
           <span v-if="locationStore.currentOutlet" class="hidden lg:flex items-center gap-1 text-xs text-slate-500 font-medium px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
-            <Icon icon="fluent-color:building-shop-24" class="w-3.5 h-3.5" />
+            <Icon icon="fluent-color:building-store-24" class="w-3.5 h-3.5" />
             <span>{{ locationStore.currentOutlet.name }}</span>
           </span>
           <button

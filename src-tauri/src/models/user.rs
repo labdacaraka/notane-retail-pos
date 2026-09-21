@@ -47,6 +47,7 @@ pub struct UserProfile {
     pub email: Option<String>,
     pub phone: Option<String>,
     pub permissions: Vec<String>,
+    pub outlet_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]

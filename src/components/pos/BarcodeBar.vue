@@ -50,9 +50,11 @@ async function searchProducts(query: string) {
 
   isSearching.value = true
   try {
-    const res = await api.get('/products', {
-      params: { search: query.trim(), limit: 12 }
-    })
+    const outletId = cartStore.currentOutletId || localStorage.getItem('notane_active_outlet_id') || localStorage.getItem('notane_pos_outlet_id')
+    const params: any = { search: query.trim(), limit: 12 }
+    if (outletId) params.outlet_id = outletId
+
+    const res = await api.get('/products', { params })
     if (res.data.success && Array.isArray(res.data.data)) {
       searchResults.value = res.data.data
       showDropdown.value = searchResults.value.length > 0
@@ -88,7 +90,11 @@ async function handleFocus() {
   } else {
     // Tampilkan beberapa barang cepat saat input diklik
     try {
-      const res = await api.get('/products', { params: { limit: 8 } })
+      const outletId = cartStore.currentOutletId || localStorage.getItem('notane_active_outlet_id') || localStorage.getItem('notane_pos_outlet_id')
+      const params: any = { limit: 8 }
+      if (outletId) params.outlet_id = outletId
+
+      const res = await api.get('/products', { params })
       if (res.data.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
         searchResults.value = res.data.data
         showDropdown.value = true

@@ -114,6 +114,7 @@ async fn current_shift_handler(
 #[derive(Deserialize)]
 struct BarcodeQuery {
     warehouse_id: Option<Uuid>,
+    outlet_id: Option<Uuid>,
 }
 
 async fn barcode_lookup_handler(
@@ -121,7 +122,7 @@ async fn barcode_lookup_handler(
     Path(code): Path<String>,
     Query(query): Query<BarcodeQuery>,
 ) -> impl IntoResponse {
-    match lookup_product(&pool, &code, query.warehouse_id).await {
+    match lookup_product(&pool, &code, query.warehouse_id, query.outlet_id).await {
         Ok(prod) => (StatusCode::OK, Json(json!({ "success": true, "data": prod }))).into_response(),
         Err(err) => (
             StatusCode::NOT_FOUND,

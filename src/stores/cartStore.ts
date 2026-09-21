@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { api } from '@/services/api'
+import { broadcastCustomerDisplayState, listenForSyncRequests, type CustomerDisplayState, type CustomerDisplayItem } from '@/services/customerDisplayChannel'
 import type { CartItem, Customer, HeldOrder, ProductDetail, ProductUnitDetail } from '@/types'
 
 export const useCartStore = defineStore('cart', () => {
@@ -13,12 +14,13 @@ export const useCartStore = defineStore('cart', () => {
       ? JSON.parse(localStorage.getItem('notane_held_orders')!)
       : []
   )
-  const currentOutletId = ref<string>(localStorage.getItem('notane_pos_outlet_id') || '')
+  const currentOutletId = ref<string>(localStorage.getItem('notane_active_outlet_id') || localStorage.getItem('notane_pos_outlet_id') || '')
   const defaultWarehouseId = ref<string>(localStorage.getItem('notane_pos_warehouse_id') || '')
 
   async function setOutlet(outletId: string, warehouseId?: string) {
     currentOutletId.value = outletId
     localStorage.setItem('notane_pos_outlet_id', outletId)
+    localStorage.setItem('notane_active_outlet_id', outletId)
     if (warehouseId) {
       defaultWarehouseId.value = warehouseId
       localStorage.setItem('notane_pos_warehouse_id', warehouseId)
@@ -26,17 +28,24 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   async function initOutlet() {
+    const activeLocId = localStorage.getItem('notane_active_outlet_id')
+    if (activeLocId && currentOutletId.value !== activeLocId) {
+      currentOutletId.value = activeLocId
+      localStorage.setItem('notane_pos_outlet_id', activeLocId)
+    }
+
     if (!currentOutletId.value || !defaultWarehouseId.value) {
       try {
-        const res = await api.get('/outlets')
-        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
-          const active = res.data.data.filter((o: any) => o.is_active)
-          const chosen = active.length > 0 ? active[0] : res.data.data[0]
-          currentOutletId.value = chosen.id
-          localStorage.setItem('notane_pos_outlet_id', chosen.id)
-          if (chosen.default_warehouse_id) {
-            defaultWarehouseId.value = chosen.default_warehouse_id
-            localStorage.setItem('notane_pos_warehouse_id', chosen.default_warehouse_id)
+        const res = await api.get('/me/outlets')
+        const list = res.data?.success && Array.isArray(res.data.data) ? res.data.data : []
+        if (list.length > 0) {
+          const preferStore = list.find((o: any) => !o.is_warehouse) || list[0]
+          currentOutletId.value = preferStore.id
+          localStorage.setItem('notane_pos_outlet_id', preferStore.id)
+          localStorage.setItem('notane_active_outlet_id', preferStore.id)
+          if (preferStore.default_warehouse_id) {
+            defaultWarehouseId.value = preferStore.default_warehouse_id
+            localStorage.setItem('notane_pos_warehouse_id', preferStore.default_warehouse_id)
           }
         }
       } catch (err) {
@@ -77,6 +86,9 @@ export const useCartStore = defineStore('cart', () => {
     const params: Record<string, any> = {}
     if (defaultWarehouseId.value) {
       params.warehouse_id = defaultWarehouseId.value
+    }
+    if (currentOutletId.value) {
+      params.outlet_id = currentOutletId.value
     }
 
     const res = await api.get(`/products/barcode/${trimmed}`, { params })
@@ -361,6 +373,59 @@ export const useCartStore = defineStore('cart', () => {
     return null
   }
 
+  function getCustomerDisplayState(status: 'IDLE' | 'ACTIVE' | 'PAYMENT_PENDING' | 'PAYMENT_SUCCESS' = 'ACTIVE'): CustomerDisplayState {
+    const displayItems: CustomerDisplayItem[] = items.value.map((it) => ({
+      id: it.id,
+      name: it.product.name,
+      sku: it.product.sku,
+      barcode: it.product.barcode,
+      quantity: it.quantity,
+      unit_code: it.selected_unit.unit_code,
+      unit_price: it.unit_price,
+      discount_amount: it.discount_amount,
+      subtotal: it.subtotal,
+    }))
+
+    return {
+      status: items.value.length === 0 ? 'IDLE' : status,
+      items: displayItems,
+      selectedCustomer: selectedCustomer.value
+        ? {
+            id: selectedCustomer.value.id,
+            name: selectedCustomer.value.name,
+            phone: selectedCustomer.value.phone,
+            customer_group_name: selectedCustomer.value.group_name,
+          }
+        : null,
+      subtotal: subtotal.value,
+      itemDiscounts: itemDiscounts.value,
+      voucherCode: voucherCode.value,
+      voucherDiscount: voucherDiscount.value,
+      totalDiscount: totalDiscount.value,
+      totalTax: totalTax.value,
+      grandTotal: grandTotal.value,
+      totalItemsCount: totalItemsCount.value,
+      lastScannedItem: displayItems.length > 0 ? displayItems[0] : null,
+      updatedAt: Date.now(),
+    }
+  }
+
+  function syncToCustomerDisplay() {
+    broadcastCustomerDisplayState(getCustomerDisplayState())
+  }
+
+  // Realtime reactivity: sinkronkan ke Customer Display setiap ada perubahan
+  watch(
+    [items, selectedCustomer, voucherCode, voucherDiscount],
+    () => {
+      syncToCustomerDisplay()
+    },
+    { deep: true }
+  )
+
+  // Tanggapi permintaan sinkronisasi dari Customer Display jika baru dibuka
+  listenForSyncRequests(() => getCustomerDisplayState())
+
   return {
     items,
     selectedCustomer,
@@ -390,5 +455,7 @@ export const useCartStore = defineStore('cart', () => {
     applyCustomerToCart,
     holdCurrentOrder,
     recallOrder,
+    getCustomerDisplayState,
+    syncToCustomerDisplay,
   }
 })

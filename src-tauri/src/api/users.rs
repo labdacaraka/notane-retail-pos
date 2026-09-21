@@ -9,7 +9,9 @@ use serde::Deserialize;
 use serde_json::json;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
-use crate::utils::jwt::{require_permission, verify_jwt};
+use crate::models::user::UserProfile;
+use crate::services::audit_service::log_audit;
+use crate::utils::jwt::{create_jwt, require_permission, verify_jwt};
 use crate::utils::hash::{hash_secret, verify_secret};
 
 pub fn user_management_routes() -> Router<PgPool> {
@@ -21,6 +23,7 @@ pub fn user_management_routes() -> Router<PgPool> {
         .route("/users/{id}/change-password", post(admin_change_password_handler))
         .route("/users/{id}/change-pin", post(admin_change_pin_handler))
         .route("/users/{id}/toggle-active", put(toggle_user_active_handler))
+        .route("/users/{id}/impersonate", post(impersonate_user_handler))
 
         // Self User Profile & Outlets
         .route("/me/outlets", get(get_my_outlets_handler))
@@ -892,3 +895,167 @@ async fn list_permissions_handler(State(pool): State<PgPool>) -> impl IntoRespon
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
     }
 }
+
+// ============================================================================
+// IMPERSONATE
+// ============================================================================
+
+async fn impersonate_user_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Path(target_id): Path<Uuid>,
+) -> impl IntoResponse {
+    let claims = match require_permission(&pool, &headers, "users:impersonate").await {
+        Ok(c) => c,
+        Err(res) => return res.into_response(),
+    };
+
+    if claims.sub == target_id {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "message": "Anda sudah login sebagai akun ini" })),
+        )
+            .into_response();
+    }
+
+    let target_user = match sqlx::query(
+        "SELECT u.id, u.username, u.full_name, u.email, u.phone, u.is_active, u.role_id, r.name as role_name
+         FROM users u
+         JOIN roles r ON u.role_id = r.id
+         WHERE u.id = $1",
+    )
+    .bind(target_id)
+    .fetch_optional(&pool)
+    .await
+    {
+        Ok(Some(u)) => u,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "success": false, "message": "Pengguna target tidak ditemukan" })),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "message": e.to_string() })),
+            )
+                .into_response()
+        }
+    };
+
+    let is_active: bool = target_user.get("is_active");
+    if !is_active {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "message": "Tidak dapat impersonate pengguna yang nonaktif" })),
+        )
+            .into_response();
+    }
+
+    let username: String = target_user.get("username");
+    let full_name: String = target_user.get("full_name");
+    let role_id: i32 = target_user.get("role_id");
+    let role_name: String = target_user.get("role_name");
+    let email: Option<String> = target_user.get("email");
+    let phone: Option<String> = target_user.get("phone");
+
+    let permissions = match sqlx::query_scalar::<_, String>(
+        "SELECT p.code FROM permissions p 
+         JOIN role_permissions rp ON p.id = rp.permission_id 
+         WHERE rp.role_id = $1",
+    )
+    .bind(role_id)
+    .fetch_all(&pool)
+    .await
+    {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "message": format!("Gagal memuat permission target: {}", e) })),
+            )
+                .into_response()
+        }
+    };
+
+    let outlet_ids = sqlx::query_scalar::<_, Uuid>(
+        "SELECT outlet_id FROM user_outlets WHERE user_id = $1",
+    )
+    .bind(target_id)
+    .fetch_all(&pool)
+    .await
+    .unwrap_or_default();
+
+    let target_token = match create_jwt(
+        target_id,
+        &username,
+        role_id,
+        &role_name,
+        claims.terminal_id.clone(),
+        12,
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "message": e })),
+            )
+                .into_response()
+        }
+    };
+
+    let profile = UserProfile {
+        id: target_id,
+        role_id,
+        role_name: role_name.clone(),
+        username: username.clone(),
+        full_name: full_name.clone(),
+        email,
+        phone,
+        permissions,
+        outlet_ids,
+    };
+
+    // Log audit trail
+    let _ = log_audit(
+        &pool,
+        Some(claims.sub),
+        None,
+        claims.terminal_id.as_deref().unwrap_or("SYSTEM"),
+        "IMPERSONATE",
+        "users",
+        Some(&target_id.to_string()),
+        None,
+        Some(json!({
+            "impersonator_id": claims.sub,
+            "impersonator_username": claims.username,
+            "impersonator_role": claims.role_name,
+            "target_user_id": target_id,
+            "target_username": username,
+            "target_role": role_name,
+        })),
+        None,
+    )
+    .await;
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "success": true,
+            "message": format!("Mode impersonate aktif sebagai {}", full_name),
+            "data": {
+                "token": target_token,
+                "user": profile,
+                "impersonator": {
+                    "id": claims.sub,
+                    "username": claims.username,
+                    "role_name": claims.role_name,
+                }
+            }
+        })),
+    )
+        .into_response()
+}
+

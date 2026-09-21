@@ -350,6 +350,7 @@ pub async fn lookup_product(
     pool: &PgPool,
     code: &str,
     warehouse_id: Option<Uuid>,
+    outlet_id: Option<Uuid>,
 ) -> Result<ProductDetail, String> {
     let parsed = parse_barcode(code);
 
@@ -388,11 +389,30 @@ pub async fn lookup_product(
 
     let product_id = product_id_opt.ok_or_else(|| format!("Produk dengan barcode '{}' tidak ditemukan", code))?;
 
-    let product = sqlx::query_as::<_, Product>("SELECT * FROM products WHERE id = $1")
+    let mut product = sqlx::query_as::<_, Product>("SELECT * FROM products WHERE id = $1")
         .bind(product_id)
         .fetch_one(pool)
         .await
         .map_err(|e| format!("Database error: {}", e))?;
+
+    // Periksa apakah ada harga khusus outlet (Multi-Outlet Pricing)
+    let outlet_price_opt = if let Some(oid) = outlet_id {
+        sqlx::query_as::<_, (Decimal, Decimal)>(
+            "SELECT cost_price, base_selling_price FROM product_outlet_prices WHERE outlet_id = $1 AND product_id = $2"
+        )
+        .bind(oid)
+        .bind(product.id)
+        .fetch_optional(pool)
+        .await
+        .unwrap_or(None)
+    } else {
+        None
+    };
+
+    if let Some((custom_cost, custom_selling)) = outlet_price_opt {
+        product.cost_price = custom_cost;
+        product.base_selling_price = custom_selling;
+    }
 
     let category_name = sqlx::query_scalar::<_, String>("SELECT name FROM categories WHERE id = $1")
         .bind(product.category_id)
@@ -512,6 +532,7 @@ pub async fn lookup_product(
         units,
         price_tiers,
         customer_group_prices,
+        outlet_prices: None,
         current_stock,
         scanned_quantity: parsed.weight,
     })
@@ -523,13 +544,14 @@ pub async fn checkout(
     req: CheckoutRequest,
 ) -> Result<CheckoutResponse, String> {
     if req.items.is_empty() {
-        return Err("Keranjang belanja tidak boleh kosong".to_string());
+        return Err("Keranjang belanja kosong".to_string());
     }
 
-    let mut tx = pool.begin().await.map_err(|e| format!("Transaction error: {}", e))?;
+    let mut tx = pool.begin().await.map_err(|e| format!("Database error: {}", e))?;
 
+    // Check active shift
     let shift = sqlx::query_as::<_, CashierShift>(
-        "SELECT * FROM cashier_shifts WHERE id = $1 AND status = 'OPEN' FOR UPDATE",
+        "SELECT * FROM cashier_shifts WHERE id = $1 AND status = 'OPEN' FOR UPDATE"
     )
     .bind(req.shift_id)
     .fetch_optional(&mut *tx)
@@ -601,13 +623,26 @@ pub async fn checkout(
     let mut prepared_items = Vec::new();
 
     for item in &req.items {
-        let product = sqlx::query_as::<_, Product>(
+        let mut product = sqlx::query_as::<_, Product>(
             "SELECT * FROM products WHERE id = $1",
         )
         .bind(item.product_id)
         .fetch_one(&mut *tx)
         .await
         .map_err(|e| format!("Produk tidak ditemukan: {}", e))?;
+
+        // Check if outlet-specific price/cost exists
+        if let Some(op) = sqlx::query_as::<_, (Decimal, Decimal)>(
+            "SELECT cost_price, base_selling_price FROM product_outlet_prices WHERE outlet_id = $1 AND product_id = $2"
+        )
+        .bind(outlet_id)
+        .bind(product.id)
+        .fetch_optional(&mut *tx)
+        .await
+        .unwrap_or(None) {
+            product.cost_price = op.0;
+            product.base_selling_price = op.1;
+        }
 
         let (factor, unit_code) = if item.unit_id == product.base_unit_id {
             let uc = sqlx::query_scalar::<_, String>("SELECT code FROM units WHERE id = $1")

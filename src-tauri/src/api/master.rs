@@ -1,9 +1,9 @@
 use crate::models::product::{Brand, Category, CreateProductRequest, Product, Unit};
 use crate::models::settings::{ReceiptSettings, UpdateReceiptSettingsRequest};
-use crate::utils::jwt::require_permission;
+use crate::utils::jwt::{extract_claims, require_permission};
 use axum::{
     extract::{Path, Query, Request, State},
-    http::{Method, StatusCode},
+    http::{HeaderMap, Method, StatusCode},
     middleware::{from_fn_with_state, Next},
     response::{IntoResponse, Response},
     routing::{delete, get, post, put},
@@ -48,6 +48,8 @@ pub fn master_routes(pool: PgPool) -> Router<PgPool> {
         .route("/products/price-tiers/{id}", delete(delete_product_tier_handler))
         .route("/products/{id}/customer-group-prices", get(get_product_group_prices_handler).post(save_product_group_price_handler))
         .route("/products/customer-group-prices/{id}", delete(delete_product_group_price_handler))
+        .route("/products/{id}/outlet-prices", get(get_product_outlet_prices_handler).post(save_product_outlet_price_handler))
+        .route("/products/outlet-prices/{id}", delete(delete_product_outlet_price_handler))
 
         // Customers & Customer Groups
         .route("/customers", get(list_customers_handler).post(create_customer_handler))
@@ -96,26 +98,59 @@ pub fn master_routes(pool: PgPool) -> Router<PgPool> {
 struct ProductQuery {
     category_id: Option<Uuid>,
     search: Option<String>,
+    outlet_id: Option<Uuid>,
+    limit: Option<i64>,
 }
 
 async fn list_products_handler(
     State(pool): State<PgPool>,
     Query(query): Query<ProductQuery>,
 ) -> impl IntoResponse {
-    let mut sql = "SELECT p.*, c.name as category_name, u.code as unit_code, COALESCE(SUM(ws.quantity), 0) as stock_qty 
-                   FROM products p 
-                   JOIN categories c ON p.category_id = c.id 
-                   JOIN units u ON p.base_unit_id = u.id 
-                   LEFT JOIN warehouse_stocks ws ON p.id = ws.product_id 
-                   WHERE p.is_active = true".to_string();
+    let (pop_join, cost_col, price_col, pop_group) = if let Some(oid) = query.outlet_id {
+        (
+            format!("LEFT JOIN product_outlet_prices pop ON pop.product_id = p.id AND pop.outlet_id = '{}'", oid),
+            "COALESCE(pop.cost_price, p.cost_price) as cost_price".to_string(),
+            "COALESCE(pop.base_selling_price, p.base_selling_price) as base_selling_price".to_string(),
+            ", pop.cost_price, pop.base_selling_price".to_string(),
+        )
+    } else {
+        (
+            "".to_string(),
+            "p.cost_price".to_string(),
+            "p.base_selling_price".to_string(),
+            "".to_string(),
+        )
+    };
+
+    let mut sql = format!(
+        "SELECT p.id, p.category_id, p.base_unit_id, p.brand_id, p.sku, p.barcode, p.name, 
+                p.min_stock, p.max_stock, p.tax_percent, p.is_weight_embedded,
+                c.name as category_name, u.code as unit_code,
+                {}, {},
+                COALESCE(SUM(ws.quantity), 0) as stock_qty 
+         FROM products p 
+         JOIN categories c ON p.category_id = c.id 
+         JOIN units u ON p.base_unit_id = u.id 
+         {}
+         LEFT JOIN warehouse_stocks ws ON p.id = ws.product_id 
+         WHERE p.is_active = true",
+        cost_col, price_col, pop_join
+    );
 
     if let Some(cat) = query.category_id {
         sql.push_str(&format!(" AND p.category_id = '{}'", cat));
     }
     if let Some(s) = query.search {
-        sql.push_str(&format!(" AND (p.name ILIKE '%{}%' OR p.barcode ILIKE '%{}%' OR p.sku ILIKE '%{}%')", s, s, s));
+        let clean = s.replace('\'', "''");
+        sql.push_str(&format!(" AND (p.name ILIKE '%{}%' OR p.barcode ILIKE '%{}%' OR p.sku ILIKE '%{}%')", clean, clean, clean));
     }
-    sql.push_str(" GROUP BY p.id, c.name, u.code ORDER BY p.name ASC");
+    sql.push_str(&format!(" GROUP BY p.id, c.name, u.code{} ORDER BY p.name ASC", pop_group));
+
+    if let Some(lim) = query.limit {
+        if lim > 0 {
+            sql.push_str(&format!(" LIMIT {}", lim));
+        }
+    }
 
     let rows = sqlx::query(&sql).fetch_all(&pool).await;
 
@@ -459,6 +494,195 @@ async fn delete_product_group_price_handler(
 ) -> impl IntoResponse {
     match sqlx::query("DELETE FROM customer_group_prices WHERE id = $1").bind(id).execute(&pool).await {
         Ok(_) => (StatusCode::OK, Json(json!({ "success": true, "message": "Harga kelompok pelanggan berhasil dihapus" }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Multi-Outlet Pricing Handlers
+// ----------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct SaveProductOutletPricePayload {
+    outlet_id: Uuid,
+    cost_price: Decimal,
+    base_selling_price: Decimal,
+}
+
+async fn get_product_outlet_prices_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Path(product_id): Path<Uuid>,
+) -> impl IntoResponse {
+    let claims = match extract_claims(&headers) {
+        Ok(c) => Some(c),
+        Err(_) => None,
+    };
+
+    let rows = if let Some(c) = claims {
+        if c.role_name == "SUPERADMIN" {
+            sqlx::query(
+                "SELECT pop.id, pop.outlet_id, o.code as outlet_code, o.name as outlet_name, o.is_warehouse,
+                        pop.product_id, pop.cost_price, pop.base_selling_price
+                 FROM product_outlet_prices pop
+                 JOIN outlets o ON pop.outlet_id = o.id
+                 WHERE pop.product_id = $1 AND o.is_active = true
+                 ORDER BY o.is_warehouse ASC, o.name ASC",
+            )
+            .bind(product_id)
+            .fetch_all(&pool)
+            .await
+        } else {
+            sqlx::query(
+                "SELECT pop.id, pop.outlet_id, o.code as outlet_code, o.name as outlet_name, o.is_warehouse,
+                        pop.product_id, pop.cost_price, pop.base_selling_price
+                 FROM product_outlet_prices pop
+                 JOIN outlets o ON pop.outlet_id = o.id
+                 JOIN user_outlets uo ON o.id = uo.outlet_id
+                 WHERE pop.product_id = $1 AND uo.user_id = $2 AND o.is_active = true
+                 ORDER BY o.is_warehouse ASC, o.name ASC",
+            )
+            .bind(product_id)
+            .bind(c.sub)
+            .fetch_all(&pool)
+            .await
+        }
+    } else {
+        sqlx::query(
+            "SELECT pop.id, pop.outlet_id, o.code as outlet_code, o.name as outlet_name, o.is_warehouse,
+                    pop.product_id, pop.cost_price, pop.base_selling_price
+             FROM product_outlet_prices pop
+             JOIN outlets o ON pop.outlet_id = o.id
+             WHERE pop.product_id = $1 AND o.is_active = true
+             ORDER BY o.is_warehouse ASC, o.name ASC",
+        )
+        .bind(product_id)
+        .fetch_all(&pool)
+        .await
+    };
+
+    match rows {
+        Ok(r) => {
+            let list: Vec<serde_json::Value> = r
+                .iter()
+                .map(|row| {
+                    json!({
+                        "id": row.get::<Uuid, _>("id"),
+                        "outlet_id": row.get::<Uuid, _>("outlet_id"),
+                        "outlet_code": row.get::<String, _>("outlet_code"),
+                        "outlet_name": row.get::<String, _>("outlet_name"),
+                        "is_warehouse": row.get::<bool, _>("is_warehouse"),
+                        "product_id": row.get::<Uuid, _>("product_id"),
+                        "cost_price": row.get::<Decimal, _>("cost_price"),
+                        "base_selling_price": row.get::<Decimal, _>("base_selling_price"),
+                    })
+                })
+                .collect();
+            (StatusCode::OK, Json(json!({ "success": true, "data": list }))).into_response()
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+async fn save_product_outlet_price_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Path(product_id): Path<Uuid>,
+    Json(payload): Json<SaveProductOutletPricePayload>,
+) -> impl IntoResponse {
+    // 1. Verify user outlet permission (SUPERADMIN has access to all)
+    let claims = match extract_claims(&headers) {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+
+    if claims.role_name != "SUPERADMIN" {
+        let has_outlet_access: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM user_outlets WHERE user_id = $1 AND outlet_id = $2)"
+        )
+        .bind(claims.sub)
+        .bind(payload.outlet_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap_or(false);
+
+        if !has_outlet_access {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "success": false,
+                    "message": "Akses ditolak: Anda tidak memiliki wewenang untuk mengatur harga di outlet ini"
+                })),
+            ).into_response();
+        }
+    }
+
+    let res = sqlx::query(
+        "INSERT INTO product_outlet_prices (outlet_id, product_id, cost_price, base_selling_price)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (outlet_id, product_id) DO UPDATE SET
+            cost_price = EXCLUDED.cost_price,
+            base_selling_price = EXCLUDED.base_selling_price,
+            updated_at = CURRENT_TIMESTAMP
+         RETURNING id",
+    )
+    .bind(payload.outlet_id)
+    .bind(product_id)
+    .bind(payload.cost_price)
+    .bind(payload.base_selling_price)
+    .fetch_one(&pool)
+    .await;
+
+    match res {
+        Ok(r) => (StatusCode::OK, Json(json!({ "success": true, "id": r.get::<Uuid, _>("id"), "message": "Harga khusus outlet berhasil disimpan" }))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    }
+}
+
+async fn delete_product_outlet_price_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> impl IntoResponse {
+    // 1. Verify user outlet permission
+    let claims = match extract_claims(&headers) {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+
+    if claims.role_name != "SUPERADMIN" {
+        let target_outlet_id = sqlx::query_scalar::<_, Uuid>(
+            "SELECT outlet_id FROM product_outlet_prices WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_optional(&pool)
+        .await
+        .unwrap_or(None);
+
+        if let Some(oid) = target_outlet_id {
+            let has_outlet_access: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM user_outlets WHERE user_id = $1 AND outlet_id = $2)"
+            )
+            .bind(claims.sub)
+            .bind(oid)
+            .fetch_one(&pool)
+            .await
+            .unwrap_or(false);
+
+            if !has_outlet_access {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "success": false,
+                        "message": "Akses ditolak: Anda tidak memiliki wewenang untuk menghapus harga di outlet ini"
+                    })),
+                ).into_response();
+            }
+        }
+    }
+
+    match sqlx::query("DELETE FROM product_outlet_prices WHERE id = $1").bind(id).execute(&pool).await {
+        Ok(_) => (StatusCode::OK, Json(json!({ "success": true, "message": "Harga khusus outlet berhasil dihapus (kembali ke harga dasar produk)" }))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
     }
 }

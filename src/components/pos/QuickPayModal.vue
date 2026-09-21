@@ -6,6 +6,7 @@ import { useShiftStore } from '@/stores/shiftStore'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrinterStore } from '@/stores/printerStore'
 import { api } from '@/services/api'
+import { broadcastPaymentSuccess } from '@/services/customerDisplayChannel'
 import { Icon } from '@iconify/vue'
 import type { PaymentEntry, PaymentMethod, CheckoutResult } from '@/types'
 
@@ -151,6 +152,17 @@ async function handleCompletePayment() {
     if (res.data.success) {
       receiptData.value = res.data.data
       showReceipt.value = true
+
+      const matchedMethod = paymentMethods.value.find((m) => m.code === activeMethod.value)
+      broadcastPaymentSuccess({
+        tendered: totalPaid.value,
+        change: changeAmount.value,
+        paymentMethod: matchedMethod?.name || 'Tunai',
+        invoiceNumber: res.data.data?.invoice_number || 'TRX-SUCCESS',
+        grandTotal: cartStore.grandTotal,
+        customerName: cartStore.selectedCustomer?.name,
+      })
+
       cartStore.clearCart()
       emit('success', res.data.data)
 

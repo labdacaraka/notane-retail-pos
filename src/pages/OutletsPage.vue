@@ -315,14 +315,15 @@ async function confirmDelete() {
         </div>
       </transition>
 
-      <!-- 1. HEADER & ACTIONS BAR -->
-      <div class="bg-white border-b border-slate-300 px-6 py-4 shrink-0 shadow-2xs">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <!-- 1. HEADER & TOP ACTIONS BAR -->
+      <div class="bg-white border-b border-slate-300 px-6 py-4 shrink-0 shadow-2xs space-y-4">
+        <!-- Row 1: Judul Halaman & Tombol Aksi Utama di Pojok Kanan -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div class="flex items-center gap-3">
             <div
               class="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-300 flex items-center justify-center shadow-xs text-amber-700 shrink-0"
             >
-              <Icon icon="fluent-color:building-shop-24" class="w-7 h-7" />
+              <Icon icon="fluent-color:building-store-24" class="w-7 h-7" />
             </div>
             <div>
               <div class="flex items-center gap-2">
@@ -341,9 +342,22 @@ async function confirmDelete() {
             </div>
           </div>
 
-          <!-- Actions: Search & Add Button -->
-          <div class="flex items-center gap-2.5 flex-wrap">
-            <div class="relative w-56">
+          <!-- Tombol Tambah Lokasi di Pojok Kanan Atas -->
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              @click="openCreateModal(false)"
+              class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm border border-amber-700 transition active:scale-95 cursor-pointer"
+            >
+              <Plus class="w-4 h-4" />
+              <span>Tambah Lokasi</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Row 2: Search & Filter Toolbar -->
+        <div class="flex items-center justify-between gap-2.5 flex-wrap pt-1 border-t border-slate-100">
+          <div class="flex items-center gap-2.5 flex-wrap flex-1">
+            <div class="relative w-64">
               <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 v-model="searchQuery"
@@ -356,7 +370,7 @@ async function confirmDelete() {
             <!-- Type Filter -->
             <select
               v-model="typeFilter"
-              class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-600 shadow-2xs"
+              class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-600 shadow-2xs cursor-pointer"
             >
               <option value="ALL">Semua Tipe</option>
               <option value="STORE">🏬 Toko Saja</option>
@@ -366,30 +380,21 @@ async function confirmDelete() {
             <!-- Status Filter -->
             <select
               v-model="statusFilter"
-              class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-600 shadow-2xs"
+              class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-600 shadow-2xs cursor-pointer"
             >
               <option value="ALL">Semua Status</option>
               <option value="ACTIVE">Aktif Saja</option>
               <option value="INACTIVE">Nonaktif</option>
             </select>
-
-            <button
-              @click="loadData"
-              class="p-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 transition shadow-2xs cursor-pointer active:scale-95"
-              title="Segarkan Data"
-            >
-              <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isLoading }" />
-            </button>
-
-            <!-- Dropdown Tambah Lokasi -->
-            <button
-              @click="openCreateModal(false)"
-              class="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm border border-amber-700 transition active:scale-95 cursor-pointer"
-            >
-              <Plus class="w-4 h-4" />
-              <span>Tambah Lokasi</span>
-            </button>
           </div>
+
+          <button
+            @click="loadData"
+            class="p-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 transition shadow-2xs cursor-pointer active:scale-95"
+            title="Segarkan Data"
+          >
+            <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isLoading }" />
+          </button>
         </div>
       </div>
 
@@ -407,7 +412,7 @@ async function confirmDelete() {
 
         <div class="bg-white p-3.5 rounded-xl border border-slate-300 shadow-2xs flex items-center gap-3">
           <div class="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-            <Icon icon="fluent-color:building-shop-24" class="w-6 h-6" />
+            <Icon icon="fluent-color:building-store-24" class="w-6 h-6" />
           </div>
           <div>
             <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Cabang Toko Ritel</div>

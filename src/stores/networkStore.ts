@@ -423,6 +423,15 @@ export const useNetworkStore = defineStore('network', {
         const res = await axios.get(`${this.controlUrl}/api/v1/system/status`, { timeout: 2500 })
         if (res.data) {
           this.hostStatus = res.data
+          if (this.nodeRole === 'SERVER') {
+            if (this.hostStatus.is_running) {
+              this.connectionStatus = 'CONNECTED'
+              this.disconnectReason = ''
+            } else {
+              this.connectionStatus = 'DISCONNECTED'
+              this.disconnectReason = 'Host Server dimatikan'
+            }
+          }
           return
         }
       } catch (_) {}
@@ -431,10 +440,24 @@ export const useNetworkStore = defineStore('network', {
         const res = await axios.get(`${this.serverUrl}/api/v1/system/status`, { timeout: 2500 })
         if (res.data) {
           this.hostStatus = res.data
+          if (this.nodeRole === 'SERVER') {
+            if (this.hostStatus.is_running) {
+              this.connectionStatus = 'CONNECTED'
+              this.disconnectReason = ''
+            } else {
+              this.connectionStatus = 'DISCONNECTED'
+              this.disconnectReason = 'Host Server dimatikan'
+            }
+          }
+          return
         }
       } catch (_) {
         // Jika kedua port tidak menjawab, tandai is_running = false
         this.hostStatus.is_running = false
+        if (this.nodeRole === 'SERVER') {
+          this.connectionStatus = 'DISCONNECTED'
+          this.disconnectReason = 'Daemon server tidak merespons'
+        }
       }
     },
 
@@ -570,6 +593,39 @@ export const useNetworkStore = defineStore('network', {
       } catch (err: any) {
         alert(`Gagal memutuskan device ${deviceId}: ${err.message}`)
         return false
+      }
+    },
+
+    async checkConnection(): Promise<boolean> {
+      if (this.nodeRole === 'SERVER') {
+        await this.fetchHostStatus()
+        const ping = await this.pingServer('127.0.0.1', 8080)
+        if (ping.success) {
+          this.connectionStatus = 'CONNECTED'
+          this.disconnectReason = ''
+          return true
+        } else {
+          this.connectionStatus = 'DISCONNECTED'
+          this.disconnectReason = ping.error || 'Host server tidak merespons'
+          return false
+        }
+      } else {
+        // CLIENT mode
+        if (this.connectionIntent === 'CONNECTED' && this.autoReconnect && this.connectionStatus !== 'CONNECTED') {
+          return await this.connect()
+        }
+        const ping = await this.pingServer()
+        if (ping.success) {
+          if (this.connectionStatus !== 'CONNECTED') {
+            this.connectionStatus = 'CONNECTED'
+            this.disconnectReason = ''
+          }
+          return true
+        } else {
+          this.connectionStatus = 'DISCONNECTED'
+          this.disconnectReason = ping.error || 'Terputus dari Host Server'
+          return false
+        }
       }
     },
 

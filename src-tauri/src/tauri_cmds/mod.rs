@@ -24,3 +24,26 @@ pub fn print_receipt(receipt_data: serde_json::Value) -> Result<String, String> 
     println!("[HARDWARE IPC] Mencetak struk transaksi thermal: {:?}", receipt_data);
     Ok("Struk berhasil dikirim ke antrean cetak".to_string())
 }
+
+#[tauri::command]
+pub async fn open_customer_display_window(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    if let Some(w) = app.get_webview_window("customer-display") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+        Ok(())
+    } else {
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            "customer-display",
+            tauri::WebviewUrl::App("/customer-display".into())
+        )
+        .title("Notane - Layar Hadap Pelanggan (Customer Display)")
+        .inner_size(1024.0, 600.0)
+        .resizable(true);
+
+        builder.build().map_err(|e| e.to_string())?;
+        Ok(())
+    }
+}

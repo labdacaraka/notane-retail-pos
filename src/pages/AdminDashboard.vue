@@ -16,7 +16,7 @@ const hubSections = computed(() => {
         {
           title: 'Master Outlet & Gerai',
           desc: 'Manajemen cabang outlet, penugasan Store Manager, Supervisor penanggung jawab & gudang',
-          icon: 'fluent-color:building-shop-24',
+          icon: 'fluent-color:building-store-24',
           path: '/admin/outlets',
           color: 'from-amber-500 to-orange-600',
           badge: 'Multi-Outlet',

@@ -21,9 +21,11 @@ const searchInputRef = ref<HTMLInputElement | null>(null)
 async function fetchProducts() {
   isLoading.value = true
   try {
-    const res = await api.get('/products', {
-      params: { search: searchQuery.value || undefined },
-    })
+    const outletId = cartStore.currentOutletId || localStorage.getItem('notane_active_outlet_id') || localStorage.getItem('notane_pos_outlet_id')
+    const params: any = { search: searchQuery.value || undefined }
+    if (outletId) params.outlet_id = outletId
+
+    const res = await api.get('/products', { params })
     if (res.data.success) {
       products.value = res.data.data
     }

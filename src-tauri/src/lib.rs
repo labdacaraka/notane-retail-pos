@@ -5,7 +5,7 @@ pub mod services;
 pub mod tauri_cmds;
 pub mod utils;
 
-use tauri_cmds::{get_system_info, open_cash_drawer, print_receipt};
+use tauri_cmds::{get_system_info, open_cash_drawer, open_customer_display_window, print_receipt};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,7 +14,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_system_info,
             open_cash_drawer,
-            print_receipt
+            print_receipt,
+            open_customer_display_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

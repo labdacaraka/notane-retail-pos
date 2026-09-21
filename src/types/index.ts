@@ -7,6 +7,7 @@ export interface UserProfile {
   email?: string
   phone?: string
   permissions: string[]
+  outlet_ids?: string[]
 }
 
 export interface ProductUnitDetail {
@@ -51,6 +52,17 @@ export interface CustomerGroupPriceDetail {
   special_price: number
 }
 
+export interface ProductOutletPriceDetail {
+  id: string
+  outlet_id: string
+  outlet_code: string
+  outlet_name: string
+  is_warehouse: boolean
+  product_id: string
+  cost_price: number
+  base_selling_price: number
+}
+
 export interface ProductDetail {
   product: Product
   category_name: string
@@ -61,6 +73,7 @@ export interface ProductDetail {
   units: ProductUnitDetail[]
   price_tiers: ProductPriceTier[]
   customer_group_prices?: CustomerGroupPriceDetail[]
+  outlet_prices?: ProductOutletPriceDetail[]
   current_stock: number
   scanned_quantity?: number | string
 }

@@ -6,7 +6,7 @@ import { useNetworkStore } from '@/stores/networkStore'
 import NetworkConnectionModal from '@/components/common/NetworkConnectionModal.vue'
 import UserProfileSecurityModal from '@/components/common/UserProfileSecurityModal.vue'
 import { useLocationStore } from '@/stores/locationStore'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -16,11 +16,15 @@ const locationStore = useLocationStore()
 const showNetworkModal = ref(false)
 const showSecurityModal = ref(false)
 const showLocationDropdown = ref(false)
+let adminHeartbeatTimer: any = null
+
+const isDisconnected = computed(() => networkStore.connectionStatus !== 'CONNECTED')
+const isConnectionConfigPage = computed(() => route.path === '/admin/client-connection' || route.path === '/admin/server-control')
 
 // 1. Grup Menu Operasional & Master Data Bisnis
 const rawOperationalMenus = [
-  { path: '/admin', name: 'Dashboard Hub', icon: 'fluent-color:building-store-24' },
-  { path: '/admin/outlets', name: 'Master Outlet', icon: 'fluent-color:building-shop-24', permission: ['outlets:read', 'master:read'] },
+  { path: '/admin', name: 'Dashboard Hub', icon: 'fluent-color:apps-24' },
+  { path: '/admin/outlets', name: 'Master Outlet', icon: 'fluent-color:building-store-24', permission: ['outlets:read', 'master:read'] },
   { path: '/admin/sales', name: 'Penjualan', icon: 'fluent-color:receipt-24', permission: 'report:view' },
   { path: '/admin/purchases', name: 'Pembelian', icon: 'streamline-ultimate-color:delivery-truck-cargo', permission: 'purchasing:read' },
   { path: '/admin/products', name: 'Master Produk', icon: 'streamline-ultimate-color:warehouse-cart-packages-2', permission: 'master:read' },
@@ -53,20 +57,61 @@ const networkMenu = {
   icon: 'fluent-color:wifi-24',
 }
 
-onMounted(() => {
-  networkStore.fetchHostStatus()
+onMounted(async () => {
+  await networkStore.checkConnection()
   authStore.fetchCurrentUser()
   locationStore.fetchAccessibleOutlets()
+
+  // Heartbeat berkala setiap 5 detik untuk memastikan status host selalu akurat & tombol terupdate
+  if (adminHeartbeatTimer) clearInterval(adminHeartbeatTimer)
+  adminHeartbeatTimer = setInterval(async () => {
+    await networkStore.checkConnection()
+  }, 5000)
+})
+
+onUnmounted(() => {
+  if (adminHeartbeatTimer) {
+    clearInterval(adminHeartbeatTimer)
+    adminHeartbeatTimer = null
+  }
 })
 
 function handleLogout() {
   authStore.logout()
   router.push('/login')
 }
+
+async function handleExitImpersonation() {
+  await authStore.stopImpersonating()
+  alert('Anda telah kembali ke akun asli Anda.')
+}
 </script>
 
 <template>
   <div class="h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden font-sans select-none" @click="showLocationDropdown = false">
+    <!-- Impersonation Active Banner -->
+    <div
+      v-if="authStore.isImpersonating"
+      class="bg-gradient-to-r from-purple-800 via-indigo-800 to-purple-900 text-white px-5 py-2 flex items-center justify-between shadow-md z-40 text-xs shrink-0 border-b border-purple-950"
+    >
+      <div class="flex items-center gap-2.5 font-medium">
+        <span class="p-1 rounded-md bg-purple-600/60 border border-purple-400/40 text-white animate-pulse">
+          <Icon icon="fluent-color:people-sync-24" class="w-4 h-4" />
+        </span>
+        <span>
+          Mode Impersonate: Anda sedang login sebagai <strong>{{ authStore.user?.full_name }}</strong> (<span class="font-mono text-purple-200 font-bold">{{ authStore.user?.role_name }}</span>).
+        </span>
+      </div>
+
+      <button
+        @click="handleExitImpersonation"
+        class="bg-white/15 hover:bg-white text-white hover:text-purple-950 border border-white/30 px-3 py-1 rounded-lg font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+      >
+        <Icon icon="flat-color-icons:leave" class="w-4 h-4" />
+        <span>Kembali ke Akun Asli ({{ authStore.impersonator?.full_name || authStore.impersonator?.username || 'Admin' }})</span>
+      </button>
+    </div>
+
     <!-- 1. TOP NATIVE DESKTOP TITLE BAR -->
     <header class="bg-white border-b border-slate-300 px-5 py-2 flex items-center justify-between shadow-sm z-30 shrink-0">
       <!-- Left: Brand & Outlet Info + Role Switcher Badge -->
@@ -112,7 +157,7 @@ function handleLogout() {
                   >
                     <div class="flex items-center gap-2 min-w-0">
                       <Icon
-                        :icon="loc.is_warehouse ? 'fluent-color:building-warehouse-24' : 'fluent-color:building-shop-24'"
+                        :icon="loc.is_warehouse ? 'streamline-ultimate-color:warehouse-storage-2' : 'fluent-color:building-store-24'"
                         class="w-4 h-4 shrink-0"
                       />
                       <div class="truncate">
@@ -139,6 +184,7 @@ function handleLogout() {
       <!-- Right: Cashier POS Switcher & User Operator Info -->
       <div class="flex items-center gap-3">
         <button
+          v-if="authStore.hasPermission('pos:checkout')"
           @click="router.push('/')"
           class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm border border-emerald-700 transition active:scale-95 cursor-pointer"
         >
@@ -298,8 +344,73 @@ function handleLogout() {
       </div>
     </nav>
 
-    <!-- 3. FULL-WIDTH DESKTOP WORKSPACE AREA -->
-    <main class="flex-1 overflow-y-auto bg-slate-100">
+    <!-- 3. OFFLINE WARNING STRIP WHEN DISCONNECTED -->
+    <div
+      v-if="isDisconnected && !isConnectionConfigPage"
+      class="bg-rose-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-sm z-20 shrink-0"
+    >
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+        <Icon icon="fluent:warning-24-filled" class="w-4 h-4 text-amber-300" />
+        <span>Koneksi ke Server Host Terputus: Semua operasi API & transaksi di-disable untuk mencegah inkonsistensi data.</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          @click="networkStore.checkConnection()"
+          class="bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold px-2.5 py-1 rounded border border-white/40 transition cursor-pointer"
+        >
+          Coba Sambungkan Lagi
+        </button>
+        <button
+          type="button"
+          @click="router.push('/admin/client-connection')"
+          class="bg-white text-rose-800 hover:bg-rose-50 text-[11px] font-black px-2.5 py-1 rounded shadow-xs transition cursor-pointer"
+        >
+          Konfigurasi Jaringan
+        </button>
+      </div>
+    </div>
+
+    <!-- 4. FULL-WIDTH DESKTOP WORKSPACE AREA -->
+    <main class="flex-1 overflow-y-auto bg-slate-100 relative">
+      <!-- Disconnected Interaction Blocker Overlay for non-config pages -->
+      <div
+        v-if="isDisconnected && !isConnectionConfigPage"
+        class="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 text-center select-none"
+      >
+        <div class="bg-white rounded-2xl p-6 max-w-md shadow-2xl border border-slate-300 space-y-4">
+          <div class="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto">
+            <Icon icon="fluent-color:wifi-off-24" class="w-8 h-8" />
+          </div>
+          <div>
+            <h3 class="text-base font-black text-slate-900">Koneksi Host Server Terputus</h3>
+            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+              Tombol dan interaksi dinonaktifkan sementara karena tidak ada koneksi aktif ke server host database backend.
+            </p>
+            <div v-if="networkStore.disconnectReason" class="mt-2 p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-mono">
+              {{ networkStore.disconnectReason }}
+            </div>
+          </div>
+          <div class="flex items-center justify-center gap-2 pt-2">
+            <button
+              type="button"
+              @click="networkStore.checkConnection()"
+              class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold border border-slate-300 transition cursor-pointer"
+            >
+              Cek Ulang Koneksi
+            </button>
+            <button
+              type="button"
+              @click="router.push('/admin/client-connection')"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold border border-blue-700 shadow-xs transition cursor-pointer"
+            >
+              Atur Sambungan LAN
+            </button>
+          </div>
+        </div>
+      </div>
+
       <slot />
     </main>
 

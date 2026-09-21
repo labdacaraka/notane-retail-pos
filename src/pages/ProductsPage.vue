@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import PaginationBar from '@/components/common/PaginationBar.vue'
 import SearchableSelect from '@/components/common/SearchableSelect.vue'
-import { Search, Scale, Edit2, Trash2, Users, Tag, Check } from 'lucide-vue-next'
+import { Search, Scale, Edit2, Trash2, Users, Tag, Check, Building2, Lock } from 'lucide-vue-next'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -235,7 +235,105 @@ async function handleSaveGroupPrice(groupId: number) {
   }
 }
 
+// Outlet-Specific Prices Modal
+const showOutletPriceModal = ref<boolean>(false)
+const selectedProductForOutletPrice = ref<any>(null)
+const outletsList = ref<any[]>([])
+const productOutletPrices = ref<any[]>([])
+const outletPriceInputs = ref<Record<string, { cost_price: number | null; base_selling_price: number | null }>>({})
+const isSavingOutletPrices = ref<boolean>(false)
+const isLoadingOutletPrices = ref<boolean>(false)
+
+async function openOutletPriceModal(prod: any) {
+  selectedProductForOutletPrice.value = prod
+  outletPriceInputs.value = {}
+  showOutletPriceModal.value = true
+  isLoadingOutletPrices.value = true
+
+  try {
+    const [_, outletsRes, pricesRes] = await Promise.all([
+      authStore.fetchCurrentUser(),
+      api.get('/me/outlets'),
+      api.get(`/products/${prod.id}/outlet-prices`),
+    ])
+
+    if (outletsRes.data.success) {
+      outletsList.value = outletsRes.data.data.filter((o: any) => o.is_active !== false)
+    }
+    if (pricesRes.data.success) {
+      productOutletPrices.value = pricesRes.data.data
+      for (const op of pricesRes.data.data) {
+        outletPriceInputs.value[op.outlet_id] = {
+          cost_price: Number(op.cost_price),
+          base_selling_price: Number(op.base_selling_price),
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Gagal memuat harga outlet:', err)
+  } finally {
+    isLoadingOutletPrices.value = false
+  }
+}
+
+async function handleSaveOutletPrice(outletId: string) {
+  if (!authStore.hasPermission('master:write')) {
+    alert('Akses ditolak: Anda hanya memiliki hak baca master data')
+    return
+  }
+  if (!authStore.hasOutletAccess(outletId)) {
+    alert('Akses ditolak: Anda tidak memiliki wewenang untuk mengatur harga di outlet ini!')
+    return
+  }
+  const prodId = selectedProductForOutletPrice.value?.id
+  if (!prodId) return
+
+  const input = outletPriceInputs.value[outletId]
+  isSavingOutletPrices.value = true
+
+  try {
+    const cost = input?.cost_price
+    const price = input?.base_selling_price
+
+    if ((cost === null || cost === undefined || cost < 0) && (price === null || price === undefined || price < 0)) {
+      // If both cleared, delete override (fallback to global product prices)
+      const existing = productOutletPrices.value.find((op) => op.outlet_id === outletId)
+      if (existing) {
+        await api.delete(`/products/outlet-prices/${existing.id}`)
+      }
+      delete outletPriceInputs.value[outletId]
+    } else {
+      const finalCost = cost !== null && cost !== undefined ? Number(cost) : Number(selectedProductForOutletPrice.value?.cost_price || 0)
+      const finalPrice = price !== null && price !== undefined ? Number(price) : Number(selectedProductForOutletPrice.value?.base_selling_price || 0)
+
+      await api.post(`/products/${prodId}/outlet-prices`, {
+        outlet_id: outletId,
+        cost_price: finalCost,
+        base_selling_price: finalPrice,
+      })
+    }
+
+    // Refresh list
+    const pricesRes = await api.get(`/products/${prodId}/outlet-prices`)
+    if (pricesRes.data.success) {
+      productOutletPrices.value = pricesRes.data.data
+      for (const op of pricesRes.data.data) {
+        outletPriceInputs.value[op.outlet_id] = {
+          cost_price: Number(op.cost_price),
+          base_selling_price: Number(op.base_selling_price),
+        }
+      }
+    }
+    alert('Harga outlet berhasil diperbarui!')
+  } catch (err: any) {
+    alert(err.response?.data?.message || 'Gagal menyimpan harga outlet')
+  } finally {
+    isSavingOutletPrices.value = false
+  }
+}
+
 onMounted(() => {
+  authStore.fetchCurrentUser()
   fetchProducts()
   fetchMasterMeta()
 })
@@ -329,6 +427,14 @@ onMounted(() => {
               </td>
               <td v-if="authStore.hasPermission('master:write')" class="py-3 px-4 text-center font-sans">
                 <div class="flex items-center justify-center gap-1.5">
+                  <button
+                    @click="openOutletPriceModal(prod)"
+                    title="Atur Harga & HPP per Outlet / Cabang"
+                    class="p-1.5 rounded-md bg-white hover:bg-blue-50 border border-slate-300 hover:border-blue-500 text-blue-600 transition shadow-xs flex items-center gap-1 text-[11px] font-bold"
+                  >
+                    <Building2 class="w-3.5 h-3.5" />
+                    <span>Harga Outlet</span>
+                  </button>
                   <button
                     @click="openGroupPriceModal(prod)"
                     title="Atur Harga Kelompok Pelanggan (Grosir / Member)"
@@ -604,6 +710,151 @@ onMounted(() => {
         <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
           <button
             @click="showGroupPriceModal = false"
+            class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-xs"
+          >
+            Selesai
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Outlet-Specific Prices Modal -->
+    <div
+      v-if="showOutletPriceModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+    >
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200 p-6 space-y-4">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-xl bg-blue-100 text-blue-700">
+              <Building2 class="w-5 h-5" />
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-base">Harga & HPP per Outlet / Cabang</h3>
+              <p class="text-xs text-slate-500">
+                {{ selectedProductForOutletPrice?.name }} ({{ selectedProductForOutletPrice?.sku }})
+              </p>
+            </div>
+          </div>
+          <button
+            @click="showOutletPriceModal = false"
+            class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Global Price Info Box -->
+        <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-start gap-2">
+          <Building2 class="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+          <div class="space-y-1">
+            <p>
+              Harga Global: <strong>HPP: Rp {{ Number(selectedProductForOutletPrice?.cost_price || 0).toLocaleString() }}</strong> | 
+              <strong>Harga Jual: Rp {{ Number(selectedProductForOutletPrice?.base_selling_price || 0).toLocaleString() }}</strong>.
+            </p>
+            <p class="text-[11px] text-blue-700">
+              Outlet dengan input kosong akan otomatis memakai Harga Global. Isi HPP dan Harga Jual khusus outlet di bawah lalu klik tombol simpan (✓).
+            </p>
+          </div>
+        </div>
+
+        <!-- Outlets Table / List -->
+        <div class="space-y-3 max-h-96 overflow-y-auto pr-1">
+          <div v-if="isLoadingOutletPrices" class="py-8 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+            <span>Memuat data outlet...</span>
+          </div>
+
+          <div v-else-if="outletsList.length === 0" class="py-8 text-center text-slate-500 text-xs">
+            Tidak ada lokasi outlet aktif yang dapat Anda kelola (Anda tidak memiliki hak akses outlet atau belum ditugaskan).
+          </div>
+
+          <div
+            v-else
+            v-for="outlet in outletsList"
+            :key="outlet.id"
+            :class="[
+              'p-3 rounded-xl border transition space-y-2',
+              authStore.hasOutletAccess(outlet.id)
+                ? 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-blue-300'
+                : 'border-slate-200 bg-slate-100/70 opacity-75'
+            ]"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-mono font-bold">
+                  {{ outlet.code }}
+                </span>
+                <span class="font-bold text-xs text-slate-900">{{ outlet.name }}</span>
+                <span v-if="outlet.is_warehouse" class="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">
+                  Gudang
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span v-if="!authStore.hasOutletAccess(outlet.id)" class="text-[10px] text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                  <Lock class="w-3 h-3 text-amber-600" />
+                  <span>Tidak Ada Akses</span>
+                </span>
+                <span v-else-if="outletPriceInputs[outlet.id]?.cost_price !== undefined || outletPriceInputs[outlet.id]?.base_selling_price !== undefined" class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Kustom Terpasang
+                </span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+              <!-- HPP Outlet -->
+              <div class="sm:col-span-5">
+                <label class="block text-[10px] font-medium text-slate-500 mb-0.5">HPP / Cost Price</label>
+                <div class="relative">
+                  <span class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">Rp</span>
+                  <input
+                    v-model.number="(outletPriceInputs[outlet.id] = outletPriceInputs[outlet.id] || { cost_price: null, base_selling_price: null }).cost_price"
+                    type="number"
+                    :disabled="!authStore.hasOutletAccess(outlet.id)"
+                    :placeholder="String(selectedProductForOutletPrice?.cost_price || 0)"
+                    class="w-full bg-white border border-slate-300 rounded-lg pl-7 pr-2 py-1.5 text-xs text-slate-900 font-mono font-bold text-right focus:outline-none focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    @keyup.enter="authStore.hasOutletAccess(outlet.id) && handleSaveOutletPrice(outlet.id)"
+                  />
+                </div>
+              </div>
+
+              <!-- Harga Jual Outlet -->
+              <div class="sm:col-span-5">
+                <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Harga Jual Dasar</label>
+                <div class="relative">
+                  <span class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">Rp</span>
+                  <input
+                    v-model.number="(outletPriceInputs[outlet.id] = outletPriceInputs[outlet.id] || { cost_price: null, base_selling_price: null }).base_selling_price"
+                    type="number"
+                    :disabled="!authStore.hasOutletAccess(outlet.id)"
+                    :placeholder="String(selectedProductForOutletPrice?.base_selling_price || 0)"
+                    class="w-full bg-white border border-slate-300 rounded-lg pl-7 pr-2 py-1.5 text-xs text-slate-900 font-mono font-bold text-right focus:outline-none focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    @keyup.enter="authStore.hasOutletAccess(outlet.id) && handleSaveOutletPrice(outlet.id)"
+                  />
+                </div>
+              </div>
+
+              <!-- Save Action -->
+              <div class="sm:col-span-2 flex items-end justify-end pt-3 sm:pt-0">
+                <button
+                  @click="handleSaveOutletPrice(outlet.id)"
+                  :disabled="!authStore.hasOutletAccess(outlet.id) || isSavingOutletPrices"
+                  :title="authStore.hasOutletAccess(outlet.id) ? 'Simpan Harga Outlet' : 'Anda tidak memiliki hak akses outlet ini'"
+                  class="w-full py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition shadow-xs flex items-center justify-center gap-1 text-xs font-bold"
+                >
+                  <Lock v-if="!authStore.hasOutletAccess(outlet.id)" class="w-3.5 h-3.5" />
+                  <Check v-else class="w-3.5 h-3.5" />
+                  <span>{{ authStore.hasOutletAccess(outlet.id) ? 'Simpan' : 'Terkunci' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+          <button
+            @click="showOutletPriceModal = false"
             class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-xs"
           >
             Selesai
