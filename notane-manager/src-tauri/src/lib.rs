@@ -1,0 +1,84 @@
+pub mod api;
+pub mod commands;
+pub mod crypto;
+pub mod db;
+pub mod models;
+
+use api::{spawn_api_server, ApiState};
+use commands::AppState;
+use crypto::ed25519::DEFAULT_MASTER_PRIVATE_KEY_HEX;
+use std::env;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tracing::{error, info};
+
+pub async fn build_app_state() -> Result<AppState, Box<dyn std::error::Error>> {
+    let pool = db::init_db(None).await?;
+
+    let port: u16 = env::var("PROVIDER_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(19090);
+
+    let master_private_key = env::var("PROVIDER_PRIVATE_KEY")
+        .unwrap_or_else(|_| DEFAULT_MASTER_PRIVATE_KEY_HEX.to_string());
+
+    let active_sessions = Arc::new(RwLock::new(std::collections::HashSet::new()));
+
+    let api_state = ApiState {
+        pool: pool.clone(),
+        master_private_key: Arc::new(RwLock::new(master_private_key)),
+        is_running: Arc::new(RwLock::new(false)),
+        port,
+        server_handle: Arc::new(RwLock::new(None)),
+        active_sessions: active_sessions.clone(),
+    };
+
+    // Auto-start API Server
+    match spawn_api_server(api_state.clone()).await {
+        Ok(handle) => {
+            *api_state.server_handle.write().await = Some(handle);
+            *api_state.is_running.write().await = true;
+            info!("API Server Provider aktif secara otomatis pada port {}", port);
+        }
+        Err(e) => {
+            error!("Gagal auto-start API Server Provider: {}", e);
+        }
+    }
+
+    Ok(AppState { pool, api_state, active_sessions })
+}
+
+#[cfg(feature = "gui")]
+pub fn run_app(context: tauri::Context<tauri::Wry>, state: AppState) {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .manage(state)
+        .invoke_handler(tauri::generate_handler![
+            commands::get_provider_status,
+            commands::toggle_provider_server,
+            commands::get_clients,
+            commands::save_client,
+            commands::update_client,
+            commands::delete_client,
+            commands::get_licenses,
+            commands::generate_license,
+            commands::update_license_status,
+            commands::sign_license_token_manual,
+            commands::get_device_activations,
+            commands::unbind_device,
+            commands::get_releases,
+            commands::create_release,
+            commands::delete_release,
+            commands::get_audit_logs,
+            commands::get_provider_settings,
+            commands::save_provider_settings,
+            commands::login_admin,
+            commands::login_with_pin,
+            commands::verify_admin_session,
+            commands::logout_admin,
+            commands::change_admin_credentials,
+        ])
+        .run(context)
+        .expect("Error saat menjalankan aplikasi Notane Manager");
+}

@@ -22,7 +22,7 @@ Sistem dirancang untuk mendukung operasional ritel tunggal maupun multi-kasir:
   +-----------------------+                           +-----------------------+
   | * System Tray Only    |                           | * UI Kasir (Vue 3)    |
   | * Axum Web Server     | <=== REST & WebSocket === | * Server Selector     |
-  | * PostgreSQL          |      (Port: 8080 LAN)     | * Offline Storage     |
+  | * PostgreSQL Terisolasi |    (Port: 18080 LAN)    | * Offline Storage     |
   | * mDNS Broadcaster    |                           | * mDNS Discovery      |
   +-----------------------+                           +-----------------------+
 ```
@@ -48,7 +48,8 @@ Sistem dirancang untuk mendukung operasional ritel tunggal maupun multi-kasir:
    - **Manajemen Pengguna & RBAC**: Pengaturan Hak Akses (Administrator, Kasir, Supervisor, Inventory Manager, Akuntan).
 
 3. **Infrastruktur Jaringan & Kontrol Server**
-   - **Dual Port Engine**: Port utama (8080) untuk REST/WebSocket POS dan Port Kontrol (8081) untuk remote restart/stop service.
+   - **Dual Port Engine**: Port utama (18080) untuk REST/WebSocket POS dan Port Kontrol (18081) untuk remote restart/stop service.
+   - **Database Terisolasi**: PostgreSQL berjalan pada port terisolasi khusus 15432 sehingga bebas konflik dengan database lokal host.
    - Fitur Pairing Token & Persistent Reconnection untuk kasir client jika jaringan sempat terputus.
 
 ---
@@ -104,37 +105,43 @@ Jika Anda menggunakan Docker, Anda cukup menjalankan:
 ```bash
 npm run db:up
 ```
-> Database PostgreSQL 16 akan otomatis berjalan di port `5432` dengan konfigurasi siap pakai (`postgres:postgres@127.0.0.1:5432/notane_pos`).
+> Database PostgreSQL 16 akan otomatis berjalan di port terisolasi `15432` dengan konfigurasi siap pakai (`postgres:postgres@127.0.0.1:15432/notane_pos`), bebas konflik dengan database host.
 > Untuk mematikan database, jalankan `npm run db:down`.
 
 *(Opsional: Jika PC Anda sudah memiliki instalasi PostgreSQL lokal, skrip `npm run setup` akan otomatis mendeteksinya).*
 
-### 3. Menjalankan Aplikasi
+### 3. Menjalankan Aplikasi (Monorepo Workspace)
 
-Terdapat dua cara untuk menjalankan aplikasi selama tahap pengembangan:
+Aplikasi telah dipisahkan menjadi arsitektur monorepo mandiri:
+- `notane-client/`: Aplikasi Kasir POS (Frontend `:5175`, Desktop App `com.notane.retailpos`)
+- `notane-server/`: Aplikasi Server Host Manager (Frontend `:5176`, Desktop App `com.notane.retailserver`)
 
-#### Opsi A: Aplikasi Desktop Lengkap (Direkomendasikan - Satu Perintah)
+#### Opsi A: Aplikasi Desktop Native (Tauri)
+Jalankan salah satu atau kedua aplikasi desktop secara mandiri:
 ```bash
-npm run tauri dev
+# Menjalankan Desktop Server Host Manager:
+npm run server:app
+
+# Menjalankan Desktop Client Kasir POS:
+npm run client:app
 ```
-> Tauri akan otomatis mengompilasi backend Rust (Axum API di port 8080) sekaligus meluncurkan frontend Vite dalam jendela desktop native.
 
-#### Opsi B: Mode Web Browser (`http://localhost:5173`)
-Frontend memerlukan backend API yang aktif di port `8080` untuk proses autentikasi dan database. Jalankan pada **2 terminal terpisah**:
+#### Opsi B: Mode Web Browser Development
+Jalankan frontend dalam browser untuk pengujian cepat:
+```bash
+# Menjalankan kedua frontend sekaligus (Client di :5175 & Server di :5176):
+npm run dev:all
 
-1. **Terminal 1 (Jalankan Backend Server):**
-   ```bash
-   npm run server
-   ```
-   *(Menjalankan backend Rust Axum di port 8080 & port kontrol 8081 tanpa membuka jendela desktop)*.
+# Atau jalankan salah satu secara terpisah:
+npm run client:dev   # Buka http://localhost:5175
+npm run server:dev   # Buka http://localhost:5176
+```
 
-2. **Terminal 2 (Jalankan Frontend):**
-   ```bash
-   npm run dev
-   ```
-   Buka browser di `http://localhost:5173`.
-
-> ⚠️ **Catatan Penting (Network Error saat Login)**: Jika Anda hanya menjalankan `npm run dev` tanpa menjalankan backend server (`npm run server` atau `npm run tauri dev`), proses login akan menampilkan pesan *Network Error* karena browser tidak dapat terhubung ke port 8080.
+#### Opsi C: Headless / Daemon Server
+Jika ingin menjalankan backend server engine di background tanpa membuka GUI desktop:
+```bash
+npm run server:daemon
+```
 
 ---
 
@@ -170,8 +177,8 @@ Binary server akan terbuat di `src-tauri/target/release/notane-retail-pos`.
 ```
 Pada mode ini, Rust Axum akan otomatis:
 - Menghubungkan & menjalankan migrasi PostgreSQL.
-- Menjalankan **API POS & WebSocket** di port `8080` (0.0.0.0:8080).
-- Menjalankan **Host Control Channel** di port `8081` (0.0.0.0:8081).
+- Menjalankan **API POS & WebSocket** di port `18080` (0.0.0.0:18080).
+- Menjalankan **Host Control Channel** di port `18081` (0.0.0.0:18081).
 - Berjalan sebagai background daemon tanpa memanggil WebView/GUI.
 
 ### 3. Menjadikan Systemd Service (Linux Server)
@@ -185,8 +192,8 @@ After=network.target postgresql.service
 Type=simple
 User=posuser
 WorkingDirectory=/opt/notane-retail-pos/src-tauri
-Environment="DATABASE_URL=postgres://posuser:password@127.0.0.1:5432/notane_pos"
-Environment="PORT=8080"
+Environment="DATABASE_URL=postgres://posuser:password@127.0.0.1:15432/notane_pos"
+Environment="PORT=18080"
 Environment="RUST_LOG=info"
 ExecStart=/opt/notane-retail-pos/src-tauri/target/release/notane-retail-pos --server-only
 Restart=always

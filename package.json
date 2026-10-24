@@ -1,42 +1,35 @@
 {
-  "name": "notane-retail-pos",
+  "name": "notane-retail-monorepo",
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "workspaces": [
+    "notane-client",
+    "notane-server",
+    "notane-manager"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri",
-    "setup": "powershell -ExecutionPolicy Bypass -File ./scripts/setup.ps1",
-    "server": "cargo run --manifest-path src-tauri/Cargo.toml -- --server-only",
+    "client:dev": "npm --prefix notane-client run dev",
+    "client:build": "npm --prefix notane-client run build",
+    "client:app": "npm --prefix notane-client run tauri dev",
+    "server:dev": "npm --prefix notane-server run dev",
+    "server:build": "npm --prefix notane-server run build",
+    "server:app": "npm --prefix notane-server run tauri dev",
+    "server:daemon": "npm --prefix notane-server run daemon",
+    "server:native": "bash ./scripts/run-server.sh riang-market",
+    "manager:dev": "npm --prefix notane-manager run dev",
+    "manager:build": "npm --prefix notane-manager run build",
+    "manager:app": "npm --prefix notane-manager run tauri dev",
+    "manager:daemon": "npm --prefix notane-manager run daemon",
+    "dev:all": "concurrently -n \"CLIENT,SERVER_UI,SERVER_CORE,MANAGER\" -c \"cyan,magenta,yellow,green\" \"npm run client:dev\" \"npm run server:dev\" \"npm run server:daemon\" \"npm run manager:dev\"",
+    "build:all": "npm run client:build && npm run server:build && npm run manager:build",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f"
-  },
-  "dependencies": {
-    "@iconify-json/flat-color-icons": "^1.2.3",
-    "@iconify-json/fluent-color": "^1.2.21",
-    "@iconify-json/streamline-ultimate-color": "^1.2.2",
-    "@iconify/vue": "^5.0.2",
-    "axios": "^1.7.9",
-    "clsx": "^2.1.1",
-    "lucide-vue-next": "^0.475.0",
-    "pinia": "^2.3.1",
-    "tailwind-merge": "^3.0.1",
-    "vue": "^3.5.13",
-    "vue-router": "^4.5.0"
+    "db:logs": "docker compose logs -f",
+    "setup": "bash ./scripts/setup.sh",
+    "brand": "node ./scripts/brand-manager.js"
   },
   "devDependencies": {
-    "@tauri-apps/api": "^2.2.0",
-    "@tauri-apps/cli": "^2.2.4",
-    "@types/node": "^22.13.4",
-    "@vitejs/plugin-vue": "^5.2.1",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.5.2",
-    "tailwindcss": "^3.4.17",
-    "typescript": "~5.7.3",
-    "vite": "^6.1.0",
-    "vue-tsc": "^2.2.0"
+    "concurrently": "^9.1.2"
   }
 }

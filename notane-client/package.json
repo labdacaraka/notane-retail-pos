@@ -1,0 +1,40 @@
+{
+  "name": "notane-client",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@iconify-json/flat-color-icons": "^1.2.3",
+    "@iconify-json/fluent-color": "^1.2.21",
+    "@iconify-json/streamline-ultimate-color": "^1.2.2",
+    "@iconify/vue": "^5.0.2",
+    "axios": "^1.7.9",
+    "clsx": "^2.1.1",
+    "jszip": "^3.10.2",
+    "lucide-vue-next": "^0.475.0",
+    "pinia": "^2.3.1",
+    "tailwind-merge": "^3.0.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/cli": "^2.2.4",
+    "@types/jszip": "^3.4.0",
+    "@types/node": "^22.13.4",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.7.3",
+    "vite": "^6.1.0",
+    "vue-tsc": "^2.2.0"
+  }
+}

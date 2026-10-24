@@ -29,27 +29,30 @@ else
 fi
 
 # 3. Database Check
-echo -e "\n[3/3] Memeriksa koneksi database PostgreSQL (Port 5432)..."
-if nc -z 127.0.0.1 5432 2>/dev/null || (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null; then
-    echo "  [OK] PostgreSQL aktif di port 5432!"
+echo -e "\n[3/3] Memeriksa koneksi database PostgreSQL terisolasi (Port 15432)..."
+if nc -z 127.0.0.1 15432 2>/dev/null || (echo > /dev/tcp/127.0.0.1/15432) 2>/dev/null; then
+    echo "  [OK] PostgreSQL terisolasi aktif di port 15432!"
     if command -v psql &> /dev/null; then
-        PGPASSWORD=postgres psql -U postgres -h 127.0.0.1 -p 5432 -c "CREATE DATABASE notane_pos;" 2>/dev/null || true
+        PGPASSWORD=postgres psql -U postgres -h 127.0.0.1 -p 15432 -c "CREATE DATABASE notane_pos;" 2>/dev/null || true
         echo "  [OK] Database 'notane_pos' telah dipastikan tersedia."
     fi
 else
-    echo "  [!] Port 5432 belum aktif. Memeriksa Docker..."
+    echo "  [!] Port 15432 belum aktif. Memeriksa Docker/Podman..."
     if command -v docker &> /dev/null; then
         echo "  [*] Docker terdeteksi! Menjalankan database via Docker Compose..."
         docker compose up -d
-        echo "  [OK] Container PostgreSQL telah dijalankan via Docker Compose di port 5432."
+        echo "  [OK] Container PostgreSQL telah dijalankan via Docker Compose di port terisolasi 15432."
+    elif command -v podman &> /dev/null; then
+        echo "  [*] Podman terdeteksi! Menjalankan container di port terisolasi 15432..."
+        podman run -d --name notane-postgres -p 15432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=notane_pos docker.io/library/postgres:16-alpine || true
     else
-        echo "  [!] PostgreSQL lokal belum berjalan dan Docker belum terpasang."
-        echo "  [*] Silakan jalankan Docker atau instal PostgreSQL 16."
+        echo "  [!] Database container belum berjalan. Aplikasi akan otomatis menjalankan Embedded PostgreSQL."
     fi
 fi
 
 echo -e "\n=================================================="
 echo "  SETUP SELESAI!"
-echo "  - Menjalankan Web:    npm run dev"
-echo "  - Menjalankan Tauri:  npm run tauri dev"
+echo "  - Menjalankan Client POS:    npm run client:app"
+echo "  - Menjalankan Server Host:   npm run server:app"
+echo "  - Menjalankan Semua Dev:     npm run dev:all"
 echo "=================================================="

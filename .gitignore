@@ -1,8 +1,12 @@
 node_modules
+**/node_modules/
 dist
+**/dist/
 dist-ssr
+**/dist-ssr/
 *.local
 .DS_Store
+**/.DS_Store
 
 # Editor
 .vscode/*
@@ -13,9 +17,15 @@ dist-ssr
 src-tauri/target/
 **/target/
 src-tauri/gen/
+**/gen/
 
 # Environment files
 .env
 .env.*
 !.env.example
 src-tauri/.env
+**/src-tauri/.env
+
+# Uploads
+uploads/*
+!uploads/.gitkeep

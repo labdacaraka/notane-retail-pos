@@ -1,22 +1,53 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: notane-retail-postgres
+  server:
+    build:
+      context: .
+      dockerfile: notane-server/Dockerfile
+    image: ${SERVER_IMAGE:-notane-retail-server:latest}
+    container_name: ${COMPOSE_PROJECT_NAME:-notane-retail}-server
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: notane_pos
+      PORT: 18080
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-notane_pos}
+      PAIRING_CODE: ${PAIRING_CODE:-NOTANE-9729}
+      JWT_SECRET: ${JWT_SECRET:-notane-enterprise-secret-key-2026}
+      BRAND_NAME: ${BRAND_NAME:-Notane Retail}
+      WEB_DIST: /app/dist
+      PRODUCT_IMAGES_DIR: /app/uploads
+      SERVER_PORT: ${SERVER_PORT:-18080}
+      EXTERNAL_PORT: ${SERVER_PORT:-18080}
+      HOST_IP: ${HOST_IP:-}
+      HOST_IPS: ${HOST_IPS:-}
+      PROVIDER_SERVER_URL: ${PROVIDER_SERVER_URL:-http://host.containers.internal:19090}
+      NOTANE_PROVIDER_SERVER_URL: ${NOTANE_PROVIDER_SERVER_URL:-${PROVIDER_SERVER_URL:-http://host.containers.internal:19090}}
+      RUST_LOG: ${RUST_LOG:-notane_retail_server=info,tower_http=info}
     ports:
-      - "5432:5432"
+      - "${SERVER_PORT:-18080}:18080"
+      - "${CONTROL_PORT:-18081}:18081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-notane-retail}-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-notane_pos}
+    ports:
+      - "${POSTGRES_PORT:-15432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d notane_pos"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-notane_pos}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
   postgres_data:
-    driver: local
+  uploads_data:
