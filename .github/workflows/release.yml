@@ -14,6 +14,10 @@ on:
         description: 'Catatan Perubahan (Changelog)'
         required: false
         default: '1. Pembaruan stabilitas, performa, dan installer multi-platform'
+      provider_url:
+        description: 'URL Server Lisensi Notane Provider (Kosongkan jika default https://license.notaneretail.com)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -113,17 +117,33 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set Release Version
+      - name: Set Release Version & Licensing Provider
         id: vars
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
             echo "tag=v${{ inputs.version }}" >> $GITHUB_OUTPUT
+            if [ -n "${{ inputs.provider_url }}" ]; then
+              echo "provider_url=${{ inputs.provider_url }}" >> $GITHUB_OUTPUT
+            elif [ -n "${{ secrets.NOTANE_PROVIDER_URL }}" ]; then
+              echo "provider_url=${{ secrets.NOTANE_PROVIDER_URL }}" >> $GITHUB_OUTPUT
+            elif [ -n "${{ vars.NOTANE_PROVIDER_URL }}" ]; then
+              echo "provider_url=${{ vars.NOTANE_PROVIDER_URL }}" >> $GITHUB_OUTPUT
+            else
+              echo "provider_url=https://license.notaneretail.com" >> $GITHUB_OUTPUT
+            fi
           else
             VERSION=${GITHUB_REF#refs/tags/v}
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+            if [ -n "${{ secrets.NOTANE_PROVIDER_URL }}" ]; then
+              echo "provider_url=${{ secrets.NOTANE_PROVIDER_URL }}" >> $GITHUB_OUTPUT
+            elif [ -n "${{ vars.NOTANE_PROVIDER_URL }}" ]; then
+              echo "provider_url=${{ vars.NOTANE_PROVIDER_URL }}" >> $GITHUB_OUTPUT
+            else
+              echo "provider_url=https://license.notaneretail.com" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Install Linux System Dependencies for Tauri & Packaging
@@ -155,9 +175,6 @@ jobs:
         run: npm ci
 
       # ------------------------------------------------------------------------
-      # A. Build & Bundle Notane Server Engine
-      # ------------------------------------------------------------------------
-      # ------------------------------------------------------------------------
       # A. Build Notane Server Desktop App & OTA Bundle
       # ------------------------------------------------------------------------
       - name: Build Server Host UI
@@ -166,6 +183,8 @@ jobs:
 
       - name: Build Notane Server Desktop App Installer (Tauri Bundler)
         shell: bash
+        env:
+          NOTANE_RELEASE_PROVIDER_URL: ${{ steps.vars.outputs.provider_url }}
         run: |
           cd "$GITHUB_WORKSPACE"
           npm --prefix notane-server run tauri build -- --target ${{ matrix.target }}

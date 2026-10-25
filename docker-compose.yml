@@ -8,18 +8,18 @@ services:
     restart: unless-stopped
     environment:
       PORT: 18080
+      SERVER_PORT: 18080
+      CONTROL_PORT: 18081
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-notane_pos}
       PAIRING_CODE: ${PAIRING_CODE:-NOTANE-9729}
       JWT_SECRET: ${JWT_SECRET:-notane-enterprise-secret-key-2026}
       BRAND_NAME: ${BRAND_NAME:-Notane Retail}
       WEB_DIST: /app/dist
       PRODUCT_IMAGES_DIR: /app/uploads
-      SERVER_PORT: ${SERVER_PORT:-18080}
-      EXTERNAL_PORT: ${SERVER_PORT:-18080}
       HOST_IP: ${HOST_IP:-}
       HOST_IPS: ${HOST_IPS:-}
-      PROVIDER_SERVER_URL: ${PROVIDER_SERVER_URL:-http://host.containers.internal:19090}
-      NOTANE_PROVIDER_SERVER_URL: ${NOTANE_PROVIDER_SERVER_URL:-${PROVIDER_SERVER_URL:-http://host.containers.internal:19090}}
+      PROVIDER_SERVER_URL: ${PROVIDER_SERVER_URL:-https://license.notaneretail.com}
+      NOTANE_PROVIDER_SERVER_URL: ${NOTANE_PROVIDER_SERVER_URL:-${PROVIDER_SERVER_URL:-https://license.notaneretail.com}}
       RUST_LOG: ${RUST_LOG:-notane_retail_server=info,tower_http=info}
     ports:
       - "${SERVER_PORT:-18080}:18080"

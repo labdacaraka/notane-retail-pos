@@ -12,11 +12,27 @@ pub async fn init_db(db_path: Option<PathBuf>) -> Result<DbPool, sqlx::Error> {
     let final_path = match db_path {
         Some(p) => p,
         None => {
-            let mut dir = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-            dir.push("notane-license-manager");
-            fs::create_dir_all(&dir).ok();
-            dir.push("notane_provider.db");
-            dir
+            if let Ok(env_db) = std::env::var("DATABASE_PATH") {
+                let p = PathBuf::from(env_db);
+                if let Some(parent) = p.parent() {
+                    fs::create_dir_all(parent).ok();
+                }
+                p
+            } else if let Ok(env_url) = std::env::var("DATABASE_URL") {
+                let stripped = env_url.trim_start_matches("sqlite://");
+                let clean = stripped.split('?').next().unwrap_or(stripped);
+                let p = PathBuf::from(clean);
+                if let Some(parent) = p.parent() {
+                    fs::create_dir_all(parent).ok();
+                }
+                p
+            } else {
+                let mut dir = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+                dir.push("notane-license-manager");
+                fs::create_dir_all(&dir).ok();
+                dir.push("notane_provider.db");
+                dir
+            }
         }
     };
 

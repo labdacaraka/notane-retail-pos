@@ -103,3 +103,22 @@ Setelah GitHub Actions selesai berjalan (sekitar 3–5 menit):
    - Klik **"Terbitkan & Tanda Tangani Ed25519"**.
 
 Selesai! Seluruh terminal kasir dan host server Notane Retail akan langsung mendeteksi ketersediaan pembaruan resmi yang aman dan terverifikasi secara kriptografis.
+
+---
+
+## 4. Keamanan Lisensi Terkunci (Anti-Cloning & Zero-Trust)
+
+Untuk mencegah pengguna/pihak luar memanipulasi aplikasi atau membuat situs lisensi tiruan (*cloning / fake license server*):
+
+1. **URL Provider Terkunci di Level Biner (Immutable Compile-Time Baked):**
+   - Di mode rilis produksi, Notane Server **mengabaikan seluruh file `.env` dan variabel lingkungan sistem operasi**.
+   - URL server lisensi resmi dibakar langsung ke dalam biner berekstensi `.exe`, `.dmg`, `.deb`, dan `.AppImage` saat proses kompilasi di GitHub Actions. Pengguna tidak bisa mengubahnya di level toko.
+
+2. **Cara Mengganti URL Provider Resmi Melalui GitHub Actions:**
+   Jika sewaktu-waktu Anda memindahkan Notane Manager ke domain sendiri:
+   - **Opsi A (Otomatis untuk semua rilis tag):**
+     Masuk ke repositori GitHub Anda: **Settings** > **Secrets and variables** > **Actions** > **Variables** (atau **Secrets**).
+     Tambahkan nama: `NOTANE_PROVIDER_URL` dengan nilai: `https://lisensi-anda.domain.com`.
+   - **Opsi B (Manual via UI GitHub Actions):**
+     Saat klik **"Run workflow"** di tab Actions, masukkan URL server lisensi baru pada kolom input **"URL Server Lisensi Notane Provider"**.
+   - GitHub Actions akan otomatis membakar URL tersebut secara permanen ke dalam file installer rilis baru. Pengguna toko tetap tidak dapat mengutak-atiknya!

@@ -561,24 +561,23 @@ async fn activate_license(
 
 async fn get_provider_config() -> impl IntoResponse {
     let current_url = crate::services::license_service::LicenseService::get_provider_url();
-    let has_env_override = std::env::var("PROVIDER_SERVER_URL").is_ok()
-        || std::env::var("NOTANE_PROVIDER_SERVER_URL").is_ok();
+    let is_production = !cfg!(debug_assertions);
 
     Json(json!({
         "current_url": current_url,
-        "has_env_override": has_env_override,
+        "is_locked": is_production,
         "default_local_url": crate::services::license_service::LicenseService::DEFAULT_LOCAL_PROVIDER_URL,
-        "default_production_url": crate::services::license_service::LicenseService::OFFICIAL_PRODUCTION_PROVIDER_URL,
-        "is_production": !cfg!(debug_assertions)
+        "default_production_url": crate::services::license_service::LicenseService::DEFAULT_OFFICIAL_PROVIDER_URL,
+        "is_production": is_production
     }))
 }
 
 async fn save_provider_config() -> impl IntoResponse {
     (
-        StatusCode::BAD_REQUEST,
+        StatusCode::FORBIDDEN,
         Json(json!({
             "status": "error",
-            "message": "URL Provider diamankan dari manipulasi database lokal. Untuk mengubah alamat provider, setel variabel lingkungan PROVIDER_SERVER_URL di environment server (brands/<brand>.env)."
+            "message": "Akses Ditolak: URL Provider Server lisensi dikunci mati di dalam binary rilis dan tidak dapat diubah di level toko (Anti-Cloning & Zero-Trust Enforced)."
         })),
     )
 }

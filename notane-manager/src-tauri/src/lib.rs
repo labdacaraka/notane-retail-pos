@@ -1,16 +1,25 @@
 pub mod api;
-pub mod commands;
 pub mod crypto;
 pub mod db;
 pub mod models;
 
+#[cfg(feature = "gui")]
+pub mod commands;
+
 use api::{spawn_api_server, ApiState};
-use commands::AppState;
 use crypto::ed25519::DEFAULT_MASTER_PRIVATE_KEY_HEX;
+use std::collections::HashSet;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};
+
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: db::DbPool,
+    pub api_state: ApiState,
+    pub active_sessions: Arc<RwLock<HashSet<String>>>,
+}
 
 pub async fn build_app_state() -> Result<AppState, Box<dyn std::error::Error>> {
     let pool = db::init_db(None).await?;

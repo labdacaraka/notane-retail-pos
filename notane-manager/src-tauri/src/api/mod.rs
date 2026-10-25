@@ -107,15 +107,24 @@ pub fn create_api_router(state: ApiState) -> Router {
 
     let admin_routes = admin::create_admin_router(state.clone());
 
-    Router::new()
+    let base_router = Router::new()
         .route("/health", get(health_check))
         .route("/api/v1/system/status", get(system_status))
         .route("/api/v1/license/activate", post(handle_activate))
         .route("/api/v1/license/verify", post(handle_verify))
         .route("/api/v1/updates/check", post(handle_update_check))
-        .nest("/api/v1/admin", admin_routes)
-        .layer(cors)
-        .with_state(state)
+        .nest("/api/v1/admin", admin_routes);
+
+    let dist_dir = std::env::var("WEB_DIST").unwrap_or_else(|_| "dist".to_string());
+    let router = if std::path::Path::new(&dist_dir).exists() {
+        let serve_dir = tower_http::services::ServeDir::new(&dist_dir)
+            .fallback(tower_http::services::ServeFile::new(format!("{}/index.html", dist_dir)));
+        base_router.fallback_service(serve_dir)
+    } else {
+        base_router
+    };
+
+    router.layer(cors).with_state(state)
 }
 
 async fn health_check() -> impl IntoResponse {

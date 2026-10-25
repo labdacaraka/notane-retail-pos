@@ -1,8 +1,11 @@
 import axios from 'axios'
 
-// Provider Server default port is 19090
+// Provider Server default: use window.location.origin when served in browser, or fallback to port 19090
 export const PROVIDER_API_BASE =
-  ((import.meta as any).env?.VITE_PROVIDER_API_URL as string) || 'http://127.0.0.1:19090'
+  ((import.meta as any).env?.VITE_PROVIDER_API_URL as string) ||
+  (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('tauri://')
+    ? window.location.origin
+    : 'http://127.0.0.1:19090')
 
 export const apiClient = axios.create({
   baseURL: PROVIDER_API_BASE,

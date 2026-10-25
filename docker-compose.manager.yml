@@ -1,0 +1,29 @@
+services:
+  notane-manager:
+    build:
+      context: .
+      dockerfile: notane-manager/Dockerfile
+    image: ${MANAGER_IMAGE:-notane-manager:latest}
+    container_name: ${COMPOSE_PROJECT_NAME:-notane}-manager
+    restart: unless-stopped
+    environment:
+      PROVIDER_PORT: 19090
+      DATABASE_PATH: /data/notane_provider.db
+      WEB_DIST: /app/dist
+      RUST_LOG: ${RUST_LOG:-notane_manager=info,tower_http=info}
+      # Setel Private Key resmi jika ingin override default:
+      # PROVIDER_PRIVATE_KEY: ${PROVIDER_PRIVATE_KEY:-}
+    ports:
+      - "${MANAGER_PORT:-19090}:19090"
+    volumes:
+      - manager_data:/data
+      - manager_releases:/app/releases
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:19090/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  manager_data:
+  manager_releases:

@@ -29,10 +29,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let port: u16 = env::var("PORT")
+        .or_else(|_| env::var("SERVER_PORT"))
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(18080);
-    let control_port: u16 = port + 1;
+    let control_port: u16 = env::var("CONTROL_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(port + 1);
 
     let args: Vec<String> = env::args().collect();
     let is_headless = args.iter().any(|a| a == "--headless" || a == "--server-only" || a == "--daemon") || cfg!(not(feature = "gui"));

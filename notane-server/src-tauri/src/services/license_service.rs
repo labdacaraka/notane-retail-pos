@@ -170,27 +170,41 @@ impl LicenseService {
         Ok(payload)
     }
 
-    pub const OFFICIAL_PRODUCTION_PROVIDER_URL: &str = "https://license.notaneretail.com";
+    pub const DEFAULT_OFFICIAL_PROVIDER_URL: &str = "https://license.notaneretail.com";
     pub const DEFAULT_LOCAL_PROVIDER_URL: &str = "http://127.0.0.1:19090";
 
-    /// Menentukan URL Provider Server secara aman tanpa ketergantungan database:
-    /// 1. Dari Environment Variable (OS / Docker / .env: `PROVIDER_SERVER_URL` atau `NOTANE_PROVIDER_SERVER_URL`)
-    /// 2. Jika tidak disetel:
-    ///    - Mode Development (`cfg!(debug_assertions)`): "http://127.0.0.1:19090"
-    ///    - Mode Production Bundle (`!cfg!(debug_assertions)`): "https://license.notaneretail.com"
-    /// Tidak disimpan di database untuk mencegah manipulasi URL lisensi via database manager.
+    /// URL Provider Resmi yang dibakar ke dalam biner saat proses kompilasi (Compile-Time Baked).
+    /// HANYA dapat disetel atau diganti saat proses build (misal di GitHub Actions CI/CD).
+    /// Biner rilis yang terdistribusi ke pengguna di lapangan TIDAK BISA dimanipulasi melalui file .env atau OS environment!
+    pub const BAKED_PRODUCTION_PROVIDER_URL: Option<&'static str> = option_env!("NOTANE_RELEASE_PROVIDER_URL");
+
+    /// Mengambil URL Provider Server dengan kebijakan Zero-Trust & Anti-Cloning:
+    /// 1. Mode Development (`cfg!(debug_assertions)`):
+    ///    - Memperbolehkan developer lokal menggunakan `PROVIDER_SERVER_URL` atau fallback ke 127.0.0.1:19090.
+    /// 2. Mode Production Release (`!cfg!(debug_assertions)`):
+    ///    - DIKUNCI MATI (IMMUTABLE). Mengabaikan seluruh file `.env` maupun variabel lingkungan runtime.
+    ///    - Menggunakan nilai yang dibakar saat build di CI/CD (`NOTANE_RELEASE_PROVIDER_URL`) atau fallback resmi `https://license.notaneretail.com`.
     pub fn get_provider_url() -> String {
-        if let Ok(env_url) = env::var("PROVIDER_SERVER_URL").or_else(|_| env::var("NOTANE_PROVIDER_SERVER_URL")) {
-            let trimmed = env_url.trim().trim_end_matches('/');
-            if !trimmed.is_empty() {
-                return trimmed.to_string();
+        #[cfg(debug_assertions)]
+        {
+            if let Ok(env_url) = env::var("PROVIDER_SERVER_URL").or_else(|_| env::var("NOTANE_PROVIDER_SERVER_URL")) {
+                let trimmed = env_url.trim().trim_end_matches('/');
+                if !trimmed.is_empty() {
+                    return trimmed.to_string();
+                }
             }
+            Self::DEFAULT_LOCAL_PROVIDER_URL.to_string()
         }
 
-        if cfg!(debug_assertions) {
-            Self::DEFAULT_LOCAL_PROVIDER_URL.to_string()
-        } else {
-            Self::OFFICIAL_PRODUCTION_PROVIDER_URL.to_string()
+        #[cfg(not(debug_assertions))]
+        {
+            if let Some(baked_url) = Self::BAKED_PRODUCTION_PROVIDER_URL {
+                let trimmed = baked_url.trim().trim_end_matches('/');
+                if !trimmed.is_empty() {
+                    return trimmed.to_string();
+                }
+            }
+            Self::DEFAULT_OFFICIAL_PROVIDER_URL.to_string()
         }
     }
 

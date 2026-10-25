@@ -17,12 +17,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use validator::Validate;
 
-#[derive(Clone)]
-pub struct AppState {
-    pub pool: DbPool,
-    pub api_state: ApiState,
-    pub active_sessions: Arc<RwLock<HashSet<String>>>,
-}
+pub use crate::AppState;
 
 // ------------------------------------------------------------------------------
 // PROVIDER STATUS & SERVER CONTROL

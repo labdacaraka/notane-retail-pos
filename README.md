@@ -242,36 +242,29 @@ Saat database pertama kali diinisialisasi otomatis oleh migrasi, akun awal yang 
 
 ---
 
-## 📁 Struktur Direktori Proyek
+## 📁 Struktur Direktori Proyek & Dokumentasi
 
 ```text
 notane-retail-pos/
-├── perencanaan/                 # Dokumen proses bisnis & requirement arsitektur
-├── progress-pengembangan-fitur/ # Dokumentasi tahapan implementasi fitur lengkap
-├── public/                      # Asset statis, logo, favicon
-├── src/                         # Frontend Vue 3 (SPA)
-│   ├── assets/                  # CSS, font, logo cutouts
-│   ├── components/              # Komponen modular (POS, Select2, modals, cart)
-│   ├── layouts/                 # Layout (PosLayout & AdminLayout)
-│   ├── pages/                   # Halaman (Register POS, Users, Products, Accounting, dll)
-│   ├── router/                  # Definisi Vue Router
-│   ├── services/                # Axios API client & WebSocket sync service
-│   ├── stores/                  # Pinia State Management (Cart, Auth, Shift, Network)
-│   └── types/                   # TypeScript interface & types
-├── src-tauri/                   # Backend Rust & Tauri Configuration
-│   ├── migrations/              # Skema database SQLx PostgreSQL
-│   ├── src/
-│   │   ├── api/                 # Endpoint REST Axum & WebSocket handler
-│   │   ├── db/                  # SQLx Database pool & migration runner
-│   │   ├── models/              # Rust structs model (Sales, Product, User, dll)
-│   │   ├── services/            # Business logic (POS, Inventory, Accounting)
-│   │   └── utils/               # Hashing Argon2, JWT token, ESC/POS generator
-│   ├── Cargo.toml               # Dependensi crate Rust
-│   └── tauri.conf.json          # Konfigurasi window & desktop Tauri
-├── .env.example                 # Template konfigurasi environment
-├── package.json                 # Skrip build & dependensi NPM
-└── vite.config.ts               # Konfigurasi Vite bundler
+├── docs/                        # 📚 Seluruh Dokumentasi Teknis & Panduan Deployment
+│   ├── README.md                # Indeks Navigasi Dokumentasi
+│   ├── PANDUAN_DOCKER_SERVER_DAN_MANAGER.md
+│   ├── PANDUAN_CI_CD_RELEASE_GITHUB_ACTIONS.md
+│   ├── PANDUAN_SERVER_PROVIDER_LISENSI_DAN_UPDATE.md
+│   ├── PANDUAN_SERVER_VPS_MULTI_BRAND.md
+│   ├── DAFTAR_AKUN_LOGIN_BAWAAN.md
+│   ├── REKOMENDASI_TAMBAHAN_FITUR.md
+│   ├── perencanaan/             # Dokumen requirement arsitektur & bisnis ritel
+│   └── progress-pengembangan-fitur/ # 78+ catatan tahapan pengembangan
+├── notane-client/               # 💻 Aplikasi POS Kasir Frontend (Desktop & Web SPA)
+├── notane-server/               # 🖥️ Server Host Daemon & Database Engine
+├── notane-manager/              # 🛡️ Server Provider Lisensi & Master Update Studio
+├── docker-compose.yml           # Deployment Docker Notane Server (Multi-Port)
+├── docker-compose.manager.yml   # Deployment Docker Notane Manager (VPS)
+└── package.json                 # Skrip workspace & automasi build
 ```
+
+> 📖 **Pusat Dokumentasi:** Silakan buka direktori [`docs/`](docs/) untuk membaca seluruh panduan operasional, setup server, dan arsitektur sistem.
 
 ---
 
