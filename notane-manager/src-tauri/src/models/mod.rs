@@ -301,6 +301,36 @@ pub struct ProviderStatus {
     pub master_public_key: String,
 }
 
+impl ProviderStatus {
+    pub fn resolve_external_url(port: u16) -> String {
+        if let Ok(u) = std::env::var("PROVIDER_URL").or_else(|_| std::env::var("HOST_URL")) {
+            let clean = u.trim().trim_end_matches('/').to_string();
+            if !clean.is_empty() {
+                if clean.starts_with("http://") || clean.starts_with("https://") {
+                    return clean;
+                } else {
+                    return format!("https://{}", clean);
+                }
+            }
+        }
+        if let Ok(h) = std::env::var("HOST_IP").or_else(|_| std::env::var("PROVIDER_HOST")) {
+            let clean = h.trim().trim_end_matches('/').to_string();
+            if !clean.is_empty() {
+                if clean.starts_with("http://") || clean.starts_with("https://") {
+                    return clean;
+                } else if port == 80 {
+                    return format!("http://{}", clean);
+                } else if port == 443 {
+                    return format!("https://{}", clean);
+                } else {
+                    return format!("http://{}:{}", clean, port);
+                }
+            }
+        }
+        format!("http://127.0.0.1:{}", port)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderSettings {
     pub server_port: u16,

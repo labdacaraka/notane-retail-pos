@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - '[0-9]*'
   workflow_dispatch:
     inputs:
       version:
@@ -40,7 +41,8 @@ jobs:
             echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
             echo "tag=v${{ inputs.version }}" >> $GITHUB_OUTPUT
           else
-            VERSION=${GITHUB_REF#refs/tags/v}
+            RAW_REF="${GITHUB_REF#refs/tags/}"
+            VERSION="${RAW_REF#v}"
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
           fi
@@ -134,7 +136,8 @@ jobs:
               echo "provider_url=https://license.notaneretail.com" >> $GITHUB_OUTPUT
             fi
           else
-            VERSION=${GITHUB_REF#refs/tags/v}
+            RAW_REF="${GITHUB_REF#refs/tags/}"
+            VERSION="${RAW_REF#v}"
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
             if [ -n "${{ secrets.NOTANE_PROVIDER_URL }}" ]; then
@@ -317,7 +320,8 @@ jobs:
             echo "tag=v${{ inputs.version }}" >> $GITHUB_OUTPUT
             echo "changelog=${{ inputs.changelog }}" >> $GITHUB_OUTPUT
           else
-            VERSION=${GITHUB_REF#refs/tags/v}
+            RAW_REF="${GITHUB_REF#refs/tags/}"
+            VERSION="${RAW_REF#v}"
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
             echo "changelog=Pembaruan rilis Notane Retail POS v${VERSION} (OTA Update & Full Desktop Installers)" >> $GITHUB_OUTPUT

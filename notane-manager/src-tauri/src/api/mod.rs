@@ -193,7 +193,7 @@ async fn handle_activate(
                 l.grace_period_days, l.features, c.client_name, c.company_name
          FROM provider_licenses l
          JOIN provider_clients c ON l.client_id = c.id
-         WHERE l.license_key = ?"
+         WHERE l.license_key = $1"
     )
     .bind(clean_key)
     .fetch_optional(&state.pool)
@@ -275,7 +275,7 @@ async fn handle_activate(
     // 4. Periksa Kuota Mesin (Node-Locking HWID)
     let existing_dev = sqlx::query_as::<_, DeviceCheckRow>(
         "SELECT id, is_active FROM provider_device_activations
-         WHERE license_id = ? AND hardware_id = ?"
+         WHERE license_id = $1 AND hardware_id = $2"
     )
     .bind(&license.id)
     .bind(clean_hwid)
@@ -289,8 +289,8 @@ async fn handle_activate(
         // Sudah terdaftar, re-aktifkan jika suspend & perbarui last_ping
         let _ = sqlx::query(
             "UPDATE provider_device_activations
-             SET is_active = 1, last_ping_at = ?, ip_address = ?, device_name = COALESCE(?, device_name), app_version = ?
-             WHERE id = ?"
+             SET is_active = 1, last_ping_at = $1, ip_address = $2, device_name = COALESCE($3, device_name), app_version = $4
+             WHERE id = $5"
         )
         .bind(&now_str)
         .bind(&client_ip)
@@ -302,7 +302,7 @@ async fn handle_activate(
     } else {
         // Mesin baru: periksa kuota terminal
         let count_active: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM provider_device_activations WHERE license_id = ? AND is_active = 1"
+            "SELECT COUNT(*) FROM provider_device_activations WHERE license_id = $1 AND is_active = 1"
         )
         .bind(&license.id)
         .fetch_one(&state.pool)
@@ -338,7 +338,7 @@ async fn handle_activate(
             "INSERT INTO provider_device_activations (
                 id, license_id, hardware_id, device_name, ip_address, os_info, app_version,
                 activated_at, last_ping_at, is_active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)"
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)"
         )
         .bind(new_dev_id)
         .bind(&license.id)
@@ -440,7 +440,7 @@ async fn handle_verify(
     let row = sqlx::query_as::<_, LicenseVerifyRow>(
         "SELECT l.id, l.status, l.expires_at, l.features
          FROM provider_licenses l
-         WHERE l.license_key = ?"
+         WHERE l.license_key = $1"
     )
     .bind(clean_key)
     .fetch_optional(&state.pool)
@@ -460,8 +460,8 @@ async fn handle_verify(
     let now_str = Utc::now().to_rfc3339();
     let _ = sqlx::query(
         "UPDATE provider_device_activations
-         SET last_ping_at = ?, ip_address = ?, app_version = COALESCE(?, app_version)
-         WHERE license_id = ? AND hardware_id = ?"
+         SET last_ping_at = $1, ip_address = $2, app_version = COALESCE($3, app_version)
+         WHERE license_id = $4 AND hardware_id = $5"
     )
     .bind(&now_str)
     .bind(&client_ip)
@@ -522,7 +522,7 @@ async fn handle_update_check(
         "SELECT version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, component, min_server_version
          FROM provider_app_releases
-         WHERE is_published = 1 AND component = ?
+         WHERE is_published = 1 AND component = $1
          ORDER BY created_at DESC LIMIT 1"
     )
     .bind(&req_component)
@@ -607,7 +607,7 @@ async fn log_audit(
     let _ = sqlx::query(
         "INSERT INTO provider_license_audit_logs (
             id, license_key, hardware_id, action, ip_address, status, details, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
     )
     .bind(id)
     .bind(license_key)

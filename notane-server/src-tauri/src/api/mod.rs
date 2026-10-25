@@ -128,26 +128,88 @@ pub fn create_pos_router(pool: PgPool, ws_state: AppState) -> Router {
     router.layer(cors)
 }
 
+pub fn create_standby_router(ws_state: AppState) -> Router {
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    let product_images_dir = std::env::var("PRODUCT_IMAGES_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            dirs::home_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join(".notane")
+                .join("product_images")
+        });
+    let _ = std::fs::create_dir_all(&product_images_dir);
+
+    // Fallback handler untuk endpoint transaksi saat database belum terhubung
+    let db_initializing_handler = || async {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "status": "error",
+                "code": "DATABASE_INITIALIZING",
+                "message": "Database server Notane Retail sedang disiapkan atau dalam proses koneksi. Silakan periksa status di Host Manager."
+            })),
+        )
+    };
+
+    let api_routes = Router::new().fallback(db_initializing_handler);
+
+    let mut router = Router::new()
+        .nest("/api/v1", api_routes)
+        .nest("/api/v1/system", system::system_routes(ws_state.clone()))
+        .nest("/ws/v1", ws_routes(ws_state))
+        .nest_service("/uploads/product_images", ServeDir::new(product_images_dir));
+
+    let web_dist_dir = std::env::var("WEB_DIST").unwrap_or_else(|_| "./dist".to_string());
+    let dist_path = std::path::Path::new(&web_dist_dir);
+    if dist_path.exists() {
+        let index_file = dist_path.join("index.html");
+        if index_file.exists() {
+            router = router.fallback_service(
+                ServeDir::new(dist_path).not_found_service(tower_http::services::ServeFile::new(index_file)),
+            );
+        } else {
+            router = router.fallback_service(ServeDir::new(dist_path));
+        }
+    }
+
+    router.layer(cors)
+}
+
 pub fn create_control_router(ws_state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
-    Router::new()
-        .nest("/api/v1/system", system::system_routes(ws_state))
-        .layer(cors)
+    let mut router = Router::new()
+        .nest("/api/v1/system", system::system_routes(ws_state.clone()))
+        .nest("/ws/v1", ws_routes(ws_state));
+
+    let web_dist_dir = std::env::var("WEB_DIST").unwrap_or_else(|_| "./dist".to_string());
+    let dist_path = std::path::Path::new(&web_dist_dir);
+    if dist_path.exists() {
+        let index_file = dist_path.join("index.html");
+        if index_file.exists() {
+            router = router.fallback_service(
+                ServeDir::new(dist_path).not_found_service(tower_http::services::ServeFile::new(index_file)),
+            );
+        } else {
+            router = router.fallback_service(ServeDir::new(dist_path));
+        }
+    }
+
+    router.layer(cors)
 }
 
 pub async fn spawn_pos_server(ws_state: AppState) -> Result<tokio::task::AbortHandle, std::io::Error> {
-    let pool = {
+    let pool_opt = {
         let guard = ws_state.pool.read().await;
-        guard.clone().ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::NotConnected,
-                "Database pool belum terhubung atau belum aktif",
-            )
-        })?
+        guard.clone()
     };
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], ws_state.port));
     let mut last_err = None;
@@ -168,29 +230,35 @@ pub async fn spawn_pos_server(ws_state: AppState) -> Result<tokio::task::AbortHa
         last_err.unwrap_or_else(|| std::io::Error::new(std::io::ErrorKind::AddrInUse, "Port sedang digunakan"))
     })?;
 
-    // Muat atau sinkronkan kode pairing toko
-    if let Ok(env_code) = std::env::var("PAIRING_CODE") {
-        let code_clean = env_code.trim().to_uppercase();
-        if !code_clean.is_empty() {
+    // Muat atau sinkronkan kode pairing toko jika pool sudah tersedia
+    if let Some(ref pool) = pool_opt {
+        if let Ok(env_code) = std::env::var("PAIRING_CODE") {
+            let code_clean = env_code.trim().to_uppercase();
+            if !code_clean.is_empty() {
+                let mut p = ws_state.pairing_code.write().await;
+                *p = code_clean.clone();
+                let _ = sqlx::query("UPDATE receipt_settings SET pairing_code = $1")
+                    .bind(&code_clean)
+                    .execute(pool)
+                    .await;
+                tracing::info!("[SERVER HOST] Kode pairing disinkronkan dari ENV PAIRING_CODE: {}", *p);
+            }
+        } else if let Ok(Some(code)) = sqlx::query_scalar::<_, String>(
+            "SELECT pairing_code FROM receipt_settings WHERE pairing_code IS NOT NULL AND pairing_code != '' LIMIT 1"
+        )
+        .fetch_optional(pool)
+        .await {
             let mut p = ws_state.pairing_code.write().await;
-            *p = code_clean.clone();
-            let _ = sqlx::query("UPDATE receipt_settings SET pairing_code = $1")
-                .bind(&code_clean)
-                .execute(&pool)
-                .await;
-            tracing::info!("[SERVER HOST] Kode pairing disinkronkan dari ENV PAIRING_CODE: {}", *p);
+            *p = code.trim().to_uppercase();
+            tracing::info!("[SERVER HOST] Kode pairing aktif dimuat dari database: {}", *p);
         }
-    } else if let Ok(Some(code)) = sqlx::query_scalar::<_, String>(
-        "SELECT pairing_code FROM receipt_settings WHERE pairing_code IS NOT NULL AND pairing_code != '' LIMIT 1"
-    )
-    .fetch_optional(&pool)
-    .await {
-        let mut p = ws_state.pairing_code.write().await;
-        *p = code.trim().to_uppercase();
-        tracing::info!("[SERVER HOST] Kode pairing aktif dimuat dari database: {}", *p);
     }
 
-    let router = create_pos_router(pool, ws_state.clone());
+    let router = if let Some(pool) = pool_opt {
+        create_pos_router(pool, ws_state.clone())
+    } else {
+        create_standby_router(ws_state.clone())
+    };
 
     // Pastikan Host Heartbeat Scheduler & Voucher Expiry Scheduler aktif di background
     ws_state.start_heartbeat_scheduler();

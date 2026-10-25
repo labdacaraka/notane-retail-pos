@@ -7,21 +7,42 @@ Dokumen ini menjelaskan cara menjalankan **Notane Server** dan **Notane Manager*
 ## 1. Notane Manager di Docker (Licensing & OTA Provider)
 
 Notane Manager dapat dijalankan sebagai service pusat lisensi di VPS dengan web dashboard bawaan.
+Mendukung **Dual-Database Engine**:
+* **Lokal / Desktop Development:** Menggunakan **SQLite** bawaan tanpa perlu install server database terpisah.
+* **VPS / Production Container:** Menggunakan **PostgreSQL** otomatis via container Docker pada port non-default **19432** (mencegah konflik dengan PostgreSQL default `5432` atau Notane Server `15432`).
 
 ### A. File Konfigurasi
-Gunakan file `docker-compose.manager.yml` yang sudah tersedia di root proyek.
+Gunakan file `docker-compose.manager.yml` dan file environment `.env.manager` (atau template `.env.manager.example`) yang sudah tersedia di root proyek.
+Cukup sesuaikan domain dan port di `.env.manager`:
+```env
+# .env.manager
+MANAGER_PORT=19090
+PROVIDER_URL=https://license.domainanda.com
+
+# PostgreSQL Host Port (Custom non-default 19432)
+MANAGER_POSTGRES_PORT=19432
+MANAGER_POSTGRES_USER=notane_manager
+MANAGER_POSTGRES_PASSWORD=manager_secret_2026
+MANAGER_POSTGRES_DB=notane_manager_db
+```
 
 ### B. Menjalankan Notane Manager
 ```bash
-# Build dan jalankan di background:
-docker compose -f docker-compose.manager.yml up -d --build
+# Jalankan di background via NPM shortcut:
+npm run manager:up
+
+# Atau perintah Docker Compose standar:
+docker compose -f docker-compose.manager.yml --env-file .env.manager up -d --build
 ```
 
 ### C. Port & Data Persisten
 * **Port Web Dashboard & API:** `19090` (dapat diubah via `MANAGER_PORT=...`)
-* **Akses Browser:** Buka `http://IP-VPS-ANDA:19090` untuk masuk ke Studio Manajemen Lisensi & Rilis OTA.
+* **Port Database PostgreSQL:** `19432` (dapat diubah via `MANAGER_POSTGRES_PORT=...`)
+* **Domain / Host Publik (Opsional):** Setel `PROVIDER_URL=https://license.domainanda.com` atau `HOST_IP=license.domainanda.com` di environment agar alamat API di sidebar & dashboard sesuai nama domain publik Anda.
+* **Akses Browser:** Buka `http://IP-VPS-ANDA:19090` atau `https://license.domainanda.com` untuk masuk ke Studio Manajemen Lisensi & Rilis OTA.
 * **Volume Data:**
-  * `manager_data` -> Menyimpan database SQLite lisensi (`/data/notane_provider.db`) secara aman dan persisten.
+  * `manager_pg_data` -> Menyimpan database PostgreSQL secara aman dan persisten.
+  * `manager_data` -> Menyimpan cadangan data/SQLite jika mode SQLite diaktifkan.
   * `manager_releases` -> Menyimpan arsip rilis OTA (`/app/releases`).
 
 ---

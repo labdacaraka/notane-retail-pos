@@ -23,6 +23,8 @@ src-tauri/gen/
 .env
 .env.*
 !.env.example
+!.env.brand.example
+!.env.manager.example
 src-tauri/.env
 **/src-tauri/.env
 

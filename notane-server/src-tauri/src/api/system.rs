@@ -1296,10 +1296,21 @@ async fn perform_initial_setup(
     let pool = match pool_opt {
         Some(p) => p,
         None => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({ "success": false, "message": "Database server belum aktif." })),
-            );
+            // Upayakan koneksi on-demand jika database baru saja aktif
+            let db_url = state.db_url.read().await.clone();
+            if let Ok(new_pool) = crate::db::create_pool(&db_url).await {
+                let _ = crate::db::run_embedded_migrations(&new_pool).await;
+                state.set_pool(new_pool.clone()).await;
+                new_pool
+            } else {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(json!({
+                        "success": false,
+                        "message": "Database server belum siap atau masih dalam proses inisialisasi. Mohon tunggu beberapa detik lalu coba lagi."
+                    })),
+                );
+            }
         }
     };
 

@@ -261,6 +261,11 @@ impl AppState {
         });
     }
 
+    pub async fn set_pool(&self, pool: PgPool) {
+        let mut p = self.pool.write().await;
+        *p = Some(pool);
+    }
+
     pub async fn set_server_handle(&self, handle: tokio::task::AbortHandle) {
         let mut h = self.server_handle.write().await;
         *h = Some(handle);

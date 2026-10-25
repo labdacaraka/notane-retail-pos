@@ -111,36 +111,53 @@ export const useLicenseStore = defineStore('license', {
   }),
 
   actions: {
-    getBaseUrl(): string {
+    getCandidateUrls(): string[] {
+      const urls: string[] = []
+      const targetHost = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
+      const targetPort = localStorage.getItem('notane_target_port') || '18080'
+      const controlPort = String(Number(targetPort) + 1)
+
+      urls.push(`http://${targetHost}:${targetPort}`)
+      urls.push(`http://${targetHost}:${controlPort}`)
+      if (!urls.includes('http://127.0.0.1:18080')) urls.push('http://127.0.0.1:18080')
+      if (!urls.includes('http://127.0.0.1:18081')) urls.push('http://127.0.0.1:18081')
+
       if (typeof window !== 'undefined' && window.location?.origin) {
-        // Jika dibuka dari Vite dev client port 5173/5175, arahkan ke target netStore
-        if (window.location.port === '5173' || window.location.port === '5175') {
-          const netStore = useNetworkStore()
-          return netStore.serverUrl
+        const orig = window.location.origin
+        if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
+          if (!urls.includes(orig)) urls.push(orig)
         }
-        return window.location.origin
       }
-      const netStore = useNetworkStore()
-      return netStore.serverUrl
+      return urls
+    },
+
+    getBaseUrl(): string {
+      const list = this.getCandidateUrls()
+      return list[0] || 'http://127.0.0.1:18080'
     },
 
     async fetchVersionInfo() {
-      try {
-        const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/version`, { timeout: 3000 })
-        if (res.data) {
-          this.versionInfo = res.data
-        }
-      } catch (_) {}
+      for (const base of this.getCandidateUrls()) {
+        try {
+          const res = await axios.get(`${base}/api/v1/system/version`, { timeout: 3000 })
+          if (res.data) {
+            this.versionInfo = res.data
+            return
+          }
+        } catch (_) {}
+      }
     },
 
     async fetchProviderConfig(): Promise<ProviderConfig | null> {
-      try {
-        const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/provider-config`, { timeout: 3000 })
-        if (res.data) {
-          this.providerConfig = res.data
-          return res.data
-        }
-      } catch (_) {}
+      for (const base of this.getCandidateUrls()) {
+        try {
+          const res = await axios.get(`${base}/api/v1/system/provider-config`, { timeout: 3000 })
+          if (res.data) {
+            this.providerConfig = res.data
+            return res.data
+          }
+        } catch (_) {}
+      }
       return null
     },
 
@@ -148,158 +165,186 @@ export const useLicenseStore = defineStore('license', {
       this.isLoading = true
       this.errorMessage = ''
       this.successMessage = ''
-      try {
-        const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/provider-config`, {
-          provider_url: url.trim(),
-          is_custom: isCustom,
-        }, { timeout: 5000 })
+      let lastErr = 'Gagal menyimpan konfigurasi provider'
+      for (const base of this.getCandidateUrls()) {
+        try {
+          const res = await axios.post(`${base}/api/v1/system/provider-config`, {
+            provider_url: url.trim(),
+            is_custom: isCustom,
+          }, { timeout: 5000 })
 
-        if (res.data?.status === 'success') {
-          this.successMessage = res.data.message || 'Konfigurasi Provider berhasil disimpan!'
-          await this.fetchProviderConfig()
-          await this.fetchLicenseInfo()
-          return true
+          if (res.data?.status === 'success') {
+            this.successMessage = res.data.message || 'Konfigurasi Provider berhasil disimpan!'
+            await this.fetchProviderConfig()
+            await this.fetchLicenseInfo()
+            this.isLoading = false
+            return true
+          }
+        } catch (err: any) {
+          lastErr = err.response?.data?.message || err.message || lastErr
         }
-        return false
-      } catch (err: any) {
-        this.errorMessage = err.response?.data?.message || err.message || 'Gagal menyimpan konfigurasi provider'
-        return false
-      } finally {
-        this.isLoading = false
       }
+      this.errorMessage = lastErr
+      this.isLoading = false
+      return false
     },
 
     async testProviderConnection(url?: string): Promise<ProviderConnectionTestResult> {
       this.isTestingConnection = true
       this.testResult = null
-      try {
-        const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/provider-config/test`, {
-          provider_url: url ? url.trim() : undefined,
-        }, { timeout: 6000 })
-
-        this.testResult = res.data
-        return res.data
-      } catch (err: any) {
-        const errData: ProviderConnectionTestResult = err.response?.data || {
-          success: false,
-          status: 'error',
-          target_url: url || this.providerConfig.current_url,
-          message: err.message || 'Gagal terhubung ke provider',
-        }
-        this.testResult = errData
-        return errData
-      } finally {
-        this.isTestingConnection = false
+      let lastErrResult: ProviderConnectionTestResult = {
+        success: false,
+        status: 'error',
+        target_url: url || this.providerConfig.current_url,
+        message: 'Gagal terhubung ke provider',
       }
+      for (const base of this.getCandidateUrls()) {
+        try {
+          const res = await axios.post(`${base}/api/v1/system/provider-config/test`, {
+            provider_url: url ? url.trim() : undefined,
+          }, { timeout: 6000 })
+
+          this.testResult = res.data
+          this.isTestingConnection = false
+          return res.data
+        } catch (err: any) {
+          lastErrResult = err.response?.data || {
+            success: false,
+            status: 'error',
+            target_url: url || this.providerConfig.current_url,
+            message: err.message || 'Gagal terhubung ke provider',
+          }
+        }
+      }
+      this.testResult = lastErrResult
+      this.isTestingConnection = false
+      return lastErrResult
     },
 
     async activateLicenseOnline(licenseKey: string): Promise<boolean> {
       this.isActivatingOnline = true
       this.errorMessage = ''
       this.successMessage = ''
-      try {
-        const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/license/activate-online`, {
-          license_key: licenseKey.trim().toUpperCase(),
-        }, { timeout: 12000 })
+      let lastErr = 'Gagal mengaktivasi lisensi secara online'
+      for (const base of this.getCandidateUrls()) {
+        try {
+          const res = await axios.post(`${base}/api/v1/system/license/activate-online`, {
+            license_key: licenseKey.trim().toUpperCase(),
+          }, { timeout: 12000 })
 
-        if (res.data?.status === 'success') {
-          this.successMessage = res.data.message || 'Lisensi berhasil diaktivasi secara online!'
-          await this.fetchLicenseInfo()
-          useNetworkStore().fetchHostStatus()
-          return true
-        } else {
-          this.errorMessage = res.data?.message || 'Aktivasi online gagal'
-          return false
+          if (res.data?.status === 'success') {
+            this.successMessage = res.data.message || 'Lisensi berhasil diaktivasi secara online!'
+            await this.fetchLicenseInfo()
+            useNetworkStore().fetchHostStatus()
+            this.isActivatingOnline = false
+            return true
+          } else {
+            lastErr = res.data?.message || 'Aktivasi online gagal'
+          }
+        } catch (err: any) {
+          lastErr = err.response?.data?.message || err.message || lastErr
         }
-      } catch (err: any) {
-        this.errorMessage = err.response?.data?.message || err.message || 'Gagal mengaktivasi lisensi secara online'
-        return false
-      } finally {
-        this.isActivatingOnline = false
       }
+      this.errorMessage = lastErr
+      this.isActivatingOnline = false
+      return false
     },
 
     async fetchLicenseInfo() {
       this.isLoading = true
-      try {
-        const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/license`, { timeout: 4000 })
-        if (res.data) {
-          this.licenseInfo = res.data
+      let lastErr = 'Gagal memuat status lisensi dari server lokal'
+      for (const base of this.getCandidateUrls()) {
+        try {
+          const res = await axios.get(`${base}/api/v1/system/license`, { timeout: 4000 })
+          if (res.data) {
+            this.licenseInfo = res.data
+            this.isLoading = false
+            return
+          }
+        } catch (err: any) {
+          lastErr = err.message || lastErr
         }
-      } catch (err: any) {
-        this.errorMessage = err.message || 'Gagal memuat status lisensi dari server lokal'
-      } finally {
-        this.isLoading = false
       }
+      this.errorMessage = lastErr
+      this.isLoading = false
     },
 
     async activateLicense(token: string, signature: string): Promise<boolean> {
       this.isLoading = true
       this.errorMessage = ''
       this.successMessage = ''
-      try {
-        const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/license/activate`, {
-          token: token.trim(),
-          signature: signature.trim(),
-        }, { timeout: 8000 })
+      let lastErr = 'Gagal mengaktivasi lisensi'
+      for (const base of this.getCandidateUrls()) {
+        try {
+          const res = await axios.post(`${base}/api/v1/system/license/activate`, {
+            token: token.trim(),
+            signature: signature.trim(),
+          }, { timeout: 8000 })
 
-        if (res.data?.status === 'success') {
-          this.successMessage = res.data.message || 'Lisensi berhasil diaktivasi!'
-          await this.fetchLicenseInfo()
-          useNetworkStore().fetchHostStatus()
-          return true
-        } else {
-          this.errorMessage = res.data?.message || 'Aktivasi gagal'
-          return false
+          if (res.data?.status === 'success') {
+            this.successMessage = res.data.message || 'Lisensi berhasil diaktivasi!'
+            await this.fetchLicenseInfo()
+            useNetworkStore().fetchHostStatus()
+            this.isLoading = false
+            return true
+          } else {
+            lastErr = res.data?.message || 'Aktivasi gagal'
+          }
+        } catch (err: any) {
+          lastErr = err.response?.data?.message || err.message || lastErr
         }
-      } catch (err: any) {
-        this.errorMessage = err.response?.data?.message || err.message || 'Gagal mengaktivasi lisensi'
-        return false
-      } finally {
-        this.isLoading = false
       }
+      this.errorMessage = lastErr
+      this.isLoading = false
+      return false
     },
 
     async checkForUpdates(): Promise<UpdateInfo | null> {
       this.isCheckingUpdate = true
       this.errorMessage = ''
-      try {
-        const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/updates/check`, {}, { timeout: 7000 })
-        if (res.data) {
-          this.updateInfo = res.data
-          return res.data
+      let lastErr = 'Gagal memeriksa pembaruan'
+      for (const base of this.getCandidateUrls()) {
+        try {
+          const res = await axios.post(`${base}/api/v1/system/updates/check`, {}, { timeout: 7000 })
+          if (res.data) {
+            this.updateInfo = res.data
+            this.isCheckingUpdate = false
+            return res.data
+          }
+        } catch (err: any) {
+          lastErr = err.response?.data?.message || err.message || lastErr
         }
-        return null
-      } catch (err: any) {
-        this.errorMessage = err.response?.data?.message || err.message || 'Gagal memeriksa pembaruan'
-        return null
-      } finally {
-        this.isCheckingUpdate = false
       }
+      this.errorMessage = lastErr
+      this.isCheckingUpdate = false
+      return null
     },
 
     async applyOneClickUpdate(): Promise<boolean> {
       if (!this.updateInfo?.download_url) return false
       this.isApplyingUpdate = true
-      try {
-        const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/updates/apply`, {
-          download_url: this.updateInfo.download_url,
-          checksum_sha256: this.updateInfo.checksum_sha256 || '',
-          signature: this.updateInfo.signature || '',
-          target_version: this.updateInfo.latest_version,
-        }, { timeout: 15000 })
+      let lastErr = 'Gagal menerapkan pembaruan'
+      for (const base of this.getCandidateUrls()) {
+        try {
+          const res = await axios.post(`${base}/api/v1/system/updates/apply`, {
+            download_url: this.updateInfo.download_url,
+            checksum_sha256: this.updateInfo.checksum_sha256 || '',
+            signature: this.updateInfo.signature || '',
+            target_version: this.updateInfo.latest_version,
+          }, { timeout: 15000 })
 
-        if (res.data?.status === 'success') {
-          this.successMessage = res.data.message
-          return true
+          if (res.data?.status === 'success') {
+            this.successMessage = res.data.message
+            this.isApplyingUpdate = false
+            return true
+          }
+        } catch (err: any) {
+          lastErr = err.response?.data?.message || err.message || lastErr
         }
-        return false
-      } catch (err: any) {
-        this.errorMessage = err.response?.data?.message || err.message || 'Gagal menerapkan pembaruan'
-        return false
-      } finally {
-        this.isApplyingUpdate = false
       }
+      this.errorMessage = lastErr
+      this.isApplyingUpdate = false
+      return false
     },
   },
 })

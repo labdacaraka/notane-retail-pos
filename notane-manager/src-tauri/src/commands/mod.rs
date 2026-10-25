@@ -16,6 +16,12 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use validator::Validate;
+use crate::db::adapt_sql;
+
+#[inline]
+fn sql(q: &str) -> String {
+    adapt_sql(q)
+}
 
 pub use crate::AppState;
 
@@ -60,7 +66,7 @@ pub async fn get_provider_status(state: tauri::State<'_, AppState>) -> Result<Pr
     Ok(ProviderStatus {
         is_server_running: is_running,
         port,
-        external_url: format!("http://127.0.0.1:{}", port),
+        external_url: ProviderStatus::resolve_external_url(port),
         total_clients: total_clients.0,
         total_licenses: total_licenses.0,
         active_licenses: active_licenses.0,
@@ -125,8 +131,8 @@ pub async fn save_client(
     let now = Utc::now().to_rfc3339();
 
     sqlx::query(
-        "INSERT INTO provider_clients (id, client_name, company_name, email, phone, address, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        &sql("INSERT INTO provider_clients (id, client_name, company_name, email, phone, address, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
     )
     .bind(&id)
     .bind(&payload.client_name)
@@ -161,9 +167,9 @@ pub async fn update_client(
     let now = Utc::now().to_rfc3339();
 
     let rows_affected = sqlx::query(
-        "UPDATE provider_clients
+        &sql("UPDATE provider_clients
          SET client_name = ?, company_name = ?, email = ?, phone = ?, address = ?, updated_at = ?
-         WHERE id = ?"
+         WHERE id = ?")
     )
     .bind(&payload.client_name)
     .bind(&payload.company_name)
@@ -188,7 +194,7 @@ pub async fn delete_client(
     state: tauri::State<'_, AppState>,
     client_id: String,
 ) -> Result<bool, AppError> {
-    let rows_affected = sqlx::query("DELETE FROM provider_clients WHERE id = ?")
+    let rows_affected = sqlx::query(&sql("DELETE FROM provider_clients WHERE id = ?"))
         .bind(&client_id)
         .execute(&state.pool)
         .await?
@@ -244,10 +250,10 @@ pub async fn generate_license(
     let grace_days = payload.grace_period_days.unwrap_or(7);
 
     sqlx::query(
-        "INSERT INTO provider_licenses (
+        &sql("INSERT INTO provider_licenses (
             id, license_key, client_id, tier, max_terminals, status, issued_at, expires_at,
             grace_period_days, features, notes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?)"
+        ) VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?)")
     )
     .bind(&id)
     .bind(&license_key)
@@ -264,7 +270,7 @@ pub async fn generate_license(
     .execute(&state.pool)
     .await?;
 
-    let client_name: Option<String> = sqlx::query_scalar("SELECT client_name FROM provider_clients WHERE id = ?")
+    let client_name: Option<String> = sqlx::query_scalar(&sql("SELECT client_name FROM provider_clients WHERE id = ?"))
         .bind(&payload.client_id)
         .fetch_optional(&state.pool)
         .await
@@ -297,7 +303,7 @@ pub async fn update_license_status(
 ) -> Result<bool, AppError> {
     let now = Utc::now().to_rfc3339();
     let rows = sqlx::query(
-        "UPDATE provider_licenses SET status = ?, updated_at = ? WHERE id = ?"
+        &sql("UPDATE provider_licenses SET status = ?, updated_at = ? WHERE id = ?")
     )
     .bind(&status)
     .bind(&now)
@@ -333,11 +339,11 @@ pub async fn sign_license_token_manual(
     let clean_hwid = hardware_id.trim();
 
     let row = sqlx::query_as::<_, ManualSignLicenseRow>(
-        "SELECT l.license_key, l.tier, l.max_terminals, l.expires_at, l.grace_period_days,
+        &sql("SELECT l.license_key, l.tier, l.max_terminals, l.expires_at, l.grace_period_days,
                 l.features, c.client_name
          FROM provider_licenses l
          JOIN provider_clients c ON l.client_id = c.id
-         WHERE l.license_key = ?"
+         WHERE l.license_key = ?")
     )
     .bind(clean_key)
     .fetch_optional(&state.pool)
@@ -407,7 +413,7 @@ pub async fn unbind_device(
     state: tauri::State<'_, AppState>,
     device_id: String,
 ) -> Result<bool, AppError> {
-    let rows = sqlx::query("DELETE FROM provider_device_activations WHERE id = ?")
+    let rows = sqlx::query(&sql("DELETE FROM provider_device_activations WHERE id = ?"))
         .bind(&device_id)
         .execute(&state.pool)
         .await?
@@ -453,11 +459,11 @@ pub async fn create_release(
         .map_err(|e| AppError::Crypto(e))?;
 
     sqlx::query(
-        "INSERT INTO provider_app_releases (
+        &sql("INSERT INTO provider_app_releases (
             id, version, release_name, changelog, release_date, download_url,
             checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
             has_db_migration, is_published, component, min_server_version, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)"
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)")
     )
     .bind(&id)
     .bind(payload.version.trim())
@@ -500,7 +506,7 @@ pub async fn delete_release(
     state: tauri::State<'_, AppState>,
     release_id: String,
 ) -> Result<bool, AppError> {
-    let rows = sqlx::query("DELETE FROM provider_app_releases WHERE id = ?")
+    let rows = sqlx::query(&sql("DELETE FROM provider_app_releases WHERE id = ?"))
         .bind(&release_id)
         .execute(&state.pool)
         .await?
@@ -519,9 +525,9 @@ pub async fn get_audit_logs(
 ) -> Result<Vec<AuditLog>, AppError> {
     let l = limit.unwrap_or(50);
     let rows = sqlx::query_as::<_, AuditLog>(
-        "SELECT id, license_key, hardware_id, action, ip_address, status, details, created_at
+        &sql("SELECT id, license_key, hardware_id, action, ip_address, status, details, created_at
          FROM provider_license_audit_logs
-         ORDER BY created_at DESC LIMIT ?"
+         ORDER BY created_at DESC LIMIT ?")
     )
     .bind(l)
     .fetch_all(&state.pool)
@@ -561,7 +567,7 @@ pub async fn save_provider_settings(
         let mut key_guard = state.api_state.master_private_key.write().await;
         *key_guard = clean_priv.to_string();
 
-        let _ = sqlx::query("UPDATE provider_settings SET value = ? WHERE key = 'master_private_key'")
+        let _ = sqlx::query(&sql("UPDATE provider_settings SET value = ? WHERE key = 'master_private_key'"))
             .bind(clean_priv)
             .execute(&state.pool)
             .await;
@@ -593,9 +599,9 @@ pub async fn login_admin(
     payload.validate().map_err(|e| AppError::Validation(e.to_string()))?;
 
     let row = sqlx::query_as::<_, UserDbRow>(
-        "SELECT id, username, full_name, password_hash, quick_pin, role, last_login_at
+        &sql("SELECT id, username, full_name, password_hash, quick_pin, role, last_login_at
          FROM provider_users
-         WHERE username = ?"
+         WHERE username = ?")
     )
     .bind(payload.username.trim())
     .fetch_optional(&state.pool)
@@ -613,7 +619,7 @@ pub async fn login_admin(
     let token = uuid::Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
 
-    let _ = sqlx::query("UPDATE provider_users SET last_login_at = ? WHERE id = ?")
+    let _ = sqlx::query(&sql("UPDATE provider_users SET last_login_at = ? WHERE id = ?"))
         .bind(&now)
         .bind(&user.id)
         .execute(&state.pool)
@@ -670,7 +676,7 @@ pub async fn login_with_pin(
     let token = uuid::Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
 
-    let _ = sqlx::query("UPDATE provider_users SET last_login_at = ? WHERE id = ?")
+    let _ = sqlx::query(&sql("UPDATE provider_users SET last_login_at = ? WHERE id = ?"))
         .bind(&now)
         .bind(&user.id)
         .execute(&state.pool)
@@ -750,7 +756,7 @@ pub async fn change_admin_credentials(
 
     if let Some(new_pass) = payload.new_password {
         let hash = hash_secret(new_pass.trim());
-        let _ = sqlx::query("UPDATE provider_users SET password_hash = ?, updated_at = ? WHERE id = ?")
+        let _ = sqlx::query(&sql("UPDATE provider_users SET password_hash = ?, updated_at = ? WHERE id = ?"))
             .bind(hash)
             .bind(&now)
             .bind(&user.id)
@@ -760,7 +766,7 @@ pub async fn change_admin_credentials(
 
     if let Some(new_pin) = payload.new_pin {
         let pin_hash = hash_secret(new_pin.trim());
-        let _ = sqlx::query("UPDATE provider_users SET quick_pin = ?, updated_at = ? WHERE id = ?")
+        let _ = sqlx::query(&sql("UPDATE provider_users SET quick_pin = ?, updated_at = ? WHERE id = ?"))
             .bind(pin_hash)
             .bind(&now)
             .bind(&user.id)

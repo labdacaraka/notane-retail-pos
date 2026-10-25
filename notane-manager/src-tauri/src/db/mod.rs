@@ -1,50 +1,63 @@
 use crate::crypto::ed25519::{DEFAULT_MASTER_PRIVATE_KEY_HEX, DEFAULT_MASTER_PUBLIC_KEY_HEX};
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use sqlx::{Pool, Sqlite};
+use sqlx::any::AnyPoolOptions;
 use std::fs;
 use std::path::PathBuf;
-use std::str::FromStr;
 use tracing::info;
 
-pub type DbPool = Pool<Sqlite>;
+pub type DbPool = sqlx::AnyPool;
 
 pub async fn init_db(db_path: Option<PathBuf>) -> Result<DbPool, sqlx::Error> {
-    let final_path = match db_path {
-        Some(p) => p,
-        None => {
-            if let Ok(env_db) = std::env::var("DATABASE_PATH") {
-                let p = PathBuf::from(env_db);
+    sqlx::any::install_default_drivers();
+
+    let resolve_sqlite = |custom_path: Option<PathBuf>| -> String {
+        if let Ok(env_db) = std::env::var("DATABASE_PATH") {
+            let trimmed = env_db.trim();
+            if !trimmed.is_empty() {
+                let p = PathBuf::from(trimmed);
                 if let Some(parent) = p.parent() {
                     fs::create_dir_all(parent).ok();
                 }
-                p
-            } else if let Ok(env_url) = std::env::var("DATABASE_URL") {
-                let stripped = env_url.trim_start_matches("sqlite://");
-                let clean = stripped.split('?').next().unwrap_or(stripped);
-                let p = PathBuf::from(clean);
+                return format!("sqlite://{}?mode=rwc", p.to_str().unwrap_or(trimmed));
+            }
+        }
+        match custom_path {
+            Some(p) => {
                 if let Some(parent) = p.parent() {
                     fs::create_dir_all(parent).ok();
                 }
-                p
-            } else {
+                format!("sqlite://{}?mode=rwc", p.to_str().unwrap_or("notane_provider.db"))
+            }
+            None => {
                 let mut dir = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
                 dir.push("notane-license-manager");
                 fs::create_dir_all(&dir).ok();
                 dir.push("notane_provider.db");
-                dir
+                format!("sqlite://{}?mode=rwc", dir.to_str().unwrap_or("notane_provider.db"))
             }
         }
     };
 
-    let path_str = final_path.to_str().unwrap_or("notane_provider.db");
-    info!("Inisialisasi Database SQLite Provider di: {}", path_str);
+    let database_url = if let Ok(env_url) = std::env::var("DATABASE_URL") {
+        let trimmed = env_url.trim();
+        if !trimmed.is_empty() {
+            trimmed.to_string()
+        } else {
+            resolve_sqlite(db_path)
+        }
+    } else {
+        resolve_sqlite(db_path)
+    };
 
-    let opts = SqliteConnectOptions::from_str(&format!("sqlite://{}?mode=rwc", path_str))?
-        .create_if_missing(true);
+    let is_pg = database_url.starts_with("postgres://") || database_url.starts_with("postgresql://");
+    if is_pg {
+        info!("Inisialisasi Database PostgreSQL Provider...");
+    } else {
+        info!("Inisialisasi Database SQLite Provider di: {}", database_url);
+    }
 
-    let pool = SqlitePoolOptions::new()
+    let pool = AnyPoolOptions::new()
         .max_connections(10)
-        .connect_with(opts)
+        .connect(&database_url)
         .await?;
 
     run_migrations(&pool).await?;
@@ -215,7 +228,8 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
         let _ = sqlx::query(
             "INSERT INTO provider_users (
                 id, username, full_name, password_hash, quick_pin, role, created_at, updated_at
-            ) VALUES ('usr_master_admin', 'admin', 'Master Administrator', ?, ?, 'super_admin', ?, ?)"
+            ) VALUES ('usr_master_admin', 'admin', 'Master Administrator', $1, $2, 'super_admin', $3, $4)
+            ON CONFLICT DO NOTHING"
         )
         .bind(pass_hash)
         .bind(pin_hash)
@@ -227,8 +241,9 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
 
     // Roles
     sqlx::query(
-        "INSERT OR IGNORE INTO roles (id, name, description, created_at)
-         VALUES ('role_super_admin', 'super_admin', 'Pemilik Utama / Provider License Administrator', ?);"
+        "INSERT INTO roles (id, name, description, created_at)
+         VALUES ('role_super_admin', 'super_admin', 'Pemilik Utama / Provider License Administrator', $1)
+         ON CONFLICT DO NOTHING;"
     )
     .bind(&now)
     .execute(pool)
@@ -256,8 +271,9 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
     for (slug, name, module, desc) in permissions {
         let perm_id = format!("perm_{}", slug.replace(':', "_"));
         sqlx::query(
-            "INSERT OR IGNORE INTO permissions (id, slug, name, module, description, created_at)
-             VALUES (?, ?, ?, ?, ?, ?);"
+            "INSERT INTO permissions (id, slug, name, module, description, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT DO NOTHING;"
         )
         .bind(&perm_id)
         .bind(slug)
@@ -270,8 +286,9 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
 
         // Map ke super_admin role
         sqlx::query(
-            "INSERT OR IGNORE INTO role_permissions (role_id, permission_id)
-             VALUES ('role_super_admin', ?);"
+            "INSERT INTO role_permissions (role_id, permission_id)
+             VALUES ('role_super_admin', $1)
+             ON CONFLICT DO NOTHING;"
         )
         .bind(&perm_id)
         .execute(pool)
@@ -280,22 +297,22 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
 
     // Default Settings
     sqlx::query(
-        "INSERT OR IGNORE INTO provider_settings (key, value) VALUES ('server_port', '19090');"
+        "INSERT INTO provider_settings (key, value) VALUES ('server_port', '19090') ON CONFLICT DO NOTHING;"
     ).execute(pool).await?;
 
     sqlx::query(
-        "INSERT OR IGNORE INTO provider_settings (key, value) VALUES ('auto_start_server', 'true');"
+        "INSERT INTO provider_settings (key, value) VALUES ('auto_start_server', 'true') ON CONFLICT DO NOTHING;"
     ).execute(pool).await?;
 
     sqlx::query(
-        "INSERT OR IGNORE INTO provider_settings (key, value) VALUES ('master_private_key', ?);"
+        "INSERT INTO provider_settings (key, value) VALUES ('master_private_key', $1) ON CONFLICT DO NOTHING;"
     )
     .bind(DEFAULT_MASTER_PRIVATE_KEY_HEX)
     .execute(pool)
     .await?;
 
     sqlx::query(
-        "INSERT OR IGNORE INTO provider_settings (key, value) VALUES ('master_public_key', ?);"
+        "INSERT INTO provider_settings (key, value) VALUES ('master_public_key', $1) ON CONFLICT DO NOTHING;"
     )
     .bind(DEFAULT_MASTER_PUBLIC_KEY_HEX)
     .execute(pool)
@@ -318,11 +335,12 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
                 id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
                 has_db_migration, is_published, component, min_server_version, created_at
-            ) VALUES (?, '1.2.0', 'Pembaruan Notane Server v1.2.0',
+            ) VALUES ($1, '1.2.0', 'Pembaruan Notane Server v1.2.0',
                       '1. Peningkatan kecepatan simpan transaksi kasir\n2. Pembaruan struktur data laporan penjualan\n3. Peningkatan kestabilan sambungan jaringan toko',
                       '2026-10-01', 'https://update.notane.id/releases/v1.2.0/notane-server-bundle.zip',
                       'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-                      ?, 0, 'BASIC', 1, 1, 'server', NULL, ?);"
+                      $2, 0, 'BASIC', 1, 1, 'server', NULL, $3)
+            ON CONFLICT DO NOTHING;"
         )
         .bind(rel_id)
         .bind(sig)
@@ -341,11 +359,12 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
                 id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
                 has_db_migration, is_published, component, min_server_version, created_at
-            ) VALUES (?, '1.2.0', 'Pembaruan Aplikasi Kasir v1.2.0',
+            ) VALUES ($1, '1.2.0', 'Pembaruan Aplikasi Kasir v1.2.0',
                       '1. Tampilan antarmuka kasir lebih cepat dan responsif\n2. Peningkatan cetak struk penjualan\n3. Perbaikan tampilan pencarian barang',
                       '2026-10-01', 'https://update.notane.id/releases/v1.2.0/notane-client-bundle.zip',
                       'f4c0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b866',
-                      ?, 0, 'BASIC', 0, 1, 'client', '1.1.0', ?);"
+                      $2, 0, 'BASIC', 0, 1, 'client', '1.1.0', $3)
+            ON CONFLICT DO NOTHING;"
         )
         .bind(client_rel_id)
         .bind(client_sig)
@@ -356,3 +375,89 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
 
     Ok(())
 }
+
+pub fn adapt_sql(query: &str) -> String {
+    let mut out = String::with_capacity(query.len() + 16);
+    let mut param_idx = 1;
+    for c in query.chars() {
+        if c == '?' {
+            out.push('$');
+            out.push_str(&param_idx.to_string());
+            param_idx += 1;
+        } else {
+            out.push(c);
+        }
+    }
+    if out.contains("INSERT OR IGNORE INTO") {
+        out = out.replace("INSERT OR IGNORE INTO", "INSERT INTO");
+        let trimmed = out.trim_end().trim_end_matches(';');
+        out = format!("{} ON CONFLICT DO NOTHING;", trimmed);
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_adapt_sql() {
+        let q1 = adapt_sql("SELECT * FROM t WHERE a = ? AND b = ?");
+        assert_eq!(q1, "SELECT * FROM t WHERE a = $1 AND b = $2");
+        let q2 = adapt_sql("INSERT OR IGNORE INTO roles (id, name) VALUES (?, ?);");
+        assert_eq!(q2, "INSERT INTO roles (id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING;");
+    }
+
+    #[tokio::test]
+    async fn test_dollar_param_on_sqlite() {
+        sqlx::any::install_default_drivers();
+        let pool = sqlx::any::AnyPoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:?cache=shared")
+            .await
+            .unwrap();
+        sqlx::query("CREATE TABLE test (id TEXT, val TEXT);")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO test (id, val) VALUES ($1, $2);")
+            .bind("1")
+            .bind("hello")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let row: (String,) = sqlx::query_as("SELECT val FROM test WHERE id = $1;")
+            .bind("1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(row.0, "hello");
+
+        // Test LIKE and LIMIT OFFSET with $1, $2, $3
+        let rows: Vec<(String,)> = sqlx::query_as("SELECT val FROM test WHERE val LIKE $1 LIMIT $2 OFFSET $3;")
+            .bind("%ell%")
+            .bind(10i64)
+            .bind(0i64)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, "hello");
+
+        // Test adapt_sql dynamic temporary binding
+        sqlx::query(&adapt_sql("INSERT INTO test (id, val) VALUES (?, ?);"))
+            .bind("2")
+            .bind("world")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let row2: (String,) = sqlx::query_as(&adapt_sql("SELECT val FROM test WHERE id = ?;"))
+            .bind("2")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(row2.0, "world");
+    }
+}
+
+

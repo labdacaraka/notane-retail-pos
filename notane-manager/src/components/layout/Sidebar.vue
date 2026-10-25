@@ -32,6 +32,20 @@ const navItems = [
 const serverStatusColor = computed(() => {
   return providerStore.status.is_server_running ? 'bg-emerald-500' : 'bg-rose-500'
 })
+
+const displayExternalUrl = computed(() => {
+  const backendUrl = providerStore.status.external_url
+  if (backendUrl && !backendUrl.includes('127.0.0.1') && !backendUrl.includes('localhost')) {
+    return backendUrl
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin
+    if (!origin.startsWith('tauri://') && !origin.includes('tauri.localhost') && !origin.includes(':517')) {
+      return origin
+    }
+  }
+  return backendUrl || `http://127.0.0.1:${providerStore.status.port || 19090}`
+})
 </script>
 
 <template>
@@ -98,7 +112,7 @@ const serverStatusColor = computed(() => {
           </span>
         </div>
         <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate font-mono">
-          {{ providerStore.status.external_url }}
+          {{ displayExternalUrl }}
         </div>
       </div>
     </div>

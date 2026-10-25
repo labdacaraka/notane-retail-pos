@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProviderStore } from '../stores/providerStore'
 import {
@@ -18,6 +18,20 @@ import {
 
 const router = useRouter()
 const providerStore = useProviderStore()
+
+const displayExternalUrl = computed(() => {
+  const backendUrl = providerStore.status.external_url
+  if (backendUrl && !backendUrl.includes('127.0.0.1') && !backendUrl.includes('localhost')) {
+    return backendUrl
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin
+    if (!origin.startsWith('tauri://') && !origin.includes('tauri.localhost') && !origin.includes(':517')) {
+      return origin
+    }
+  }
+  return backendUrl || `http://127.0.0.1:${providerStore.status.port || 19090}`
+})
 
 onMounted(async () => {
   await providerStore.fetchStatus()
@@ -74,7 +88,7 @@ onMounted(async () => {
       <div class="mt-5 pt-4 border-t border-slate-800/80 flex flex-wrap gap-4 text-xs font-mono text-slate-400">
         <div class="flex items-center gap-1.5">
           <span class="text-brand-400 font-bold">API HOST:</span>
-          <span class="text-slate-200 bg-slate-800/80 px-2 py-0.5 rounded">{{ providerStore.status.external_url }}</span>
+          <span class="text-slate-200 bg-slate-800/80 px-2 py-0.5 rounded">{{ displayExternalUrl }}</span>
         </div>
         <div class="flex items-center gap-1.5">
           <span class="text-slate-500">Aktivasi:</span>

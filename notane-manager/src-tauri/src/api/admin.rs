@@ -18,6 +18,12 @@ use rand::Rng;
 use serde::Deserialize;
 use serde_json::json;
 use validator::Validate;
+use crate::db::adapt_sql;
+
+#[inline]
+fn sql(q: &str) -> String {
+    adapt_sql(q)
+}
 
 // Helper error response for Axum
 fn err_response(err: AppError) -> (StatusCode, Json<serde_json::Value>) {
@@ -87,8 +93,8 @@ async fn admin_login(
     }
 
     let row = sqlx::query_as::<_, UserDbRow>(
-        "SELECT id, username, full_name, password_hash, quick_pin, role, last_login_at
-         FROM provider_users WHERE username = ?"
+        &sql("SELECT id, username, full_name, password_hash, quick_pin, role, last_login_at
+         FROM provider_users WHERE username = ?")
     )
     .bind(payload.username.trim())
     .fetch_optional(&state.pool)
@@ -108,7 +114,7 @@ async fn admin_login(
     state.active_sessions.write().await.insert(token.clone());
 
     let now = Utc::now().to_rfc3339();
-    let _ = sqlx::query("UPDATE provider_users SET last_login_at = ? WHERE id = ?")
+    let _ = sqlx::query(&sql("UPDATE provider_users SET last_login_at = ? WHERE id = ?"))
         .bind(&now)
         .bind(&user_row.id)
         .execute(&state.pool)
@@ -156,7 +162,7 @@ async fn admin_login_pin(
     state.active_sessions.write().await.insert(token.clone());
 
     let now = Utc::now().to_rfc3339();
-    let _ = sqlx::query("UPDATE provider_users SET last_login_at = ? WHERE id = ?")
+    let _ = sqlx::query(&sql("UPDATE provider_users SET last_login_at = ? WHERE id = ?"))
         .bind(&now)
         .bind(&user_row.id)
         .execute(&state.pool)
@@ -235,7 +241,7 @@ async fn admin_change_credentials(
     let now = Utc::now().to_rfc3339();
     if let Some(ref new_pass) = payload.new_password {
         let hash = hash_secret(new_pass.trim());
-        let _ = sqlx::query("UPDATE provider_users SET password_hash = ?, updated_at = ? WHERE id = ?")
+        let _ = sqlx::query(&sql("UPDATE provider_users SET password_hash = ?, updated_at = ? WHERE id = ?"))
             .bind(hash)
             .bind(&now)
             .bind(&user_row.id)
@@ -245,7 +251,7 @@ async fn admin_change_credentials(
 
     if let Some(ref new_pin) = payload.new_pin {
         let hash = hash_secret(new_pin.trim());
-        let _ = sqlx::query("UPDATE provider_users SET quick_pin = ?, updated_at = ? WHERE id = ?")
+        let _ = sqlx::query(&sql("UPDATE provider_users SET quick_pin = ?, updated_at = ? WHERE id = ?"))
             .bind(hash)
             .bind(&now)
             .bind(&user_row.id)
@@ -258,10 +264,10 @@ async fn admin_change_credentials(
 
 async fn get_user_permissions(pool: &crate::db::DbPool, role: &str) -> Vec<String> {
     let rows: Vec<(String,)> = sqlx::query_as(
-        "SELECT p.slug FROM permissions p
+        &sql("SELECT p.slug FROM permissions p
          JOIN role_permissions rp ON p.id = rp.permission_id
          JOIN roles r ON rp.role_id = r.id
-         WHERE r.name = ?"
+         WHERE r.name = ?")
     )
     .bind(role)
     .fetch_all(pool)
@@ -316,7 +322,7 @@ async fn admin_get_status(
     Ok(Json(ProviderStatus {
         is_server_running: is_running,
         port,
-        external_url: format!("http://127.0.0.1:{}", port),
+        external_url: ProviderStatus::resolve_external_url(port),
         total_clients: total_clients.0,
         total_licenses: total_licenses.0,
         active_licenses: active_licenses.0,
@@ -366,7 +372,7 @@ async fn admin_save_settings(
         let mut key_guard = state.master_private_key.write().await;
         *key_guard = clean_priv.to_string();
 
-        let _ = sqlx::query("UPDATE provider_settings SET value = ? WHERE key = 'master_private_key'")
+        let _ = sqlx::query(&sql("UPDATE provider_settings SET value = ? WHERE key = 'master_private_key'"))
             .bind(clean_priv)
             .execute(&state.pool)
             .await;
@@ -395,10 +401,10 @@ async fn admin_get_clients(
     };
 
     let total_items: (i64,) = if search.is_empty() {
-        sqlx::query_as(&count_sql).fetch_one(&state.pool).await
+        sqlx::query_as(&sql(&count_sql)).fetch_one(&state.pool).await
             .map_err(|e| err_response(AppError::Database(e.to_string())))?
     } else {
-        sqlx::query_as(&count_sql)
+        sqlx::query_as(&sql(&count_sql))
             .bind(&search_pattern).bind(&search_pattern).bind(&search_pattern).bind(&search_pattern)
             .fetch_one(&state.pool).await
             .map_err(|e| err_response(AppError::Database(e.to_string())))?
@@ -428,12 +434,12 @@ async fn admin_get_clients(
     );
 
     let items = if search.is_empty() {
-        sqlx::query_as::<_, Client>(&select_sql)
+        sqlx::query_as::<_, Client>(&sql(&select_sql))
             .bind(page_size).bind(offset)
             .fetch_all(&state.pool).await
             .map_err(|e| err_response(AppError::Database(e.to_string())))?
     } else {
-        sqlx::query_as::<_, Client>(&select_sql)
+        sqlx::query_as::<_, Client>(&sql(&select_sql))
             .bind(&search_pattern).bind(&search_pattern).bind(&search_pattern).bind(&search_pattern)
             .bind(page_size).bind(offset)
             .fetch_all(&state.pool).await
@@ -463,8 +469,8 @@ async fn admin_create_client(
     let now = Utc::now().to_rfc3339();
 
     sqlx::query(
-        "INSERT INTO provider_clients (id, client_name, company_name, email, phone, address, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        &sql("INSERT INTO provider_clients (id, client_name, company_name, email, phone, address, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
     )
     .bind(&id)
     .bind(&payload.client_name)
@@ -501,9 +507,9 @@ async fn admin_update_client(
 
     let now = Utc::now().to_rfc3339();
     let rows_affected = sqlx::query(
-        "UPDATE provider_clients
+        &sql("UPDATE provider_clients
          SET client_name = ?, company_name = ?, email = ?, phone = ?, address = ?, updated_at = ?
-         WHERE id = ?"
+         WHERE id = ?")
     )
     .bind(&payload.client_name)
     .bind(&payload.company_name)
@@ -528,7 +534,7 @@ async fn admin_delete_client(
     Path(id): Path<String>,
     State(state): State<ApiState>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let rows_affected = sqlx::query("DELETE FROM provider_clients WHERE id = ?")
+    let rows_affected = sqlx::query(&sql("DELETE FROM provider_clients WHERE id = ?"))
         .bind(&id)
         .execute(&state.pool)
         .await
@@ -578,7 +584,8 @@ async fn admin_get_licenses(
         where_sql
     );
 
-    let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql);
+    let count_sql_adapted = sql(&count_sql);
+    let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql_adapted);
     if !search.is_empty() {
         count_query = count_query.bind(&search_pattern).bind(&search_pattern).bind(&search_pattern);
     }
@@ -619,7 +626,8 @@ async fn admin_get_licenses(
         where_sql, sort_col, sort_dir
     );
 
-    let mut select_query = sqlx::query_as::<_, License>(&select_sql);
+    let select_sql_adapted = sql(&select_sql);
+    let mut select_query = sqlx::query_as::<_, License>(&select_sql_adapted);
     if !search.is_empty() {
         select_query = select_query.bind(&search_pattern).bind(&search_pattern).bind(&search_pattern);
     }
@@ -672,10 +680,10 @@ async fn admin_create_license(
     let grace_days = payload.grace_period_days.unwrap_or(7);
 
     sqlx::query(
-        "INSERT INTO provider_licenses (
+        &sql("INSERT INTO provider_licenses (
             id, license_key, client_id, tier, max_terminals, status, issued_at, expires_at,
             grace_period_days, features, notes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?)"
+        ) VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?)")
     )
     .bind(&id)
     .bind(&license_key)
@@ -693,7 +701,7 @@ async fn admin_create_license(
     .await
     .map_err(|e| err_response(AppError::Database(e.to_string())))?;
 
-    let client_name: Option<String> = sqlx::query_scalar("SELECT client_name FROM provider_clients WHERE id = ?")
+    let client_name: Option<String> = sqlx::query_scalar(&sql("SELECT client_name FROM provider_clients WHERE id = ?"))
         .bind(&payload.client_id)
         .fetch_optional(&state.pool)
         .await
@@ -729,7 +737,7 @@ async fn admin_update_license_status(
     Json(payload): Json<UpdateStatusDto>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let now = Utc::now().to_rfc3339();
-    let rows = sqlx::query("UPDATE provider_licenses SET status = ?, updated_at = ? WHERE id = ?")
+    let rows = sqlx::query(&sql("UPDATE provider_licenses SET status = ?, updated_at = ? WHERE id = ?"))
         .bind(&payload.status)
         .bind(&now)
         .bind(&id)
@@ -745,7 +753,7 @@ async fn admin_delete_license(
     Path(id): Path<String>,
     State(state): State<ApiState>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let rows = sqlx::query("DELETE FROM provider_licenses WHERE id = ?")
+    let rows = sqlx::query(&sql("DELETE FROM provider_licenses WHERE id = ?"))
         .bind(&id)
         .execute(&state.pool)
         .await
@@ -796,7 +804,8 @@ async fn admin_get_devices(
         where_sql
     );
 
-    let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql);
+    let count_sql_adapted = sql(&count_sql);
+    let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql_adapted);
     if !search.is_empty() {
         count_query = count_query.bind(&search_pattern).bind(&search_pattern).bind(&search_pattern).bind(&search_pattern).bind(&search_pattern);
     }
@@ -831,7 +840,8 @@ async fn admin_get_devices(
         where_sql, sort_col, sort_dir
     );
 
-    let mut select_query = sqlx::query_as::<_, DeviceActivation>(&select_sql);
+    let select_sql_adapted = sql(&select_sql);
+    let mut select_query = sqlx::query_as::<_, DeviceActivation>(&select_sql_adapted);
     if !search.is_empty() {
         select_query = select_query.bind(&search_pattern).bind(&search_pattern).bind(&search_pattern).bind(&search_pattern).bind(&search_pattern);
     }
@@ -855,7 +865,7 @@ async fn admin_unbind_device(
     Path(id): Path<String>,
     State(state): State<ApiState>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let rows = sqlx::query("DELETE FROM provider_device_activations WHERE id = ?")
+    let rows = sqlx::query(&sql("DELETE FROM provider_device_activations WHERE id = ?"))
         .bind(&id)
         .execute(&state.pool)
         .await
@@ -886,7 +896,8 @@ async fn admin_get_releases(
     };
 
     let count_sql = format!("SELECT COUNT(*) FROM provider_app_releases {}", where_sql);
-    let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql);
+    let count_sql_adapted = sql(&count_sql);
+    let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql_adapted);
     if !search.is_empty() {
         count_query = count_query.bind(&search_pattern).bind(&search_pattern).bind(&search_pattern);
     }
@@ -916,7 +927,8 @@ async fn admin_get_releases(
         where_sql, sort_col, sort_dir
     );
 
-    let mut select_query = sqlx::query_as::<_, AppRelease>(&select_sql);
+    let select_sql_adapted = sql(&select_sql);
+    let mut select_query = sqlx::query_as::<_, AppRelease>(&select_sql_adapted);
     if !search.is_empty() {
         select_query = select_query.bind(&search_pattern).bind(&search_pattern).bind(&search_pattern);
     }
@@ -956,11 +968,11 @@ async fn admin_create_release(
         .map_err(|e| err_response(AppError::Crypto(e)))?;
 
     sqlx::query(
-        "INSERT INTO provider_app_releases (
+        &sql("INSERT INTO provider_app_releases (
             id, version, release_name, changelog, release_date, download_url,
             checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
             has_db_migration, is_published, component, min_server_version, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)"
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)")
     )
     .bind(&id)
     .bind(payload.version.trim())
@@ -1003,7 +1015,7 @@ async fn admin_delete_release(
     Path(id): Path<String>,
     State(state): State<ApiState>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let rows = sqlx::query("DELETE FROM provider_app_releases WHERE id = ?")
+    let rows = sqlx::query(&sql("DELETE FROM provider_app_releases WHERE id = ?"))
         .bind(&id)
         .execute(&state.pool)
         .await
@@ -1043,7 +1055,8 @@ async fn admin_get_audit_logs(
     };
 
     let count_sql = format!("SELECT COUNT(*) FROM provider_license_audit_logs {}", where_sql);
-    let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql);
+    let count_sql_adapted = sql(&count_sql);
+    let mut count_query = sqlx::query_as::<_, (i64,)>(&count_sql_adapted);
     if !search.is_empty() {
         count_query = count_query.bind(&search_pattern).bind(&search_pattern).bind(&search_pattern).bind(&search_pattern);
     }
@@ -1073,7 +1086,8 @@ async fn admin_get_audit_logs(
         where_sql, sort_col, sort_dir
     );
 
-    let mut select_query = sqlx::query_as::<_, AuditLog>(&select_sql);
+    let select_sql_adapted = sql(&select_sql);
+    let mut select_query = sqlx::query_as::<_, AuditLog>(&select_sql_adapted);
     if !search.is_empty() {
         select_query = select_query.bind(&search_pattern).bind(&search_pattern).bind(&search_pattern).bind(&search_pattern);
     }
@@ -1124,11 +1138,11 @@ async fn admin_sign_token_manual(
     let clean_hwid = payload.hardware_id.trim();
 
     let row = sqlx::query_as::<_, ManualSignLicenseRow>(
-        "SELECT l.license_key, l.tier, l.max_terminals, l.expires_at, l.grace_period_days,
+        &sql("SELECT l.license_key, l.tier, l.max_terminals, l.expires_at, l.grace_period_days,
                 l.features, c.client_name
          FROM provider_licenses l
          JOIN provider_clients c ON l.client_id = c.id
-         WHERE l.license_key = ?"
+         WHERE l.license_key = ?")
     )
     .bind(clean_key)
     .fetch_optional(&state.pool)

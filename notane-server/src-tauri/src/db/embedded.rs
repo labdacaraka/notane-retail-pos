@@ -27,14 +27,23 @@ impl EmbeddedPgManager {
             return Ok(format!("postgres://postgres:postgres@127.0.0.1:{}/notane_pos", port));
         }
 
-        // Coba nyalakan container Podman atau Docker jika tersedia
-        for cmd in &["/opt/podman/bin/podman", "podman", "docker"] {
+        // Coba nyalakan container Podman atau Docker jika tersedia (hanya di lingkungan server/unix atau jika ada)
+        #[cfg(not(windows))]
+        let container_commands = &["/opt/podman/bin/podman", "podman", "docker"];
+        #[cfg(windows)]
+        let container_commands: &[&str] = &[]; // Hindari popup cmd di desktop Windows kasir
+
+        for cmd in container_commands {
             for container in &["notane-postgres", "notane-retail-postgres"] {
-                if let Ok(output) = tokio::process::Command::new(cmd)
-                    .args(["start", container])
-                    .output()
-                    .await
+                let mut c = tokio::process::Command::new(cmd);
+                c.args(["start", container]);
+                #[cfg(windows)]
                 {
+                    #[allow(unused_imports)]
+                    use std::os::windows::process::CommandExt;
+                    c.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                }
+                if let Ok(output) = c.output().await {
                     if output.status.success() {
                         tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                         if Self::is_port_active("127.0.0.1", port).await {

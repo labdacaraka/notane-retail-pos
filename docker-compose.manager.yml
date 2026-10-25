@@ -1,4 +1,23 @@
 services:
+  notane-manager-postgres:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-notane}-manager-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${MANAGER_POSTGRES_USER:-notane_manager}
+      POSTGRES_PASSWORD: ${MANAGER_POSTGRES_PASSWORD:-manager_secret_2026}
+      POSTGRES_DB: ${MANAGER_POSTGRES_DB:-notane_manager_db}
+    ports:
+      # Port host custom non-default (19432) untuk mencegah bentrok dengan container lain
+      - "${MANAGER_POSTGRES_PORT:-19432}:5432"
+    volumes:
+      - manager_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MANAGER_POSTGRES_USER:-notane_manager} -d ${MANAGER_POSTGRES_DB:-notane_manager_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   notane-manager:
     build:
       context: .
@@ -6,13 +25,20 @@ services:
     image: ${MANAGER_IMAGE:-notane-manager:latest}
     container_name: ${COMPOSE_PROJECT_NAME:-notane}-manager
     restart: unless-stopped
+    depends_on:
+      notane-manager-postgres:
+        condition: service_healthy
     environment:
-      PROVIDER_PORT: 19090
-      DATABASE_PATH: /data/notane_provider.db
-      WEB_DIST: /app/dist
+      PROVIDER_PORT: ${PROVIDER_PORT:-19090}
+      PROVIDER_URL: ${PROVIDER_URL:-${HOST_URL:-}}
+      HOST_IP: ${HOST_IP:-}
+      # Database PostgreSQL internal container (atau fallback ke SQLite jika DATABASE_URL dikosongkan)
+      DATABASE_URL: ${DATABASE_URL:-postgres://${MANAGER_POSTGRES_USER:-notane_manager}:${MANAGER_POSTGRES_PASSWORD:-manager_secret_2026}@notane-manager-postgres:5432/${MANAGER_POSTGRES_DB:-notane_manager_db}}
+      DATABASE_PATH: ${DATABASE_PATH:-/data/notane_provider.db}
+      WEB_DIST: ${WEB_DIST:-/app/dist}
       RUST_LOG: ${RUST_LOG:-notane_manager=info,tower_http=info}
       # Setel Private Key resmi jika ingin override default:
-      # PROVIDER_PRIVATE_KEY: ${PROVIDER_PRIVATE_KEY:-}
+      PROVIDER_PRIVATE_KEY: ${PROVIDER_PRIVATE_KEY:-}
     ports:
       - "${MANAGER_PORT:-19090}:19090"
     volumes:
@@ -27,3 +53,4 @@ services:
 volumes:
   manager_data:
   manager_releases:
+  manager_pg_data:

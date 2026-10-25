@@ -103,66 +103,74 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // 2. POS API Server di port 18080: Aktif otomatis HANYA jika auto_start DAN lisensi valid
-    if auto_start && is_licensed {
+    // 2. POS API Server di port 18080: Selalu aktif otomatis saat auto_start (Host Manager & API)
+    if auto_start {
         match notane_retail_server_lib::api::spawn_pos_server(ws_state.clone()).await {
             Ok(handle) => {
                 ws_state.set_server_handle(handle).await;
                 let mut running = ws_state.is_running.write().await;
-                *running = true;
+                *running = is_licensed;
                 let mut started = ws_state.started_at.write().await;
                 *started = Some(chrono::Utc::now());
-                info!("Server Retail POS API & WebSockets SIAP di http://0.0.0.0:{}", port);
+                if is_licensed {
+                    info!("Server Retail POS API & WebSockets SIAP di http://0.0.0.0:{}", port);
+                } else {
+                    info!("Server Retail POS Host Manager SIAP di http://0.0.0.0:{} (Menunggu Aktivasi Lisensi)", port);
+                }
             }
             Err(e) => {
                 error!("Gagal mengikat port POS {}: {}", port, e);
             }
         }
-    } else if !is_licensed {
-        tracing::warn!("Server Retail POS API (Port {}) TIDAK DIJALANKAN (TERKUNCI): Aplikasi berstatus UNLICENSED. Silakan lakukan aktivasi lisensi di Host Manager (Port {}).", port, control_port);
     } else {
         info!("Server Host dalam status SIAGA (STANDBY). Menunggu perintah 'Nyalakan Server' dari antarmuka pengguna.");
     }
 
-    // 3. Server Watchdog (Self-Healing Background Loop dengan verifikasi lisensi)
+    // 3. Server Watchdog (Self-Healing Background Loop dengan auto-reconnect database & lisensi)
     let watchdog_state = ws_state.clone();
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(3));
         loop {
             interval.tick().await;
-            let should_run = *watchdog_state.is_running.read().await;
-            if should_run {
-                // Verifikasi integritas lisensi secara berkala
-                let pool_opt = watchdog_state.pool.read().await.clone();
-                let is_lic_valid = if let Some(ref p) = pool_opt {
-                    notane_retail_server_lib::services::license_service::LicenseService::check_current_license(p).await.is_valid
-                } else {
-                    false
-                };
-                if !is_lic_valid {
-                    tracing::warn!("[WATCHDOG] Lisensi server tidak valid atau kadaluwarsa! Menghentikan server POS...");
-                    let mut running = watchdog_state.is_running.write().await;
-                    *running = false;
-                    watchdog_state.abort_server().await;
-                    let _ = watchdog_state.tx.send(serde_json::json!({
-                        "type": "SERVER_STOPPED",
-                        "message": "Server POS dihentikan otomatis karena lisensi tidak valid atau belum diaktivasi.",
-                        "timestamp": chrono::Utc::now()
-                    }).to_string());
-                    continue;
-                }
 
-                let is_port_live = tokio::net::TcpStream::connect(format!("127.0.0.1:{}", watchdog_state.port)).await.is_ok();
-                if !is_port_live {
-                    tracing::warn!("[WATCHDOG] Port POS {} terputus mendadak! Memulihkan otomatis...", watchdog_state.port);
-                    match notane_retail_server_lib::api::spawn_pos_server(watchdog_state.clone()).await {
-                        Ok(handle) => {
-                            watchdog_state.set_server_handle(handle).await;
-                            tracing::info!("[WATCHDOG] Server POS berhasil dipulihkan otomatis di port {}", watchdog_state.port);
-                        }
-                        Err(e) => {
-                            tracing::error!("[WATCHDOG] Gagal memulihkan server POS: {}", e);
-                        }
+            // Auto-reconnect database jika saat startup pool masih None
+            if watchdog_state.pool.read().await.is_none() {
+                let db_url = watchdog_state.db_url.read().await.clone();
+                if let Ok(pool) = notane_retail_server_lib::db::create_pool(&db_url).await {
+                    let _ = notane_retail_server_lib::db::run_embedded_migrations(&pool).await;
+                    watchdog_state.set_pool(pool).await;
+                    tracing::info!("[WATCHDOG] Koneksi database PostgreSQL terpulihkan!");
+                    // Respawn POS server dengan router yang sudah memiliki database pool
+                    if let Ok(handle) = notane_retail_server_lib::api::spawn_pos_server(watchdog_state.clone()).await {
+                        watchdog_state.set_server_handle(handle).await;
+                    }
+                }
+            }
+
+            // Verifikasi integritas lisensi
+            let pool_opt = watchdog_state.pool.read().await.clone();
+            let is_lic_valid = if let Some(ref p) = pool_opt {
+                notane_retail_server_lib::services::license_service::LicenseService::check_current_license(p).await.is_valid
+            } else {
+                false
+            };
+
+            // Update status transaksi kasir secara dinamis tanpa mematikan socket HTTP
+            {
+                let mut running = watchdog_state.is_running.write().await;
+                *running = is_lic_valid;
+            }
+
+            let is_port_live = tokio::net::TcpStream::connect(format!("127.0.0.1:{}", watchdog_state.port)).await.is_ok();
+            if !is_port_live {
+                tracing::warn!("[WATCHDOG] Port POS {} terputus mendadak! Memulihkan otomatis...", watchdog_state.port);
+                match notane_retail_server_lib::api::spawn_pos_server(watchdog_state.clone()).await {
+                    Ok(handle) => {
+                        watchdog_state.set_server_handle(handle).await;
+                        tracing::info!("[WATCHDOG] Server POS berhasil dipulihkan otomatis di port {}", watchdog_state.port);
+                    }
+                    Err(e) => {
+                        tracing::error!("[WATCHDOG] Gagal memulihkan server POS: {}", e);
                     }
                 }
             }

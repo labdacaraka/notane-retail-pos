@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useProviderStore } from '../stores/providerStore'
 import { useAuthStore } from '../stores/authStore'
 import {
@@ -11,6 +11,7 @@ import {
   Check,
   Save,
   AlertTriangle,
+  Radio,
 } from 'lucide-vue-next'
 
 const providerStore = useProviderStore()
@@ -18,6 +19,20 @@ const authStore = useAuthStore()
 const copiedPriv = ref(false)
 const copiedPub = ref(false)
 const isSaving = ref(false)
+
+const displayExternalUrl = computed(() => {
+  const backendUrl = providerStore.status.external_url
+  if (backendUrl && !backendUrl.includes('127.0.0.1') && !backendUrl.includes('localhost')) {
+    return backendUrl
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin
+    if (!origin.startsWith('tauri://') && !origin.includes('tauri.localhost') && !origin.includes(':517')) {
+      return origin
+    }
+  }
+  return backendUrl || `http://127.0.0.1:${providerStore.status.port || 19090}`
+})
 
 const isUpdatingAuth = ref(false)
 const authMessage = ref('')
@@ -109,6 +124,23 @@ async function handleSaveCredentials() {
       </div>
 
       <div class="space-y-4">
+        <!-- Alamat Host / Domain Publik -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+            <Radio class="w-3.5 h-3.5 text-emerald-400" />
+            <span>Alamat Host / Domain Publik</span>
+          </label>
+          <input
+            :value="displayExternalUrl"
+            readonly
+            type="text"
+            class="w-full sm:w-96 px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs font-mono text-emerald-400 select-all focus:outline-none"
+          />
+          <span class="text-[11px] text-slate-500 mt-1 block">
+            Dapat disesuaikan lewat environment variable <code class="text-brand-400">PROVIDER_URL</code> atau <code class="text-brand-400">HOST_IP</code> di <code class="text-slate-400">docker-compose.manager.yml</code>.
+          </span>
+        </div>
+
         <!-- Port Server -->
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">

@@ -86,15 +86,12 @@ export const useNetworkStore = defineStore('network', {
       return `http://${raw}${port}`
     },
     controlUrl(state): string {
-      if (typeof window !== 'undefined' && window.location?.origin) {
-        return window.location.origin
-      }
       const raw = (state.targetHost || '127.0.0.1').trim()
+      const controlPort = state.hostStatus.control_port || (state.targetPort ? state.targetPort + 1 : 18081)
       if (raw.startsWith('http://') || raw.startsWith('https://')) {
         return raw.replace(/\/$/, '')
       }
-      const port = state.targetPort ? `:${state.targetPort}` : ''
-      return `http://${raw}${port}`
+      return `http://${raw}:${controlPort}`
     },
     wsUrl(state): string {
       const raw = (state.targetHost || '127.0.0.1').trim()
@@ -517,14 +514,21 @@ export const useNetworkStore = defineStore('network', {
     // -------------------------------------------------------------
     getControlUrls(): string[] {
       const urls: string[] = []
+      const raw = (this.targetHost || '127.0.0.1').trim()
+      const host = raw.startsWith('http://') || raw.startsWith('https://') ? raw.replace(/\/$/, '') : `http://${raw}`
+      const port = this.targetPort || 18080
+      const controlPort = this.hostStatus.control_port || (port + 1)
+
+      urls.push(`${host}:${port}`)
+      urls.push(`${host}:${controlPort}`)
+      if (!urls.includes('http://127.0.0.1:18080')) urls.push('http://127.0.0.1:18080')
+      if (!urls.includes('http://127.0.0.1:18081')) urls.push('http://127.0.0.1:18081')
+
       if (typeof window !== 'undefined' && window.location?.origin) {
-        urls.push(window.location.origin)
-      }
-      if (this.serverUrl && !urls.includes(this.serverUrl)) {
-        urls.push(this.serverUrl)
-      }
-      if (this.controlUrl && !urls.includes(this.controlUrl)) {
-        urls.push(this.controlUrl)
+        const orig = window.location.origin
+        if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
+          if (!urls.includes(orig)) urls.push(orig)
+        }
       }
       return urls
     },
