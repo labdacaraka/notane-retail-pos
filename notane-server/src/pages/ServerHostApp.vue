@@ -96,7 +96,7 @@ async function handleSaveBranding() {
       storeTagline: brandingForm.value.storeTagline.trim(),
       storeLogoUrl: brandingForm.value.storeLogoUrl,
     })
-    brandingFeedback.value = 'Branding & logo toko berhasil disimpan dan disinkronkan ke seluruh terminal!'
+    brandingFeedback.value = 'Nama dan logo toko berhasil disimpan dan diterapkan ke seluruh kasir!'
     setTimeout(() => {
       brandingFeedback.value = ''
     }, 4000)
@@ -309,11 +309,11 @@ const restartServer = async () => {
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-base font-extrabold text-slate-900 tracking-tight">Notane Retail Server</h1>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
-              Host Engine
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">
+              Komputer Utama Toko
             </span>
           </div>
-          <p class="text-xs text-slate-500">Pusat Database & Server Jaringan Toko (Port 18080 & 18081)</p>
+          <p class="text-xs text-slate-500">Pusat data dan layanan kasir toko</p>
         </div>
       </div>
 
@@ -323,10 +323,10 @@ const restartServer = async () => {
           type="button"
           @click="showInitialSetupModal = true"
           class="px-3 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:opacity-90 active:scale-95"
-          title="Buka Wizard Pengaturan Awal Toko & Database"
+          title="Buka panduan pengaturan awal toko dan data"
         >
           <Sparkles class="w-3.5 h-3.5 text-indigo-600" />
-          <span>Setup Awal Toko</span>
+          <span>Panduan Awal Toko</span>
         </button>
 
         <!-- Tombol Cek & Pembaruan Server -->
@@ -334,7 +334,7 @@ const restartServer = async () => {
           type="button"
           @click="licenseModalTab = 'UPDATE'; showLicenseModal = true"
           class="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:opacity-90 active:scale-95"
-          title="Periksa & Terapkan Pembaruan Notane Server"
+          title="Periksa dan terapkan pembaruan server toko"
         >
           <DownloadCloud class="w-3.5 h-3.5 text-emerald-600" />
           <span>Pembaruan Server</span>
@@ -342,7 +342,7 @@ const restartServer = async () => {
             v-if="licenseStore.updateInfo?.has_update"
             class="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-extrabold animate-pulse"
           >
-            Update!
+            Ada Versi Baru
           </span>
         </button>
 
@@ -357,7 +357,7 @@ const restartServer = async () => {
             : 'bg-rose-50 text-rose-900 border-rose-200 hover:bg-rose-100'"
         >
           <Key class="w-3.5 h-3.5" :class="isLicenseActive ? 'text-purple-600' : 'text-rose-600'" />
-          <span>Lisensi: {{ isLicenseActive ? (licenseStore.licenseInfo.tier || 'Aktif') : isGracePeriod ? 'Grace Period' : 'Belum Teraktivasi' }}</span>
+          <span>Lisensi: {{ isLicenseActive ? (licenseStore.licenseInfo.tier || 'Aktif') : isGracePeriod ? 'Masa Tenggang' : 'Belum Diaktivasi' }}</span>
         </button>
 
         <div
@@ -369,7 +369,7 @@ const restartServer = async () => {
             : 'bg-amber-50 text-amber-800 border-amber-200'"
         >
           <span class="w-2.5 h-2.5 rounded-full" :class="isServerRunning ? 'bg-emerald-500 animate-pulse' : !isLicenseValid ? 'bg-rose-500' : 'bg-amber-500'"></span>
-          <span>{{ isServerRunning ? 'SERVER AKTIF' : !isLicenseValid ? 'TERKUNCI (UNLICENSED)' : 'SERVER BERHENTI' }}</span>
+          <span>{{ isServerRunning ? 'SERVER AKTIF' : !isLicenseValid ? 'BELUM DIAKTIVASI' : 'SERVER BERHENTI' }}</span>
         </div>
       </div>
     </header>
@@ -400,9 +400,9 @@ const restartServer = async () => {
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Status Server Host</span>
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Status Server</span>
                 <span
-                  class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase font-mono border"
+                  class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase border"
                   :class="isServerRunning
                     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                     : !isLicenseValid
@@ -412,12 +412,12 @@ const restartServer = async () => {
                     : 'bg-slate-100 text-slate-800 border-slate-300'"
                 >
                   {{ isServerRunning
-                    ? '● AKTIF (RUNNING)'
+                    ? '● AKTIF'
                     : !isLicenseValid
-                    ? '✕ TERKUNCI (BELUM AKTIVASI)'
+                    ? '✕ BELUM DIAKTIVASI'
                     : networkStore.isDaemonOnline
-                    ? '○ SIAGA (STANDBY)'
-                    : '✕ DAEMON OFFLINE' }}
+                    ? '○ SIAP'
+                    : '✕ BELUM AKTIF' }}
                 </span>
               </div>
               <h2 class="text-xl font-black text-slate-900 mt-1">
@@ -426,17 +426,17 @@ const restartServer = async () => {
                   : !isLicenseValid
                   ? 'Server Terkunci - Lisensi Belum Diaktivasi'
                   : networkStore.isDaemonOnline
-                  ? 'Server Host Siaga (Standby)'
-                  : 'Backend Daemon Host Belum Aktif' }}
+                  ? 'Server Siap Dijalankan'
+                  : 'Layanan Server Belum Aktif' }}
               </h2>
               <p class="text-xs text-slate-600 mt-1 max-w-xl">
                 {{ isServerRunning
-                  ? 'Komputer kasir client di jaringan toko dapat terhubung dan menyinkronkan transaksi ke komputer ini.'
+                  ? 'Komputer kasir di toko dapat terhubung dan mencatat transaksi ke komputer ini.'
                   : !isLicenseValid
-                  ? 'Layanan server Retail POS kasir tidak dapat dijalankan sebelum lisensi resmi diaktivasi. Klik tombol Aktivasi Lisensi untuk memasukkan nomor lisensi toko Anda.'
+                  ? 'Layanan kasir belum dapat digunakan sebelum lisensi toko diaktivasi. Klik tombol Aktivasi Lisensi untuk memasukkan nomor lisensi toko Anda.'
                   : networkStore.isDaemonOnline
-                  ? 'Klik tombol Nyalakan Server agar komputer kasir lain dapat melakukan login dan transaksi.'
-                  : 'Core engine backend (notane-retail-server) belum berjalan di port 18081. Jalankan npm run server:daemon di terminal atau gunakan npm run dev:all.' }}
+                  ? 'Klik tombol Nyalakan Server agar komputer kasir dapat login dan mencatat penjualan.'
+                  : 'Layanan server belum berjalan di komputer ini. Silakan mulai layanan server terlebih dahulu.' }}
               </p>
             </div>
           </div>

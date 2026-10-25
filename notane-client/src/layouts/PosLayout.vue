@@ -295,17 +295,17 @@ onUnmounted(() => {
                       'bg-amber-500': networkStore.connectionStatus === 'CONNECTING'
                     }"
                   ></span>
-                  Server LAN Host
+                  Komputer Server Toko
                 </span>
                 <span
                   class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
                   :class="networkStore.connectionStatus === 'CONNECTED' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
                 >
-                  {{ networkStore.connectionStatus === 'CONNECTED' ? (networkStore.latencyMs !== null ? `${networkStore.latencyMs}ms` : 'Aktif') : 'Terputus' }}
+                  {{ networkStore.connectionStatus === 'CONNECTED' ? (networkStore.latencyMs !== null ? `${networkStore.latencyMs}ms` : 'Terhubung') : 'Terputus' }}
                 </span>
               </div>
               <div class="text-[10px] text-slate-500 font-mono mb-2">
-                Target: {{ networkStore.targetHost }}:{{ networkStore.targetPort }}
+                Alamat: {{ networkStore.targetHost }}:{{ networkStore.targetPort }}
               </div>
               <button
                 type="button"
@@ -313,7 +313,7 @@ onUnmounted(() => {
                 class="w-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold py-1 px-2 rounded-md transition shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
               >
                 <Icon icon="fluent:settings-16-regular" class="w-3.5 h-3.5" />
-                <span>Konfigurasi Jaringan & Host</span>
+                <span>Pengaturan Sambungan Server</span>
               </button>
             </div>
 
@@ -322,7 +322,7 @@ onUnmounted(() => {
               <div class="flex items-center justify-between mb-1">
                 <span class="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
                   <Icon icon="streamline-ultimate-color:print-text" class="w-3.5 h-3.5" />
-                  Thermal Printer
+                  Printer Struk Kasir
                 </span>
                 <span
                   class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
@@ -332,8 +332,8 @@ onUnmounted(() => {
                 </span>
               </div>
               <div class="text-[10px] text-slate-600 truncate mb-2">
-                {{ printerStore.printerName }}
-                <span class="text-slate-400">({{ printerStore.connectionType }})</span>
+                {{ printerStore.printerName || 'Pilih printer struk pada pengaturan' }}
+                <span v-if="printerStore.printerName" class="text-slate-400">({{ printerStore.connectionType }})</span>
               </div>
               <button
                 type="button"
@@ -349,10 +349,10 @@ onUnmounted(() => {
             <div class="flex items-center justify-between text-[11px] text-slate-600 px-1 pt-1">
               <span class="flex items-center gap-1 text-slate-500 font-medium">
                 <Icon icon="fluent-color:database-plug-connected-20" class="w-3.5 h-3.5" />
-                Penyimpanan Lokal:
+                Penyimpanan Cadangan:
               </span>
               <span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px]">
-                SQLite Buffer Siap
+                Cadangan Siap
               </span>
             </div>
 
@@ -361,7 +361,7 @@ onUnmounted(() => {
               <div class="flex items-center justify-between mb-1">
                 <span class="text-[11px] font-bold text-cyan-900 flex items-center gap-1.5">
                   <Icon icon="fluent:desktop-pulse-20-filled" class="w-3.5 h-3.5 text-cyan-600" />
-                  Notane Client UI
+                  Aplikasi Kasir
                 </span>
                 <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 border border-cyan-300">
                   v{{ licenseStore.clientVersionInfo.version }}
@@ -373,7 +373,7 @@ onUnmounted(() => {
                 class="w-full mt-1.5 bg-white hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-xs font-bold py-1 px-2 rounded-md transition shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
               >
                 <Icon icon="fluent:arrow-sync-circle-16-filled" class="w-3.5 h-3.5 text-cyan-600" />
-                <span>Cek Pembaruan UI Client</span>
+                <span>Periksa Pembaruan Kasir</span>
               </button>
             </div>
           </div>

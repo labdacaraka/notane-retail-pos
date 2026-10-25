@@ -100,8 +100,8 @@ const isServerCompatible = computed(() => {
             <DownloadCloud class="w-5 h-5" />
           </div>
           <div>
-            <h3 class="font-extrabold text-slate-900 text-sm">Pembaruan Notane Client</h3>
-            <p class="text-xs text-slate-500">Pembaruan Antarmuka Kasir & Kompatibilitas Versi Server</p>
+            <h3 class="font-extrabold text-slate-900 text-sm">Pembaruan Aplikasi Kasir</h3>
+            <p class="text-xs text-slate-500">Pemeriksaan versi aplikasi kasir dan kesesuaian dengan server toko</p>
           </div>
         </div>
 
@@ -123,16 +123,16 @@ const isServerCompatible = computed(() => {
             <div class="flex items-center justify-between text-cyan-800 text-xs font-bold">
               <span class="flex items-center gap-1.5">
                 <Monitor class="w-3.5 h-3.5 text-cyan-600" />
-                <span>Client UI Saat Ini</span>
+                <span>Aplikasi Kasir Ini</span>
               </span>
               <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-cyan-100 border border-cyan-300">
-                UI Terminal
+                Kasir
               </span>
             </div>
             <div class="font-mono text-base font-extrabold text-cyan-950">
               v{{ licenseStore.clientVersionInfo.version }}
             </div>
-            <div class="text-[10px] text-cyan-700">Antarmuka Desktop Kasir & Back-Office</div>
+            <div class="text-[10px] text-cyan-700">Tampilan kasir dan laporan operasional</div>
           </div>
 
           <!-- Server Card -->
@@ -140,17 +140,17 @@ const isServerCompatible = computed(() => {
             <div class="flex items-center justify-between text-indigo-800 text-xs font-bold">
               <span class="flex items-center gap-1.5">
                 <Server class="w-3.5 h-3.5 text-indigo-600" />
-                <span>Notane Server Terhubung</span>
+                <span>Server Toko Terhubung</span>
               </span>
               <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-indigo-100 border border-indigo-300">
-                Engine & DB
+                Pusat Data
               </span>
             </div>
             <div class="font-mono text-base font-extrabold text-indigo-950">
               v{{ licenseStore.versionInfo.version }}
             </div>
             <div class="text-[10px] text-indigo-700">
-              Host: {{ networkStore.targetHost }}:{{ networkStore.targetPort }}
+              Alamat: {{ networkStore.targetHost }}:{{ networkStore.targetPort }}
             </div>
           </div>
         </div>
@@ -158,7 +158,7 @@ const isServerCompatible = computed(() => {
         <!-- Action Button: Periksa Pembaruan -->
         <div class="flex items-center justify-between pt-1">
           <div class="text-xs text-slate-500">
-            Sumber Update: <span class="font-mono font-semibold text-slate-700">Notane Provider Management</span>
+            Penyedia Layanan: <span class="font-semibold text-slate-700">Pusat Notane</span>
           </div>
           <button
             type="button"
@@ -167,7 +167,7 @@ const isServerCompatible = computed(() => {
             class="px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:border-slate-400 disabled:opacity-50"
           >
             <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isChecking }" />
-            <span>{{ isChecking ? 'Memeriksa...' : 'Cek Pembaruan Client' }}</span>
+            <span>{{ isChecking ? 'Memeriksa...' : 'Periksa Pembaruan' }}</span>
           </button>
         </div>
 
@@ -183,12 +183,12 @@ const isServerCompatible = computed(() => {
               <div class="flex items-start gap-2.5">
                 <AlertTriangle class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                 <div>
-                  <h4 class="font-extrabold text-xs">Pembaruan Server Diperlukan Terlebih Dahulu</h4>
+                  <h4 class="font-extrabold text-xs">Perbarui Server Toko Terlebih Dahulu</h4>
                   <p class="text-[11px] text-rose-800 leading-relaxed mt-1">
                     {{ licenseStore.updateInfo.message }}
                   </p>
                   <div class="mt-2 text-[10px] font-mono bg-white/80 p-2 rounded border border-rose-200">
-                    Syarat Minimum Server: <strong class="text-rose-900">v{{ licenseStore.updateInfo.min_server_version }}</strong> | Versi Server Saat Ini: <strong class="text-rose-900">v{{ licenseStore.versionInfo.version }}</strong>
+                    Syarat Minimal Server: <strong class="text-rose-900">v{{ licenseStore.updateInfo.min_server_version }}</strong> | Versi Server Saat Ini: <strong class="text-rose-900">v{{ licenseStore.versionInfo.version }}</strong>
                   </div>
                 </div>
               </div>
@@ -202,14 +202,14 @@ const isServerCompatible = computed(() => {
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <CheckCircle2 class="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span class="font-extrabold text-xs">Server Host Kompatibel</span>
+                  <span class="font-extrabold text-xs">Server Toko Sesuai & Siap</span>
                 </div>
                 <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                   Siap Diperbarui
                 </span>
               </div>
               <p class="text-[11px] text-emerald-800">
-                Notane Server v{{ licenseStore.versionInfo.version }} memenuhi syarat minimum rilis ini. Pembaruan hanya akan memutakhirkan tampilan UI kasir tanpa mengganggu database.
+                Server toko sudah sesuai dengan versi pembaruan ini. Pembaruan hanya akan memutakhirkan aplikasi kasir tanpa mengubah data penjualan Anda.
               </p>
             </div>
 
@@ -218,7 +218,7 @@ const isServerCompatible = computed(() => {
               <div class="flex items-center justify-between">
                 <div>
                   <span class="text-xs font-extrabold text-slate-900">
-                    {{ licenseStore.updateInfo.release_name || `Rilis Client v${licenseStore.updateInfo.latest_version}` }}
+                    {{ licenseStore.updateInfo.release_name || `Pembaruan Kasir v${licenseStore.updateInfo.latest_version}` }}
                   </span>
                   <div class="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-2">
                     <span class="flex items-center gap-1">
@@ -226,7 +226,7 @@ const isServerCompatible = computed(() => {
                       {{ licenseStore.updateInfo.release_date || 'Terbaru' }}
                     </span>
                     <span>•</span>
-                    <span class="text-cyan-700 font-bold">Target: Client UI</span>
+                    <span class="text-cyan-700 font-bold">Aplikasi Kasir</span>
                   </div>
                 </div>
 
@@ -237,9 +237,9 @@ const isServerCompatible = computed(() => {
 
               <!-- Changelog -->
               <div class="space-y-1">
-                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Catatan Perubahan UI:</div>
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Daftar Pembaruan:</div>
                 <div class="p-3 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 whitespace-pre-line leading-relaxed font-sans max-h-36 overflow-y-auto">
-                  {{ licenseStore.updateInfo.changelog || 'Pembaruan antarmuka kasir dan stabilitas performa.' }}
+                  {{ licenseStore.updateInfo.changelog || 'Pembaruan aplikasi kasir dan peningkatan kestabilan.' }}
                 </div>
               </div>
 
@@ -247,10 +247,10 @@ const isServerCompatible = computed(() => {
               <div class="pt-2 flex items-center justify-between">
                 <div class="text-[11px] text-slate-500">
                   <span v-if="!isServerCompatible" class="text-rose-600 font-semibold">
-                    Tombol dinonaktifkan hingga Notane Server diperbarui.
+                    Pembaruan belum dapat dilakukan sebelum server toko diperbarui.
                   </span>
                   <span v-else>
-                    Klik untuk memuat ulang antarmuka ke versi terbaru.
+                    Klik tombol di samping untuk menerapkan pembaruan.
                   </span>
                 </div>
 
@@ -262,7 +262,7 @@ const isServerCompatible = computed(() => {
                 >
                   <RefreshCw v-if="isUpdating" class="w-3.5 h-3.5 animate-spin" />
                   <Sparkles v-else class="w-3.5 h-3.5" />
-                  <span>{{ isUpdating ? 'Menerapkan UI Baru...' : 'Perbarui UI Klien Sekarang' }}</span>
+                  <span>{{ isUpdating ? 'Menerapkan Pembaruan...' : 'Perbarui Aplikasi Sekarang' }}</span>
                 </button>
               </div>
             </div>
@@ -271,23 +271,23 @@ const isServerCompatible = computed(() => {
           <!-- UP TO DATE -->
           <div v-else class="p-6 rounded-xl border border-slate-200 bg-slate-50/50 text-center space-y-2">
             <CheckCircle2 class="w-8 h-8 text-emerald-500 mx-auto" />
-            <h4 class="font-extrabold text-slate-900 text-sm">Antarmuka Client Sudah Mutakhir</h4>
+            <h4 class="font-extrabold text-slate-900 text-sm">Aplikasi Kasir Sudah Versi Terbaru</h4>
             <p class="text-xs text-slate-500 max-w-sm mx-auto">
-              {{ licenseStore.updateInfo.message || 'Anda telah menggunakan versi antarmuka Notane Client terbaru.' }}
+              {{ licenseStore.updateInfo.message || 'Aplikasi kasir Anda sudah menggunakan versi paling mutakhir.' }}
             </p>
           </div>
         </div>
 
         <div v-else class="p-8 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-          Klik tombol <strong>"Cek Pembaruan Client"</strong> untuk mencari rilis antarmuka terbaru dari Notane Provider.
+          Klik tombol <strong>"Periksa Pembaruan"</strong> untuk mencari pembaruan aplikasi terbaru.
         </div>
       </div>
 
       <!-- Modal Footer -->
       <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-        <div class="flex items-center gap-1.5 font-mono text-[11px]">
+        <div class="flex items-center gap-1.5 text-[11px]">
           <Layers class="w-3.5 h-3.5 text-slate-400" />
-          <span>Notane Architecture Dual-Bundle (Client UI Isolated)</span>
+          <span>Sistem Kasir Terhubung & Aman</span>
         </div>
         <button
           type="button"

@@ -217,25 +217,23 @@ async function handleExitImpersonation() {
           class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm border border-emerald-700 transition active:scale-95 cursor-pointer"
         >
           <Icon icon="streamline-ultimate-color:shopping-cart-full" class="w-4 h-4" />
-          <span>Buka Layar Kasir POS (F1)</span>
+          <span>Buka Kasir (F1)</span>
         </button>
-
-
 
         <!-- Tombol Update Client UI -->
         <button
           type="button"
           @click="showClientUpdateModal = true"
           class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer transition-all hover:opacity-90 active:scale-95 bg-cyan-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
-          title="Periksa Pembaruan UI Notane Client"
+          title="Periksa pembaruan aplikasi kasir"
         >
           <Icon icon="fluent:arrow-sync-circle-16-filled" class="w-3.5 h-3.5 text-cyan-600" />
-          <span>Update UI</span>
+          <span>Pembaruan</span>
           <span
             v-if="licenseStore.updateInfo?.has_update && licenseStore.updateInfo?.component === 'client'"
             class="px-1.5 py-0.2 rounded-full text-[9px] bg-cyan-600 text-white font-extrabold animate-pulse"
           >
-            Baru!
+            Ada Versi Baru
           </span>
         </button>
 
@@ -247,7 +245,7 @@ async function handleExitImpersonation() {
           :class="networkStore.connectionStatus === 'CONNECTED'
             ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
             : 'bg-rose-50 text-rose-800 border-rose-300'"
-          title="Status Koneksi Terminal ke Server Host LAN. Klik untuk konfigurasi koneksi"
+          title="Status sambungan ke komputer server toko. Klik untuk mengatur sambungan"
         >
           <span
             class="w-2 h-2 rounded-full"
@@ -255,8 +253,8 @@ async function handleExitImpersonation() {
           ></span>
           <span>
             {{ networkStore.connectionStatus === 'CONNECTED'
-              ? `Ke Host (${networkStore.latencyMs !== null ? `${networkStore.latencyMs}ms` : 'Aktif'})`
-              : 'Terputus dari Host' }}
+              ? `Server Toko (${networkStore.latencyMs !== null ? `${networkStore.latencyMs}ms` : 'Terhubung'})`
+              : 'Server Terputus' }}
           </span>
         </button>
 

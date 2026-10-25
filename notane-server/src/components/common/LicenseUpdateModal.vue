@@ -222,11 +222,11 @@ async function handleApplyUpdate() {
                 <Cpu class="w-5 h-5" />
               </div>
               <div>
-                <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Hardware ID Mesin (Node-Locked)</div>
+                <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Kode Perangkat Komputer (ID Mesin)</div>
                 <div class="font-mono font-extrabold text-sm text-slate-900 tracking-wider">
                   {{ licenseStore.licenseInfo.current_hardware_id }}
                 </div>
-                <div class="text-[10px] text-slate-500">Node-Locking otomatis mengikat lisensi ke identitas fisik perangkat ini</div>
+                <div class="text-[10px] text-slate-500">Lisensi toko terhubung secara aman dengan komputer ini</div>
               </div>
             </div>
 
@@ -237,7 +237,7 @@ async function handleApplyUpdate() {
             >
               <Check v-if="copiedHwid" class="w-3.5 h-3.5 text-emerald-600" />
               <Copy v-else class="w-3.5 h-3.5" />
-              <span>{{ copiedHwid ? 'Tersalin' : 'Salin HWID' }}</span>
+              <span>{{ copiedHwid ? 'Tersalin' : 'Salin ID Mesin' }}</span>
             </button>
           </div>
 
@@ -258,7 +258,7 @@ async function handleApplyUpdate() {
                   <CheckCircle2 v-if="isLicenseActive" class="w-3 h-3 text-emerald-600" />
                   <AlertTriangle v-else-if="isGracePeriod" class="w-3 h-3 text-amber-600" />
                   <XCircle v-else class="w-3 h-3 text-rose-600" />
-                  <span>{{ licenseStore.licenseInfo.status }}</span>
+                  <span>{{ isLicenseActive ? 'AKTIF' : isGracePeriod ? 'MASA TENGGANG' : isExpired ? 'KEDALUWARSA' : 'BELUM DIAKTIVASI' }}</span>
                 </span>
               </div>
               <p class="text-[11px] text-slate-600 pt-1 leading-snug">
@@ -272,10 +272,10 @@ async function handleApplyUpdate() {
                 {{ licenseStore.licenseInfo.client_name || 'Belum Terdaftar' }}
               </div>
               <div class="text-[11px] text-slate-600 font-mono">
-                Paket: <span class="font-bold text-indigo-700">{{ licenseStore.licenseInfo.tier || '-' }}</span> | Max: {{ licenseStore.licenseInfo.max_terminals }} Terminal
+                Paket: <span class="font-bold text-indigo-700">{{ licenseStore.licenseInfo.tier || '-' }}</span> | Maksimal: {{ licenseStore.licenseInfo.max_terminals }} Kasir
               </div>
               <div v-if="licenseStore.licenseInfo.expires_at" class="text-[10px] text-slate-500 pt-0.5">
-                Kedaluwarsa: {{ new Date(licenseStore.licenseInfo.expires_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) }}
+                Masa Berlaku: {{ new Date(licenseStore.licenseInfo.expires_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) }}
               </div>
             </div>
           </div>
@@ -285,7 +285,7 @@ async function handleApplyUpdate() {
             <div class="flex items-center gap-2">
               <Server class="w-4 h-4 text-indigo-600 shrink-0" />
               <div class="text-[11px]">
-                <span class="text-slate-500">Target Provider: </span>
+                <span class="text-slate-500">Pusat Layanan Notane: </span>
                 <span class="font-mono font-bold text-indigo-900">{{ licenseStore.providerConfig.current_url }}</span>
               </div>
             </div>

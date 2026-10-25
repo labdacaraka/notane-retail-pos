@@ -95,11 +95,6 @@ async function submitLogin(targetRoute: string = '/') {
 function handleLogin() {
   submitLogin('/')
 }
-
-function quickFill(user: string, pass: string) {
-  username.value = user
-  password.value = pass
-}
 </script>
 
 <template>
@@ -226,7 +221,7 @@ function quickFill(user: string, pass: string) {
                     v-model="username"
                     type="text"
                     required
-                    placeholder="kasir1 atau admin"
+                    placeholder="Masukkan nama pengguna"
                     class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-xs text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
                   />
                 </div>
@@ -234,14 +229,14 @@ function quickFill(user: string, pass: string) {
 
               <!-- Password -->
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Kata Sandi</label>
                 <div class="relative">
                   <Lock class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     v-model="password"
                     type="password"
                     required
-                    placeholder="kasir123 atau admin123"
+                    placeholder="Masukkan kata sandi"
                     class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-xs font-mono text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
                   />
                 </div>
@@ -261,7 +256,7 @@ function quickFill(user: string, pass: string) {
                   :class="!isConnected ? 'bg-slate-200 text-slate-400 border-slate-300' : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'"
                 >
                   <span v-if="isLoggingIn">Memverifikasi...</span>
-                  <span v-else-if="!isConnected">HUBUNGKAN SERVER DAHULU</span>
+                  <span v-else-if="!isConnected">Hubungkan Server Dahulu</span>
                   <span v-else>Masuk Kasir POS</span>
                   <ArrowRight class="w-3.5 h-3.5" />
                 </button>
@@ -278,34 +273,6 @@ function quickFill(user: string, pass: string) {
                 </button>
               </div>
             </form>
-
-            <!-- Quick login kasir -->
-            <div class="pt-2 border-t border-slate-200">
-              <div class="text-[11px] font-bold text-slate-500 mb-1">Akun Cepat:</div>
-              <div class="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  @click="quickFill('kasir1', 'kasir123')"
-                  class="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-center cursor-pointer text-xs font-bold text-slate-800"
-                >
-                  Kasir 1
-                </button>
-                <button
-                  type="button"
-                  @click="quickFill('spv', 'spv123')"
-                  class="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-center cursor-pointer text-xs font-bold text-slate-800"
-                >
-                  Supervisor
-                </button>
-                <button
-                  type="button"
-                  @click="quickFill('admin', 'admin123')"
-                  class="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-center cursor-pointer text-xs font-bold text-slate-800"
-                >
-                  Administrator
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>

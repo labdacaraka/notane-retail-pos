@@ -425,31 +425,31 @@ async function confirmDelete(rel: AppRelease) {
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Versi Semver *</label>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Nomor Versi *</label>
               <input
                 v-model="form.version"
                 type="text"
-                placeholder="1.2.0"
+                placeholder="Contoh: 1.2.0"
                 class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500 font-mono"
               />
               <span v-if="formErrors.version" class="text-[11px] text-rose-400 mt-0.5 block">{{ formErrors.version }}</span>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Minimal License Tier</label>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Paket Lisensi Minimal</label>
               <select
                 v-model="form.min_license_tier"
                 class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"
               >
-                <option value="BASIC">BASIC (Semua)</option>
-                <option value="PRO">PRO Ke Atas</option>
-                <option value="ENTERPRISE">ENTERPRISE Only</option>
+                <option value="BASIC">Standar (Semua Toko)</option>
+                <option value="PRO">Paket Pro Ke Atas</option>
+                <option value="ENTERPRISE">Khusus Paket Lengkap</option>
               </select>
             </div>
           </div>
 
           <!-- Minimal Server Version Requirement for Client -->
           <div v-if="form.component === 'client'" class="p-3 rounded-xl bg-cyan-950/20 border border-cyan-800/40">
-            <label class="block text-xs font-semibold text-cyan-300 mb-1">Minimal Versi Notane Server yang Diperlukan</label>
+            <label class="block text-xs font-semibold text-cyan-300 mb-1">Syarat Minimal Versi Server Toko</label>
             <input
               v-model="form.min_server_version"
               type="text"
@@ -457,34 +457,34 @@ async function confirmDelete(rel: AppRelease) {
               class="w-full px-3 py-2 bg-slate-950 border border-cyan-800/60 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
             />
             <p class="text-[11px] text-slate-400 mt-1">
-              Client tidak diizinkan melakukan pembaruan jika versi Server yang terhubung lebih rendah dari versi ini.
+              Aplikasi kasir tidak dapat diperbarui sebelum server toko memenuhi versi ini.
             </p>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Nama Judul Rilis *</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Judul Pembaruan *</label>
             <input
               v-model="form.release_name"
               type="text"
-              placeholder="Notane Retail POS Q4 Enterprise Update"
+              placeholder="Contoh: Pembaruan Tampilan Kasir & Cetak Struk"
               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"
             />
             <span v-if="formErrors.release_name" class="text-[11px] text-rose-400 mt-0.5 block">{{ formErrors.release_name }}</span>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Catatan Perubahan (Changelog) *</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Catatan Pembaruan *</label>
             <textarea
               v-model="form.changelog"
               rows="4"
-              placeholder="1. Fitur baru&#10;2. Perbaikan bug kasir..."
+              placeholder="1. Peningkatan kemudahan kasir&#10;2. Perbaikan nota penjualan..."
               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500 font-sans"
             ></textarea>
             <span v-if="formErrors.changelog" class="text-[11px] text-rose-400 mt-0.5 block">{{ formErrors.changelog }}</span>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">URL Unduhan Bundle ZIP *</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Alamat / Tautan Unduhan File ZIP *</label>
             <input
               v-model="form.download_url"
               type="url"
@@ -495,7 +495,7 @@ async function confirmDelete(rel: AppRelease) {
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Checksum SHA-256 File Bundle *</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Kode Keamanan File (SHA-256) *</label>
             <input
               v-model="form.checksum_sha256"
               type="text"
@@ -539,7 +539,7 @@ async function confirmDelete(rel: AppRelease) {
               :disabled="isSubmitting"
               class="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold cursor-pointer"
             >
-              {{ isSubmitting ? 'Menandatangani...' : 'Terbitkan & Tanda Tangani Ed25519' }}
+              {{ isSubmitting ? 'Menerbitkan...' : 'Terbitkan Pembaruan' }}
             </button>
           </div>
         </form>
