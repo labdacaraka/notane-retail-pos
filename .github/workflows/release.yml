@@ -120,11 +120,11 @@ jobs:
             echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Install Linux System Dependencies for Tauri
+      - name: Install Linux System Dependencies for Tauri & Packaging
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          sudo apt-get install -y zip unzip libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libfuse2
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -165,47 +165,54 @@ jobs:
         if: matrix.use_zip_shell == 'unix'
         shell: bash
         run: |
+          ROOT_DIR="$GITHUB_WORKSPACE"
           VERSION="${{ steps.vars.outputs.version }}"
           PLATFORM="${{ matrix.platform }}"
-          STAGING="staging_server_${PLATFORM}"
+          STAGING="${ROOT_DIR}/staging_server_${PLATFORM}"
+          OUT_DIR="${ROOT_DIR}/releases/server"
           ZIP_NAME="notane-server-v${VERSION}-${PLATFORM}.zip"
           
           mkdir -p "${STAGING}"
-          mkdir -p releases/server
+          mkdir -p "${OUT_DIR}"
           
-          cp "notane-server/src-tauri/target/${{ matrix.target }}/release/${{ matrix.server_bin }}" "${STAGING}/${{ matrix.server_bin }}"
+          cp "${ROOT_DIR}/notane-server/src-tauri/target/${{ matrix.target }}/release/${{ matrix.server_bin }}" "${STAGING}/${{ matrix.server_bin }}"
           chmod +x "${STAGING}/${{ matrix.server_bin }}"
-          cp -r notane-server/dist "${STAGING}/dist"
-          cp -r notane-server/src-tauri/migrations "${STAGING}/migrations"
+          cp -r "${ROOT_DIR}/notane-server/dist" "${STAGING}/dist"
+          cp -r "${ROOT_DIR}/notane-server/src-tauri/migrations" "${STAGING}/migrations"
           
           cd "${STAGING}"
-          zip -r "../../releases/server/${ZIP_NAME}" ./*
-          cd ..
+          zip -q -r "${OUT_DIR}/${ZIP_NAME}" ./*
+          cd "${ROOT_DIR}"
           
-          cd releases/server
-          shasum -a 256 "${ZIP_NAME}" > "${ZIP_NAME}.sha256"
-          cd ../..
+          if command -v sha256sum &> /dev/null; then
+            sha256sum "${OUT_DIR}/${ZIP_NAME}" > "${OUT_DIR}/${ZIP_NAME}.sha256"
+          else
+            shasum -a 256 "${OUT_DIR}/${ZIP_NAME}" > "${OUT_DIR}/${ZIP_NAME}.sha256"
+          fi
 
       - name: Package Server Bundle (Windows)
         if: matrix.use_zip_shell == 'windows'
         shell: pwsh
         run: |
+          $RootDir = $env:GITHUB_WORKSPACE
           $Version = "${{ steps.vars.outputs.version }}"
           $Platform = "${{ matrix.platform }}"
-          $Staging = "staging_server_${Platform}"
+          $Staging = Join-Path $RootDir "staging_server_${Platform}"
+          $OutDir = Join-Path $RootDir "releases/server"
           $ZipName = "notane-server-v${Version}-${Platform}.zip"
+          $ZipPath = Join-Path $OutDir $ZipName
           
           New-Item -ItemType Directory -Force -Path $Staging | Out-Null
-          New-Item -ItemType Directory -Force -Path "releases/server" | Out-Null
+          New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
           
-          Copy-Item "notane-server/src-tauri/target/${{ matrix.target }}/release/${{ matrix.server_bin }}" -Destination "$Staging/${{ matrix.server_bin }}"
-          Copy-Item -Recurse "notane-server/dist" -Destination "$Staging/dist"
-          Copy-Item -Recurse "notane-server/src-tauri/migrations" -Destination "$Staging/migrations"
+          Copy-Item "$RootDir/notane-server/src-tauri/target/${{ matrix.target }}/release/${{ matrix.server_bin }}" -Destination (Join-Path $Staging "${{ matrix.server_bin }}")
+          Copy-Item -Recurse "$RootDir/notane-server/dist" -Destination (Join-Path $Staging "dist")
+          Copy-Item -Recurse "$RootDir/notane-server/src-tauri/migrations" -Destination (Join-Path $Staging "migrations")
           
-          Compress-Archive -Path "$Staging/*" -DestinationPath "releases/server/$ZipName" -Force
+          Compress-Archive -Path "$Staging/*" -DestinationPath $ZipPath -Force
           
-          $Hash = (Get-FileHash -Path "releases/server/$ZipName" -Algorithm SHA256).Hash.ToLower()
-          "$Hash  $ZipName" | Out-File -FilePath "releases/server/$ZipName.sha256" -Encoding ascii
+          $Hash = (Get-FileHash -Path $ZipPath -Algorithm SHA256).Hash.ToLower()
+          "$Hash  $ZipName" | Out-File -FilePath "$ZipPath.sha256" -Encoding ascii
 
       # ------------------------------------------------------------------------
       # B. Build Notane Client Desktop Installer (Tauri Bundler)
@@ -213,6 +220,7 @@ jobs:
       - name: Build Notane Client Desktop Installer
         shell: bash
         run: |
+          cd "$GITHUB_WORKSPACE"
           npm --prefix notane-client run build
           npm --prefix notane-client run tauri build -- --target ${{ matrix.target }}
 
@@ -220,21 +228,24 @@ jobs:
         if: matrix.use_zip_shell == 'unix'
         shell: bash
         run: |
-          mkdir -p releases/installers
-          # Cari installer bundle hasil Tauri build
-          BUNDLE_DIR="notane-client/src-tauri/target/${{ matrix.target }}/release/bundle"
+          ROOT_DIR="$GITHUB_WORKSPACE"
+          OUT_DIR="${ROOT_DIR}/releases/installers"
+          mkdir -p "${OUT_DIR}"
+          BUNDLE_DIR="${ROOT_DIR}/notane-client/src-tauri/target/${{ matrix.target }}/release/bundle"
           if [ -d "$BUNDLE_DIR" ]; then
-            find "$BUNDLE_DIR" -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.dmg" \) -exec cp {} releases/installers/ \;
+            find "$BUNDLE_DIR" -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.dmg" \) -exec cp {} "${OUT_DIR}/" \;
           fi
 
       - name: Collect Desktop Installers (Windows)
         if: matrix.use_zip_shell == 'windows'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "releases/installers" | Out-Null
-          $BundleDir = "notane-client/src-tauri/target/${{ matrix.target }}/release/bundle"
+          $RootDir = $env:GITHUB_WORKSPACE
+          $OutDir = Join-Path $RootDir "releases/installers"
+          New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+          $BundleDir = Join-Path $RootDir "notane-client/src-tauri/target/${{ matrix.target }}/release/bundle"
           if (Test-Path $BundleDir) {
-            Get-ChildItem -Path $BundleDir -Recurse -Include "*.msi","*.exe" | Copy-Item -Destination "releases/installers"
+            Get-ChildItem -Path $BundleDir -Recurse -Include "*.msi","*.exe" | Copy-Item -Destination $OutDir
           }
 
       - name: Upload Artifacts (${{ matrix.platform }})
