@@ -1,4 +1,4 @@
-name: Multi-Platform OTA Release Builder
+name: Multi-Platform OTA & Desktop Installer Builder
 
 on:
   push:
@@ -13,26 +13,17 @@ on:
       changelog:
         description: 'Catatan Perubahan (Changelog)'
         required: false
-        default: '1. Pembaruan stabilitas dan performa sistem'
-      build_client:
-        description: 'Build Notane Client (Universal UI)?'
-        type: boolean
-        default: true
-      build_server:
-        description: 'Build Notane Server (Multi-Platform)?'
-        type: boolean
-        default: true
+        default: '1. Pembaruan stabilitas, performa, dan installer multi-platform'
 
 permissions:
   contents: write
 
 jobs:
   # ============================================================================
-  # 1. BUILD NOTANE CLIENT (UNIVERSAL UI BUNDLE)
+  # 1. BUILD NOTANE CLIENT OTA UPDATE (UNIVERSAL UI BUNDLE FOR NOTANE MANAGER)
   # ============================================================================
-  build-client:
-    name: Build Notane Client (Universal UI)
-    if: github.event_name == 'push' || inputs.build_client == true
+  build-client-ota:
+    name: Build Notane Client (Universal UI Update)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -62,7 +53,7 @@ jobs:
       - name: Build Client Web UI
         run: npm --prefix notane-client run build
 
-      - name: Package Client Bundle ZIP
+      - name: Package Client OTA Bundle ZIP
         run: |
           VERSION="${{ steps.vars.outputs.version }}"
           mkdir -p releases/client
@@ -71,45 +62,46 @@ jobs:
           cd ../..
           sha256sum "releases/client/notane-client-ui-v${VERSION}.zip" > "releases/client/notane-client-ui-v${VERSION}.sha256"
 
-      - name: Upload Client Artifact
+      - name: Upload Client OTA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: notane-client-ui
-          path: |
-            releases/client/*.zip
-            releases/client/*.sha256
+          name: ota-client-ui
+          path: releases/client/*
 
   # ============================================================================
-  # 2. BUILD NOTANE SERVER (MULTI-PLATFORM MATRIX)
+  # 2. BUILD MULTI-PLATFORM (SERVER BUNDLES + CLIENT DESKTOP INSTALLERS)
   # ============================================================================
-  build-server:
-    name: Build Notane Server (${{ matrix.platform }})
-    if: github.event_name == 'push' || inputs.build_server == true
+  build-platform-binaries:
+    name: Build Multi-Platform (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             platform: linux-x64
             target: x86_64-unknown-linux-gnu
-            binary_name: notane-retail-server
+            server_bin: notane-retail-server
             use_zip_shell: unix
+            installer_pattern: "*.deb,*.AppImage"
           - os: windows-latest
             platform: windows-x64
             target: x86_64-pc-windows-msvc
-            binary_name: notane-retail-server.exe
+            server_bin: notane-retail-server.exe
             use_zip_shell: windows
+            installer_pattern: "*.msi,*.exe"
           - os: macos-13
             platform: macos-x64
             target: x86_64-apple-darwin
-            binary_name: notane-retail-server
+            server_bin: notane-retail-server
             use_zip_shell: unix
+            installer_pattern: "*.dmg"
           - os: macos-14
             platform: macos-arm64
             target: aarch64-apple-darwin
-            binary_name: notane-retail-server
+            server_bin: notane-retail-server
             use_zip_shell: unix
+            installer_pattern: "*.dmg"
 
     steps:
       - name: Checkout Repository
@@ -128,6 +120,12 @@ jobs:
             echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Install Linux System Dependencies for Tauri
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -142,12 +140,17 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: notane-server/src-tauri
+          workspaces: |
+            notane-server/src-tauri
+            notane-client/src-tauri
 
-      - name: Install Dependencies
+      - name: Install NPM Dependencies
         shell: bash
         run: npm ci
 
+      # ------------------------------------------------------------------------
+      # A. Build & Bundle Notane Server Engine
+      # ------------------------------------------------------------------------
       - name: Build Server Host UI
         shell: bash
         run: npm --prefix notane-server run build
@@ -164,15 +167,14 @@ jobs:
         run: |
           VERSION="${{ steps.vars.outputs.version }}"
           PLATFORM="${{ matrix.platform }}"
-          STAGING="staging_${PLATFORM}"
+          STAGING="staging_server_${PLATFORM}"
           ZIP_NAME="notane-server-v${VERSION}-${PLATFORM}.zip"
           
           mkdir -p "${STAGING}"
           mkdir -p releases/server
           
-          # Salin Binary, Web Dist, dan Migrations
-          cp "notane-server/src-tauri/target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "${STAGING}/${{ matrix.binary_name }}"
-          chmod +x "${STAGING}/${{ matrix.binary_name }}"
+          cp "notane-server/src-tauri/target/${{ matrix.target }}/release/${{ matrix.server_bin }}" "${STAGING}/${{ matrix.server_bin }}"
+          chmod +x "${STAGING}/${{ matrix.server_bin }}"
           cp -r notane-server/dist "${STAGING}/dist"
           cp -r notane-server/src-tauri/migrations "${STAGING}/migrations"
           
@@ -190,13 +192,13 @@ jobs:
         run: |
           $Version = "${{ steps.vars.outputs.version }}"
           $Platform = "${{ matrix.platform }}"
-          $Staging = "staging_${Platform}"
+          $Staging = "staging_server_${Platform}"
           $ZipName = "notane-server-v${Version}-${Platform}.zip"
           
           New-Item -ItemType Directory -Force -Path $Staging | Out-Null
           New-Item -ItemType Directory -Force -Path "releases/server" | Out-Null
           
-          Copy-Item "notane-server/src-tauri/target/${{ matrix.target }}/release/${{ matrix.binary_name }}" -Destination "$Staging/${{ matrix.binary_name }}"
+          Copy-Item "notane-server/src-tauri/target/${{ matrix.target }}/release/${{ matrix.server_bin }}" -Destination "$Staging/${{ matrix.server_bin }}"
           Copy-Item -Recurse "notane-server/dist" -Destination "$Staging/dist"
           Copy-Item -Recurse "notane-server/src-tauri/migrations" -Destination "$Staging/migrations"
           
@@ -205,22 +207,53 @@ jobs:
           $Hash = (Get-FileHash -Path "releases/server/$ZipName" -Algorithm SHA256).Hash.ToLower()
           "$Hash  $ZipName" | Out-File -FilePath "releases/server/$ZipName.sha256" -Encoding ascii
 
-      - name: Upload Server Artifact (${{ matrix.platform }})
+      # ------------------------------------------------------------------------
+      # B. Build Notane Client Desktop Installer (Tauri Bundler)
+      # ------------------------------------------------------------------------
+      - name: Build Notane Client Desktop Installer
+        shell: bash
+        run: |
+          npm --prefix notane-client run build
+          npm --prefix notane-client run tauri build -- --target ${{ matrix.target }}
+
+      - name: Collect Desktop Installers (Linux / macOS)
+        if: matrix.use_zip_shell == 'unix'
+        shell: bash
+        run: |
+          mkdir -p releases/installers
+          # Cari installer bundle hasil Tauri build
+          BUNDLE_DIR="notane-client/src-tauri/target/${{ matrix.target }}/release/bundle"
+          if [ -d "$BUNDLE_DIR" ]; then
+            find "$BUNDLE_DIR" -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.dmg" \) -exec cp {} releases/installers/ \;
+          fi
+
+      - name: Collect Desktop Installers (Windows)
+        if: matrix.use_zip_shell == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "releases/installers" | Out-Null
+          $BundleDir = "notane-client/src-tauri/target/${{ matrix.target }}/release/bundle"
+          if (Test-Path $BundleDir) {
+            Get-ChildItem -Path $BundleDir -Recurse -Include "*.msi","*.exe" | Copy-Item -Destination "releases/installers"
+          }
+
+      - name: Upload Artifacts (${{ matrix.platform }})
         uses: actions/upload-artifact@v4
         with:
-          name: notane-server-${{ matrix.platform }}
+          name: artifacts-${{ matrix.platform }}
           path: |
             releases/server/*.zip
             releases/server/*.sha256
+            releases/installers/*
 
   # ============================================================================
-  # 3. PUBLISH GITHUB RELEASE & GENERATE CHECKSUMS SUMMARY
+  # 3. PUBLISH GITHUB RELEASE & GENERATE COMPREHENSIVE CHECKSUMS
   # ============================================================================
   publish-release:
-    name: Publish Release & Generate Checksums
-    needs: [build-client, build-server]
+    name: Publish Release & Generate Comprehensive Checksums
+    needs: [build-client-ota, build-platform-binaries]
     runs-on: ubuntu-latest
-    if: always() && (needs.build-client.result == 'success' || needs.build-client.result == 'skipped') && (needs.build-server.result == 'success' || needs.build-server.result == 'skipped')
+    if: always() && (needs.build-client-ota.result == 'success' || needs.build-client-ota.result == 'skipped') && (needs.build-platform-binaries.result == 'success' || needs.build-platform-binaries.result == 'skipped')
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -236,34 +269,65 @@ jobs:
             VERSION=${GITHUB_REF#refs/tags/v}
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
-            echo "changelog=Pembaruan otomatis Notane Retail POS v${VERSION}" >> $GITHUB_OUTPUT
+            echo "changelog=Pembaruan rilis Notane Retail POS v${VERSION} (OTA Update & Full Desktop Installers)" >> $GITHUB_OUTPUT
           fi
 
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: all-releases
+          path: all-artifacts
 
       - name: Organize Release Files & Compute Checksums
         id: summary
         run: |
           mkdir -p final-release
-          find all-releases -type f -name "*.zip" -exec cp {} final-release/ \;
+          find all-artifacts -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" \) -exec cp {} final-release/ \;
           
           cd final-release
-          echo "### 🔐 NOTANE OTA RELEASE CHECKSUMS (SHA-256)" > CHECKSUMS.md
-          echo "Salin nilai SHA-256 di bawah ke form Notane Manager saat mendaftarkan rilis:" >> CHECKSUMS.md
-          echo "" >> CHECKSUMS.md
-          echo "| Nama File Bundle | Target Komponen | Platform OS | Ukuran | Checksum SHA-256 (Copy-Paste) |" >> CHECKSUMS.md
-          echo "| :--- | :--- | :--- | :--- | :--- |" >> CHECKSUMS.md
+          echo "## 🚀 Notane Retail POS ${{ steps.vars.outputs.tag }} Release" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "**Catatan Rilis:**" >> RELEASE_NOTES.md
+          echo "${{ steps.vars.outputs.changelog }}" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
           
+          echo "### 📦 1. Installer Desktop untuk Pengguna Baru (First-Time Install)" >> RELEASE_NOTES.md
+          echo "Gunakan file installer di bawah untuk instalasi komputer kasir baru:" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "| Sistem Operasi | Format File | File Installer | Ukuran |" >> RELEASE_NOTES.md
+          echo "| :--- | :--- | :--- | :--- |" >> RELEASE_NOTES.md
+          
+          for f in *; do
+            if [[ "$f" == *".msi" ]] || [[ "$f" == *"setup.exe" ]] || [[ "$f" == *".exe" && "$f" != *"notane-retail-server"* ]]; then
+              SZ=$(du -h "$f" | awk '{print $1}')
+              echo "| **Windows** | Setup Installer (.exe / .msi) | \`$f\` | $SZ |" >> RELEASE_NOTES.md
+            elif [[ "$f" == *".dmg" ]]; then
+              SZ=$(du -h "$f" | awk '{print $1}')
+              echo "| **macOS** | Disk Image (.dmg) | \`$f\` | $SZ |" >> RELEASE_NOTES.md
+            elif [[ "$f" == *".deb" ]]; then
+              SZ=$(du -h "$f" | awk '{print $1}')
+              echo "| **Linux (Debian/Ubuntu)** | Package (.deb) | \`$f\` | $SZ |" >> RELEASE_NOTES.md
+            elif [[ "$f" == *".AppImage" ]]; then
+              SZ=$(du -h "$f" | awk '{print $1}')
+              echo "| **Linux (Universal)** | Portable App (.AppImage) | \`$f\` | $SZ |" >> RELEASE_NOTES.md
+            fi
+          done
+          
+          echo "" >> RELEASE_NOTES.md
+          echo "---" >> RELEASE_NOTES.md
+          echo "### 🔄 2. Paket Pembaruan OTA (Untuk Di-upload ke Notane Manager)" >> RELEASE_NOTES.md
+          echo "Salin Checksum SHA-256 di bawah ke form rilis Notane Manager:" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "| Nama File Bundle ZIP | Target Komponen | Platform OS | Checksum SHA-256 (Tinggal Salin) |" >> RELEASE_NOTES.md
+          echo "| :--- | :--- | :--- | :--- |" >> RELEASE_NOTES.md
+          
+          echo "# Notane Release Checksums" > CHECKSUMS.txt
           for file in *.zip; do
             if [ -f "$file" ]; then
               SHA=$(sha256sum "$file" | awk '{print $1}')
               SIZE=$(du -h "$file" | awk '{print $1}')
               
               if [[ "$file" == *"client"* ]]; then
-                COMP="Client UI"
+                COMP="Client UI (OTA)"
                 PLATFORM="Universal (Semua OS)"
               elif [[ "$file" == *"windows"* ]]; then
                 COMP="Server Core"
@@ -282,12 +346,12 @@ jobs:
                 PLATFORM="Native"
               fi
               
-              echo "| \`$file\` | **$COMP** | $PLATFORM | $SIZE | \`$SHA\` |" >> CHECKSUMS.md
+              echo "| \`$file\` | **$COMP** | $PLATFORM | \`$SHA\` |" >> RELEASE_NOTES.md
               echo "$SHA  $file" >> CHECKSUMS.txt
             fi
           done
           
-          cat CHECKSUMS.md >> $GITHUB_STEP_SUMMARY
+          cat RELEASE_NOTES.md >> $GITHUB_STEP_SUMMARY
           cd ..
 
       - name: Create or Update GitHub Release
@@ -295,10 +359,9 @@ jobs:
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
           name: Notane Retail POS ${{ steps.vars.outputs.tag }}
-          body_path: final-release/CHECKSUMS.md
+          body_path: final-release/RELEASE_NOTES.md
           files: |
-            final-release/*.zip
-            final-release/CHECKSUMS.txt
+            final-release/*
           draft: false
           prerelease: false
         env:

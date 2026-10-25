@@ -4,18 +4,33 @@ Dokumen ini menjelaskan cara menggunakan **GitHub Actions** untuk mem-build dan 
 
 ---
 
-## 1. Arsitektur File Rilis
+## 1. Arsitektur File yang Dihasilkan Otomatis
 
-File rilis yang akan otomatis dihasilkan oleh GitHub Actions:
+Setiap kali Anda membuat rilis, GitHub Actions akan menghasilkan **2 kategori paket sekaligus**:
+
+### A. 📦 Installer Desktop untuk Pengguna Baru (First-Time Install)
+File installer resmi (*wizard "Next > Next > Install > Finish"*) untuk dibagikan kepada pengguna/komputer kasir yang baru pertama kali memasang aplikasi:
+
+| Sistem Operasi | Ekstensi / Format | Nama File Installer |
+| :--- | :--- | :--- |
+| **Windows** | `.exe` (Setup) & `.msi` | `Notane-Retail-POS_x64-setup.exe` |
+| **macOS** | `.dmg` (Disk Image) | `Notane-Retail-POS.dmg` |
+| **Linux (Debian/Ubuntu)** | `.deb` | `notane-retail-pos_amd64.deb` |
+| **Linux (Universal)** | `.AppImage` | `notane-retail-pos_amd64.AppImage` |
+
+---
+
+### B. 🔄 Paket Pembaruan OTA (Over-The-Air) untuk Di-upload ke Notane Manager
+Paket pembaruan yang digunakan oleh toko yang sudah berjalan (kasir tinggal klik tombol *"Update"* dari dalam aplikasi):
 
 | Nama File Rilis | Komponen | Platform Target | Deskripsi |
 | :--- | :--- | :--- | :--- |
 | `notane-client-ui-vX.X.X.zip` | **Client** | **Universal (Semua OS)** | Bundle aset UI Frontend Kasir & Back-Office (HTML, JS, CSS). Berlaku langsung untuk Windows, Linux, & macOS. |
-| `notane-server-vX.X.X-windows-x64.zip` | **Server** | **Windows (x64)** | Biner backend `notane-retail-server.exe`, Host UI, dan migrasi SQL. |
-| `notane-server-vX.X.X-linux-x64.zip` | **Server** | **Linux (x64)** | Biner backend Linux ELF, Host UI, dan migrasi SQL. |
-| `notane-server-vX.X.X-macos-arm64.zip` | **Server** | **macOS (M1/M2/M3/M4)** | Biner backend macOS Apple Silicon ARM64, Host UI, dan migrasi SQL. |
-| `notane-server-vX.X.X-macos-x64.zip` | **Server** | **macOS (Intel)** | Biner backend macOS Intel x86_64, Host UI, dan migrasi SQL. |
-| `CHECKSUMS.txt` & `CHECKSUMS.md` | **Checksum** | **Semua** | Daftar hash SHA-256 dari seluruh file ZIP yang siap di-copy-paste ke Notane Manager. |
+| `notane-server-vX.X.X-windows-x64.zip` | **Server** | **Windows (x64)** | Biner backend `notane-retail-server.exe`, Host UI, dan migrasi skema SQL. |
+| `notane-server-vX.X.X-linux-x64.zip` | **Server** | **Linux (x64)** | Biner backend Linux ELF, Host UI, dan migrasi skema SQL. |
+| `notane-server-vX.X.X-macos-arm64.zip` | **Server** | **macOS (M1/M2/M3/M4)** | Biner backend macOS Apple Silicon ARM64, Host UI, dan migrasi skema SQL. |
+| `notane-server-vX.X.X-macos-x64.zip` | **Server** | **macOS (Intel)** | Biner backend macOS Intel x86_64, Host UI, dan migrasi skema SQL. |
+| `CHECKSUMS.txt` | **Checksum** | **Semua** | Daftar hash SHA-256 dari seluruh file yang siap disalin ke Notane Manager. |
 
 ---
 
