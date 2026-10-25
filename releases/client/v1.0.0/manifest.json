@@ -1,0 +1,17 @@
+{
+  "component": "client",
+  "version": "1.0.0",
+  "release_name": "Notane Retail POS v1.0.0 Comprehensive Update",
+  "changelog": "1. Rilis Semua Fitur
+2. Pembaruan Pada Aplikasi",
+  "filename": "notane-client-ui-v1.0.0.zip",
+  "filepath": "/Volumes/Data/Bisnis/Notane/NotaneRetail/Codes/notane-retail-pos/releases/client/v1.0.0/notane-client-ui-v1.0.0.zip",
+  "file_size": "1.2M",
+  "checksum_sha256": "ce5a76077e092903e09701486f63fbcc3cc33085efbbd02f8c9362ea1444efae",
+  "min_server_version": "1.1.0",
+  "min_license_tier": "BASIC",
+  "is_mandatory": false,
+  "has_db_migration": false,
+  "suggested_download_url": "https://update.notane.id/releases/client/v1.0.0/notane-client-ui-v1.0.0.zip",
+  "created_at": "2026-10-25T02:39:06Z"
+}

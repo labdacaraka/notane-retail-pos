@@ -796,16 +796,33 @@ async fn activate_license_online(
     }
 }
 
-async fn check_updates(State(state): State<AppState>) -> impl IntoResponse {
+#[derive(Debug, Deserialize, Default)]
+pub struct UpdateCheckPayload {
+    pub component: Option<String>,
+    pub current_version: Option<String>,
+}
+
+async fn check_updates(
+    State(state): State<AppState>,
+    body: Option<Json<UpdateCheckPayload>>,
+) -> impl IntoResponse {
+    let payload = body.map(|b| b.0).unwrap_or_default();
+    let comp = payload.component.as_deref().unwrap_or("server");
+    let current_v = payload.current_version.as_deref();
+
     let pool_opt = state.pool.read().await.clone();
     if let Some(pool) = pool_opt {
-        let updates = crate::services::update_service::UpdateService::check_updates(&pool).await;
+        let updates = crate::services::update_service::UpdateService::check_updates_for(
+            &pool,
+            Some(comp),
+            current_v,
+        ).await;
         Json(updates)
     } else {
         Json(crate::services::update_service::UpdateCheckResponse {
-            current_version: crate::services::update_service::APP_VERSION.to_string(),
+            current_version: current_v.unwrap_or(crate::services::update_service::APP_VERSION).to_string(),
             has_update: false,
-            latest_version: crate::services::update_service::APP_VERSION.to_string(),
+            latest_version: current_v.unwrap_or(crate::services::update_service::APP_VERSION).to_string(),
             release_name: None,
             changelog: None,
             release_date: None,
@@ -816,6 +833,9 @@ async fn check_updates(State(state): State<AppState>) -> impl IntoResponse {
             license_status: crate::services::license_service::LicenseState::Unlicensed,
             can_update: false,
             message: "Database belum aktif".to_string(),
+            component: Some(comp.to_string()),
+            min_server_version: None,
+            server_compatible: Some(true),
         })
     }
 }
@@ -849,21 +869,32 @@ async fn apply_update(
         }
     };
 
+    // Jalankan migrasi database otomatis & seeder jika ada perubahan skema
+    let migration_res = crate::db::run_embedded_migrations(&pool).await;
+    let migration_status = match migration_res {
+        Ok(_) => "Migrasi skema database berhasil dieksekusi secara otomatis.".to_string(),
+        Err(e) => {
+            tracing::error!("Peringatan migrasi database saat apply_update: {}", e);
+            format!("Pembaruan disiapkan dengan catatan migrasi: {}", e)
+        }
+    };
+
     let _ = crate::services::update_service::UpdateService::log_update_applied(
         &pool,
         crate::services::update_service::APP_VERSION,
         &req.target_version,
         Some("Release"),
         Some(&req.checksum_sha256),
-        Some("Pembaruan One-Click berhasil diterapkan. Memerlukan restart aplikasi.")
+        Some(&format!("Pembaruan One-Click Notane Server berhasil diterapkan. {}", migration_status))
     ).await;
 
     (
         StatusCode::OK,
         Json(json!({
             "status": "success",
-            "message": format!("Pembaruan ke versi {} berhasil disiapkan. Silakan restart aplikasi untuk memuat kode baru & migrasi skema.", req.target_version),
+            "message": format!("Pembaruan Notane Server ke versi {} berhasil diterapkan. {} Silakan restart aplikasi server untuk memuat proses baru.", req.target_version, migration_status),
             "updated_to": req.target_version,
+            "migration_status": migration_status,
             "restart_required": true
         })),
     )

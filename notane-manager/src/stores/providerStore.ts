@@ -71,6 +71,8 @@ export interface AppRelease {
   min_license_tier: string
   has_db_migration: number
   is_published: number
+  component: 'server' | 'client'
+  min_server_version?: string
   created_at: string
 }
 
@@ -461,11 +463,13 @@ export const useProviderStore = defineStore('provider', () => {
     is_mandatory: boolean
     min_license_tier: string
     has_db_migration: boolean
+    component?: 'server' | 'client'
+    min_server_version?: string
   }) {
     isLoading.value = true
     try {
       const { data } = await apiClient.post<AppRelease>('/api/v1/admin/releases', payload)
-      successMessage.value = `Rilis versi ${data.version} berhasil diterbitkan dan ditandatangani`
+      successMessage.value = `Rilis ${payload.component === 'client' ? 'Client UI' : 'Server'} versi ${data.version} berhasil diterbitkan dan ditandatangani`
       await fetchReleases()
       await fetchStatus()
       return true

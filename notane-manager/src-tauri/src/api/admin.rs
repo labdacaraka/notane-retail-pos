@@ -908,7 +908,7 @@ async fn admin_get_releases(
     let select_sql = format!(
         "SELECT id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
-                has_db_migration, is_published, created_at
+                has_db_migration, is_published, component, min_server_version, created_at
          FROM provider_app_releases
          {}
          ORDER BY {} {}
@@ -948,6 +948,7 @@ async fn admin_create_release(
     let now = Utc::now();
     let now_str = now.to_rfc3339();
     let release_date = now.format("%Y-%m-%d").to_string();
+    let component = payload.component.clone().unwrap_or_else(|| "server".to_string());
 
     let priv_key = state.master_private_key.read().await;
     let sign_target = format!("{}:{}", payload.version.trim(), payload.checksum_sha256.trim());
@@ -958,8 +959,8 @@ async fn admin_create_release(
         "INSERT INTO provider_app_releases (
             id, version, release_name, changelog, release_date, download_url,
             checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
-            has_db_migration, is_published, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)"
+            has_db_migration, is_published, component, min_server_version, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)"
     )
     .bind(&id)
     .bind(payload.version.trim())
@@ -972,6 +973,8 @@ async fn admin_create_release(
     .bind(if payload.is_mandatory { 1 } else { 0 })
     .bind(&payload.min_license_tier)
     .bind(if payload.has_db_migration { 1 } else { 0 })
+    .bind(&component)
+    .bind(&payload.min_server_version)
     .bind(&now_str)
     .execute(&state.pool)
     .await
@@ -990,6 +993,8 @@ async fn admin_create_release(
         min_license_tier: payload.min_license_tier,
         has_db_migration: if payload.has_db_migration { 1 } else { 0 },
         is_published: 1,
+        component,
+        min_server_version: payload.min_server_version,
         created_at: now_str,
     }))
 }

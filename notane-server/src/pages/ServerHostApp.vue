@@ -26,6 +26,7 @@ import {
   Trash2,
   Building2,
   Sparkles,
+  DownloadCloud,
 } from 'lucide-vue-next'
 import { useNetworkStore } from '@/stores/networkStore'
 import { useLicenseStore } from '@/stores/licenseStore'
@@ -44,6 +45,7 @@ const copiedCode = ref(false)
 const copiedHwid = ref(false)
 const isActionLoading = ref(false)
 const showLicenseModal = ref(false)
+const licenseModalTab = ref<'LICENSE' | 'PROVIDER' | 'UPDATE'>('LICENSE')
 const showInitialSetupModal = ref(false)
 
 const selectedIp = ref<string>('')
@@ -327,9 +329,26 @@ const restartServer = async () => {
           <span>Setup Awal Toko</span>
         </button>
 
+        <!-- Tombol Cek & Pembaruan Server -->
         <button
           type="button"
-          @click="showLicenseModal = true"
+          @click="licenseModalTab = 'UPDATE'; showLicenseModal = true"
+          class="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:opacity-90 active:scale-95"
+          title="Periksa & Terapkan Pembaruan Notane Server"
+        >
+          <DownloadCloud class="w-3.5 h-3.5 text-emerald-600" />
+          <span>Pembaruan Server</span>
+          <span
+            v-if="licenseStore.updateInfo?.has_update"
+            class="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-extrabold animate-pulse"
+          >
+            Update!
+          </span>
+        </button>
+
+        <button
+          type="button"
+          @click="licenseModalTab = 'LICENSE'; showLicenseModal = true"
           class="px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-2xs hover:opacity-90 active:scale-95"
           :class="isLicenseActive
             ? 'bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100'
@@ -339,12 +358,6 @@ const restartServer = async () => {
         >
           <Key class="w-3.5 h-3.5" :class="isLicenseActive ? 'text-purple-600' : 'text-rose-600'" />
           <span>Lisensi: {{ isLicenseActive ? (licenseStore.licenseInfo.tier || 'Aktif') : isGracePeriod ? 'Grace Period' : 'Belum Teraktivasi' }}</span>
-          <span
-            v-if="licenseStore.updateInfo?.has_update"
-            class="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-500 text-white font-extrabold animate-pulse"
-          >
-            Update!
-          </span>
         </button>
 
         <div
@@ -1014,7 +1027,11 @@ const restartServer = async () => {
     </div>
 
     <!-- License & Update Modal (Dedicated in Host App) -->
-    <LicenseUpdateModal :is-open="showLicenseModal" @close="showLicenseModal = false" />
+    <LicenseUpdateModal
+      :is-open="showLicenseModal"
+      :initial-tab="licenseModalTab"
+      @close="showLicenseModal = false"
+    />
 
     <!-- Initial Setup Wizard Modal (First-Run & Store Setup) -->
     <InitialSetupWizardModal

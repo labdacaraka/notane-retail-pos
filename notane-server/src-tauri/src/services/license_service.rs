@@ -28,7 +28,7 @@ pub struct LicensePayload {
 }
 
 /// Status Lisensi Aplikasi
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum LicenseState {
     Active,
@@ -36,6 +36,7 @@ pub enum LicenseState {
     Expired,
     HardwareMismatch,
     ClockTampered,
+    #[default]
     Unlicensed,
 }
 

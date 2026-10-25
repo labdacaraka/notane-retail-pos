@@ -22,17 +22,20 @@ import {
   ArrowUp,
   ArrowDown,
   Package,
-  RotateCcw
+  RotateCcw,
+  FileSpreadsheet,
 } from 'lucide-vue-next'
 import { Icon } from '@iconify/vue'
 import { api } from '@/services/api'
 import { useDialog } from '@/composables/useDialog'
 import { useLocationStore } from '@/stores/locationStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useExportStore } from '@/stores/exportStore'
 import { formatCurrency, formatQty, formatDate } from '@/utils/formatters'
 
 const locationStore = useLocationStore()
 const authStore = useAuthStore()
+const exportStore = useExportStore()
 
 const dialog = useDialog()
 
@@ -1199,6 +1202,94 @@ async function loadPurchaseReturns() {
   }
 }
 
+function exportPurchasesToExcel() {
+  if (activeTab.value === 'orders') {
+    const params: Record<string, any> = {
+      sort_by: poSortBy.value,
+      sort_dir: poSortDir.value,
+    }
+    if (poSearchQuery.value.trim()) params.search = poSearchQuery.value.trim()
+    if (poStatusFilter.value && poStatusFilter.value !== 'ALL') params.status = poStatusFilter.value
+    if (selectedOutletId.value) params.outlet_id = selectedOutletId.value
+
+    exportStore.queueServerExport({
+      title: 'Pesanan Pembelian (PO)',
+      module: 'purchases_orders',
+      filterParams: params,
+      outletId: selectedOutletId.value || undefined,
+    })
+  } else if (activeTab.value === 'receipts') {
+    const params: Record<string, any> = {
+      sort_by: grnSortBy.value,
+      sort_dir: grnSortDir.value,
+    }
+    if (receiptSearchQuery.value.trim()) params.search = receiptSearchQuery.value.trim()
+    if (receiptStatusFilter.value && receiptStatusFilter.value !== 'ALL') params.status = receiptStatusFilter.value
+    if (selectedOutletId.value) params.outlet_id = selectedOutletId.value
+
+    exportStore.queueServerExport({
+      title: 'Penerimaan Barang (GRN)',
+      module: 'purchases_receipts',
+      filterParams: params,
+      outletId: selectedOutletId.value || undefined,
+    })
+  } else if (activeTab.value === 'invoices') {
+    const params: Record<string, any> = {
+      sort_by: sortBy.value,
+      sort_dir: sortDir.value,
+    }
+    if (invoiceSearchQuery.value.trim()) params.search = invoiceSearchQuery.value.trim()
+    if (invoiceStatusFilter.value) params.status = invoiceStatusFilter.value
+    if (selectedOutletId.value) params.outlet_id = selectedOutletId.value
+
+    exportStore.queueServerExport({
+      title: 'Faktur Tagihan Pembelian',
+      module: 'purchases_invoices',
+      filterParams: params,
+      outletId: selectedOutletId.value || undefined,
+    })
+  } else if (activeTab.value === 'returns') {
+    const params: Record<string, any> = {
+      sort_by: retSortBy.value,
+      sort_dir: retSortDir.value,
+    }
+    if (returnSearchQuery.value.trim()) params.search = returnSearchQuery.value.trim()
+    if (returnStatusFilter.value && returnStatusFilter.value !== 'ALL') params.status = returnStatusFilter.value
+    if (selectedOutletId.value) params.outlet_id = selectedOutletId.value
+
+    exportStore.queueServerExport({
+      title: 'Retur Pembelian Supplier',
+      module: 'purchases_returns',
+      filterParams: params,
+      outletId: selectedOutletId.value || undefined,
+    })
+  } else {
+    exportStore.queueExport({
+      title: 'Daftar Pemasok (Suppliers)',
+      module: 'purchases',
+      filenamePrefix: 'Daftar_Pemasok_Supplier',
+      fetchData: async () => {
+        const res = await api.get('/suppliers', { params: { limit: 1000 } })
+        return res.data?.data || []
+      },
+      transformToRows: (data) => {
+        const rows = data.map((item, idx) => ({
+          No: idx + 1,
+          'Kode Supplier': item.code || '-',
+          'Nama Supplier': item.name,
+          'Kontak Person': item.contact_person || '-',
+          'No. Telepon / HP': item.phone || '-',
+          Email: item.email || '-',
+          Alamat: item.address || '-',
+          'Termin Pembayaran (Hari)': Number(item.payment_terms_days || 0),
+          Status: item.is_active ? 'AKTIF' : 'NONAKTIF',
+        }))
+        return [{ sheetName: 'Suppliers', rows }]
+      },
+    })
+  }
+}
+
 async function openCreateReturnModal(prefill?: { invoice?: any; grn?: any }) {
   if (prefill?.invoice) {
     const inv = prefill.invoice
@@ -1585,6 +1676,18 @@ async function handleDeleteSupplier(supp: any) {
           >
             <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoading }" />
             <span>Segarkan</span>
+          </button>
+
+          <!-- Tombol Ekspor Excel Sesuai Sub-Tab Aktif -->
+          <button
+            v-if="authStore.hasPermission(['purchasing:export', 'purchasing:read', 'purchasing:view'])"
+            type="button"
+            @click="exportPurchasesToExcel"
+            class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs border border-emerald-700"
+            title="Ekspor tabel aktif sesuai filter dan urutan ke Excel di latar belakang"
+          >
+            <FileSpreadsheet class="w-4 h-4" />
+            <span>Ekspor Excel</span>
           </button>
 
           <button

@@ -46,9 +46,22 @@ const releaseSchema = z.object({
   is_mandatory: z.boolean(),
   min_license_tier: z.string(),
   has_db_migration: z.boolean(),
+  component: z.enum(['server', 'client']),
+  min_server_version: z.string().optional(),
 })
 
-const form = ref({
+const form = ref<{
+  version: string
+  release_name: string
+  changelog: string
+  download_url: string
+  checksum_sha256: string
+  is_mandatory: boolean
+  min_license_tier: string
+  has_db_migration: boolean
+  component: 'server' | 'client'
+  min_server_version: string
+}>({
   version: '',
   release_name: '',
   changelog: '',
@@ -57,6 +70,8 @@ const form = ref({
   is_mandatory: false,
   min_license_tier: 'BASIC',
   has_db_migration: true,
+  component: 'server',
+  min_server_version: '1.1.0',
 })
 
 async function loadData(page?: number, pageSize?: number) {
@@ -92,16 +107,33 @@ function handleSort(column: 'created_at' | 'version' | 'release_name' | 'release
   loadData(1)
 }
 
-function openCreateModal() {
-  form.value = {
-    version: '1.2.1',
-    release_name: 'Notane Retail POS Enterprise Stability Update',
-    changelog: '1. Optimasi query kasir & transaksi offline\n2. Dukungan printer struk Bluetooth\n3. Perbaikan sinkronisasi katalog produk',
-    download_url: 'https://update.notane.id/releases/v1.2.1/notane-update-bundle.zip',
-    checksum_sha256: 'a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890',
-    is_mandatory: false,
-    min_license_tier: 'BASIC',
-    has_db_migration: true,
+function openCreateModal(comp: 'server' | 'client' = 'server') {
+  if (comp === 'client') {
+    form.value = {
+      version: '1.2.0',
+      release_name: 'Notane Retail POS - Client Terminal UI Update',
+      changelog: '1. Desain antarmuka baru kasir & POS responsif\n2. Indikator status real-time printer & barcode scanner\n3. Dukungan modal cek & perbarui antarmuka langsung',
+      download_url: 'https://update.notane.id/releases/client/v1.2.0/notane-client-ui.zip',
+      checksum_sha256: 'b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1',
+      is_mandatory: false,
+      min_license_tier: 'BASIC',
+      has_db_migration: false,
+      component: 'client',
+      min_server_version: '1.1.0',
+    }
+  } else {
+    form.value = {
+      version: '1.2.0',
+      release_name: 'Notane Retail POS - Server Core & Host Update',
+      changelog: '1. Engine database PostgreSQL & auto-migrasi skema\n2. API Axum berkecepatan tinggi & proteksi token\n3. Dukungan penuh lisensi Ed25519 node-lock',
+      download_url: 'https://update.notane.id/releases/server/v1.2.0/notane-server-core.zip',
+      checksum_sha256: 'a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890',
+      is_mandatory: false,
+      min_license_tier: 'BASIC',
+      has_db_migration: true,
+      component: 'server',
+      min_server_version: '',
+    }
   }
   formErrors.value = {}
   isModalOpen.value = true
@@ -158,14 +190,25 @@ async function confirmDelete(rel: AppRelease) {
         </button>
       </div>
 
-      <button
-        @click="openCreateModal"
-        :disabled="!hasPermission('release:create')"
-        class="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-brand-600/20 cursor-pointer"
-      >
-        <Plus class="w-4 h-4" />
-        <span>Terbitkan Versi Rilis Baru</span>
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          @click="openCreateModal('server')"
+          :disabled="!hasPermission('release:create')"
+          class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
+        >
+          <Plus class="w-4 h-4" />
+          <span>Rilis Server</span>
+        </button>
+
+        <button
+          @click="openCreateModal('client')"
+          :disabled="!hasPermission('release:create')"
+          class="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-cyan-600/20 cursor-pointer"
+        >
+          <Plus class="w-4 h-4" />
+          <span>Rilis Client (UI)</span>
+        </button>
+      </div>
     </div>
 
     <!-- Empty State -->
@@ -178,13 +221,20 @@ async function confirmDelete(rel: AppRelease) {
       <div class="text-xs text-slate-500 mt-1">
         {{ searchQuery ? 'Tidak ada rilis yang cocok dengan pencarian Anda.' : 'Terbitkan paket rilis OTA pertama dengan tanda tangan kriptografi Ed25519.' }}
       </div>
-      <button
-        v-if="!searchQuery"
-        @click="openCreateModal"
-        class="mt-4 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold cursor-pointer"
-      >
-        Terbitkan Rilis Sekarang
-      </button>
+      <div v-if="!searchQuery" class="mt-4 flex items-center justify-center gap-2">
+        <button
+          @click="openCreateModal('server')"
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold cursor-pointer"
+        >
+          Rilis Notane Server
+        </button>
+        <button
+          @click="openCreateModal('client')"
+          class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold cursor-pointer"
+        >
+          Rilis Notane Client
+        </button>
+      </div>
       <button
         v-else
         @click="searchQuery = ''; loadData(1)"
@@ -205,12 +255,31 @@ async function confirmDelete(rel: AppRelease) {
           <!-- Release Header -->
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
             <div class="flex items-center gap-3">
-              <div class="px-3 py-1.5 rounded-xl bg-brand-500/10 border border-brand-500/30 text-brand-400 font-mono text-sm font-bold">
+              <div
+                class="px-3 py-1.5 rounded-xl font-mono text-sm font-bold border"
+                :class="rel.component === 'client' ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'"
+              >
                 v{{ rel.version }}
               </div>
               <div>
-                <h3 class="font-bold text-sm text-white">{{ rel.release_name }}</h3>
-                <div class="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5">
+                <div class="flex items-center gap-2">
+                  <h3 class="font-bold text-sm text-white">{{ rel.release_name }}</h3>
+                  <!-- Component Badge -->
+                  <span
+                    class="px-2 py-0.5 rounded-full text-[10px] font-semibold border font-mono"
+                    :class="rel.component === 'client' ? 'bg-cyan-950/80 text-cyan-300 border-cyan-700/50' : 'bg-indigo-950/80 text-indigo-300 border-indigo-700/50'"
+                  >
+                    {{ rel.component === 'client' ? 'Client UI' : 'Server Core & UI' }}
+                  </span>
+                  <!-- Min Server Version (for client releases) -->
+                  <span
+                    v-if="rel.component === 'client' && rel.min_server_version"
+                    class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-950/60 text-amber-300 border border-amber-700/40 font-mono"
+                  >
+                    Min Server: v{{ rel.min_server_version }}
+                  </span>
+                </div>
+                <div class="flex items-center gap-3 text-[11px] text-slate-400 mt-1">
                   <span class="flex items-center gap-1 font-mono">
                     <Calendar class="w-3 h-3 text-slate-500" />
                     {{ rel.release_date }}
@@ -319,13 +388,41 @@ async function confirmDelete(rel: AppRelease) {
     <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
       <div class="w-full max-w-lg rounded-2xl glass-panel border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div class="font-bold text-sm text-white">Terbitkan Versi Rilis OTA Baru</div>
+          <div class="font-bold text-sm text-white">
+            Terbitkan Rilis OTA Baru:
+            <span :class="form.component === 'client' ? 'text-cyan-400' : 'text-indigo-400'">
+              {{ form.component === 'client' ? 'Notane Client (UI Only)' : 'Notane Server (Core & UI)' }}
+            </span>
+          </div>
           <button @click="isModalOpen = false" class="text-slate-400 hover:text-white cursor-pointer">
             <X class="w-4 h-4" />
           </button>
         </div>
 
         <form @submit.prevent="handleSubmit" class="space-y-3.5">
+          <!-- Component Selector -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Target Komponen Aplikasi *</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                @click="form.component = 'server'; form.has_db_migration = true"
+                class="px-3 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5"
+                :class="form.component === 'server' ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'"
+              >
+                <span>Notane Server</span>
+              </button>
+              <button
+                type="button"
+                @click="form.component = 'client'; form.has_db_migration = false"
+                class="px-3 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5"
+                :class="form.component === 'client' ? 'bg-cyan-600/30 border-cyan-500 text-cyan-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'"
+              >
+                <span>Notane Client (UI)</span>
+              </button>
+            </div>
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-semibold text-slate-300 mb-1">Versi Semver *</label>
@@ -348,6 +445,20 @@ async function confirmDelete(rel: AppRelease) {
                 <option value="ENTERPRISE">ENTERPRISE Only</option>
               </select>
             </div>
+          </div>
+
+          <!-- Minimal Server Version Requirement for Client -->
+          <div v-if="form.component === 'client'" class="p-3 rounded-xl bg-cyan-950/20 border border-cyan-800/40">
+            <label class="block text-xs font-semibold text-cyan-300 mb-1">Minimal Versi Notane Server yang Diperlukan</label>
+            <input
+              v-model="form.min_server_version"
+              type="text"
+              placeholder="Contoh: 1.1.0"
+              class="w-full px-3 py-2 bg-slate-950 border border-cyan-800/60 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+            />
+            <p class="text-[11px] text-slate-400 mt-1">
+              Client tidak diizinkan melakukan pembaruan jika versi Server yang terhubung lebih rendah dari versi ini.
+            </p>
           </div>
 
           <div>

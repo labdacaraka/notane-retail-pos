@@ -20,12 +20,14 @@ import {
   ArrowUp,
   ArrowDown,
   Image as ImageIcon,
+  FileSpreadsheet,
 } from 'lucide-vue-next'
 import { Icon } from '@iconify/vue'
 import { api } from '@/services/api'
 import { usePrinterStore } from '@/stores/printerStore'
 import { useLocationStore } from '@/stores/locationStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useExportStore } from '@/stores/exportStore'
 import SupervisorAuthSection from '@/components/pos/SupervisorAuthSection.vue'
 import { formatCurrency, formatQty, formatDate } from '@/utils/formatters'
 
@@ -35,6 +37,7 @@ const router = useRouter()
 const printerStore = usePrinterStore()
 const locationStore = useLocationStore()
 const authStore = useAuthStore()
+const exportStore = useExportStore()
 
 // State
 const sales = ref<any[]>([])
@@ -171,6 +174,22 @@ async function loadSales() {
   } finally {
     isLoading.value = false
   }
+}
+
+function exportSalesToExcel() {
+  const filterParams: Record<string, any> = {
+    sort_by: sortBy.value,
+    sort_dir: sortDir.value,
+  }
+  if (selectedOutletId.value) filterParams.outlet_id = selectedOutletId.value
+  if (statusFilter.value !== 'ALL') filterParams.status = statusFilter.value
+  if (searchQuery.value.trim()) filterParams.search = searchQuery.value.trim()
+
+  exportStore.queueServerExport({
+    module: 'sales',
+    title: 'Riwayat Transaksi Penjualan',
+    filterParams,
+  })
 }
 
 async function loadOutlets() {
@@ -574,6 +593,18 @@ async function confirmVoid() {
                 </button>
               </div>
             </div>
+
+            <!-- Tombol Ekspor Excel Latar Belakang -->
+            <button
+              v-if="authStore.hasPermission(['sales:export', 'sales:read', 'sales:view'])"
+              type="button"
+              @click="exportSalesToExcel"
+              class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs border border-emerald-700"
+              title="Ekspor seluruh data penjualan sesuai filter dan urutan ke Excel di latar belakang"
+            >
+              <FileSpreadsheet class="w-4 h-4" />
+              <span>Ekspor Excel</span>
+            </button>
           </div>
 
           <!-- Table -->

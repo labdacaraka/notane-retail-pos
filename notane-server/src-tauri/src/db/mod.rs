@@ -88,6 +88,8 @@ pub async fn run_embedded_migrations(pool: &PgPool) -> Result<(), Box<dyn std::e
         ("057_dividend_distributions", include_str!("../../migrations/057_dividend_distributions.sql")),
         ("058_dividend_linked_to_accounting_closings", include_str!("../../migrations/058_dividend_linked_to_accounting_closings.sql")),
         ("059_additional_expense_categories_and_equity_support", include_str!("../../migrations/059_additional_expense_categories_and_equity_support.sql")),
+        ("060_export_excel_permissions", include_str!("../../migrations/060_export_excel_permissions.sql")),
+        ("061_export_jobs_queue", include_str!("../../migrations/061_export_jobs_queue.sql")),
     ];
 
     // 2. Ambil daftar migrasi yang sudah pernah dieksekusi

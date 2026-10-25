@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -29,14 +29,24 @@ pub struct UpdateCheckResponse {
     pub latest_version: String,
     pub release_name: Option<String>,
     pub changelog: Option<String>,
-    pub release_date: Option<DateTime<Utc>>,
+    pub release_date: Option<String>,
     pub download_url: Option<String>,
     pub checksum_sha256: Option<String>,
     pub signature: Option<String>,
+    #[serde(default)]
     pub is_mandatory: bool,
+    #[serde(default)]
     pub license_status: LicenseState,
+    #[serde(default = "default_true")]
     pub can_update: bool,
     pub message: String,
+    pub component: Option<String>,
+    pub min_server_version: Option<String>,
+    pub server_compatible: Option<bool>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,8 +82,23 @@ impl UpdateService {
     /// Memeriksa ketersediaan pembaruan dari Server Provider Notane
     /// Akses pembaruan diproteksi oleh lisensi aktif pengguna
     pub async fn check_updates(pool: &PgPool) -> UpdateCheckResponse {
+        Self::check_updates_for(pool, Some("server"), None).await
+    }
+
+    /// Memeriksa ketersediaan pembaruan untuk komponen tertentu ('server' atau 'client')
+    pub async fn check_updates_for(
+        pool: &PgPool,
+        component: Option<&str>,
+        client_version: Option<&str>,
+    ) -> UpdateCheckResponse {
         let license_info = LicenseService::check_current_license(pool).await;
-        let current_ver = APP_VERSION.to_string();
+        let server_ver = APP_VERSION.to_string();
+        let target_component = component.unwrap_or("server").to_lowercase();
+        let current_ver = if target_component == "client" {
+            client_version.unwrap_or("1.1.0").to_string()
+        } else {
+            server_ver.clone()
+        };
 
         // Hanya lisensi aktif / grace period yang berhak mengunduh pembaruan resmi
         let can_update = license_info.is_valid && (license_info.status == LicenseState::Active || license_info.status == LicenseState::GracePeriod);
@@ -93,6 +118,9 @@ impl UpdateService {
                 license_status: license_info.status,
                 can_update: false,
                 message: "Pembaruan otomatis dinonaktifkan karena lisensi belum aktif atau telah kedaluwarsa. Perpanjang lisensi Anda untuk mendapatkan rilis & fitur terbaru.".to_string(),
+                component: Some(target_component),
+                min_server_version: None,
+                server_compatible: Some(true),
             };
         }
 
@@ -104,7 +132,9 @@ impl UpdateService {
 
         let check_url = format!("{}/api/v1/updates/check", license_info.provider_server_url);
         let req_body = serde_json::json!({
+            "component": target_component,
             "current_version": current_ver,
+            "server_version": server_ver,
             "os": env::consts::OS,
             "arch": env::consts::ARCH,
             "license_key": license_info.license_key,
@@ -114,7 +144,7 @@ impl UpdateService {
         match client.post(&check_url).json(&req_body).send().await {
             Ok(res) if res.status().is_success() => {
                 if let Ok(mut server_resp) = res.json::<UpdateCheckResponse>().await {
-                    server_resp.can_update = true;
+                    server_resp.license_status = license_info.status;
                     return server_resp;
                 }
             }
@@ -133,7 +163,7 @@ impl UpdateService {
             latest_version: current_ver,
             release_name: Some("Notane POS v1.1.0 Enterprise LTS".to_string()),
             changelog: Some("- Sistem Isolasi Database PostgreSQL Terintegrasi\n- Keamanan Lisensi Asimetris Ed25519 & Node-Locking Anti-Baja\n- Migrasi Otomatis Skema Terkendali (Laravel Style)".to_string()),
-            release_date: Some(Utc::now()),
+            release_date: Some(Utc::now().format("%Y-%m-%d").to_string()),
             download_url: None,
             checksum_sha256: None,
             signature: None,
@@ -141,6 +171,9 @@ impl UpdateService {
             license_status: license_info.status,
             can_update: true,
             message: "Aplikasi Anda menggunakan versi terbaru (v1.1.0 Enterprise).".to_string(),
+            component: Some("server".to_string()),
+            min_server_version: None,
+            server_compatible: Some(true),
         }
     }
 
@@ -165,11 +198,24 @@ impl UpdateService {
 
         let signature = Signature::from_bytes(&sig_array);
 
-        verifying_key
-            .verify(manifest_json.as_bytes(), &signature)
-            .map_err(|_| "VERIFIKASI UPDATE GAGAL: Paket update tidak berasal dari Server Provider Notane resmi atau file telah diubah pihak ketiga!".to_string())?;
+        if verifying_key.verify(manifest_json.as_bytes(), &signature).is_ok() {
+            return Ok(true);
+        }
 
-        Ok(true)
+        // Jika manifest_json format "target_version:X:checksum:Y", coba juga fallback format "X:Y" dari Provider Manager
+        if manifest_json.starts_with("target_version:") {
+            let parts: Vec<&str> = manifest_json.split(":checksum:").collect();
+            if parts.len() == 2 {
+                let ver = parts[0].trim_start_matches("target_version:");
+                let chk = parts[1];
+                let alt_manifest = format!("{}:{}", ver, chk);
+                if verifying_key.verify(alt_manifest.as_bytes(), &signature).is_ok() {
+                    return Ok(true);
+                }
+            }
+        }
+
+        Err("VERIFIKASI UPDATE GAGAL: Paket update tidak berasal dari Server Provider Notane resmi atau file telah diubah pihak ketiga!".to_string())
     }
 
     /// Merekam riwayat pembaruan yang berhasil diterapkan

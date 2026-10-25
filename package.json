@@ -27,7 +27,11 @@
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f",
     "setup": "bash ./scripts/setup.sh",
-    "brand": "node ./scripts/brand-manager.js"
+    "brand": "node ./scripts/brand-manager.js",
+    "release": "bash ./scripts/build-release.sh",
+    "release:client": "bash ./scripts/build-release.sh client",
+    "release:server": "bash ./scripts/build-release.sh server",
+    "release:all": "bash ./scripts/build-release.sh all"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

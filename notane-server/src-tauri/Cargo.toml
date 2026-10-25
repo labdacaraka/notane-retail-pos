@@ -46,6 +46,7 @@ hex = "0.4.3"
 base64 = "0.23.1"
 reqwest = { version = "0.13.5", features = ["json"] }
 local-ip-address = "0.6"
+rust_xlsxwriter = "0.101.0"
 
 [build-dependencies]
 tauri-build = { version = "2.2.0", features = [], optional = true }

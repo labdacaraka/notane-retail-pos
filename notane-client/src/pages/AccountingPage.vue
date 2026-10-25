@@ -33,6 +33,9 @@ import {
   Sparkles,
   Sliders,
   Info,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-vue-next'
 import { Icon } from '@iconify/vue'
 import { api } from '@/services/api'
@@ -61,6 +64,32 @@ const selectedOutletName = computed(() => {
   if (!selectedOutletId.value) return 'Semua Outlet (Konsolidasian Seluruh Cabang)'
   const match = outletsList.value.find(o => o.id === selectedOutletId.value)
   return match ? `${match.name} (${match.code || 'Cabang'})` : 'Cabang Terpilih'
+})
+
+const authenticatedUserSignature = computed(() => {
+  if (authStore.user?.full_name?.trim()) return authStore.user.full_name.trim()
+  if (authStore.user?.username?.trim()) return authStore.user.username.trim()
+  try {
+    const raw = localStorage.getItem('notane_user')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed?.full_name?.trim()) return parsed.full_name.trim()
+      if (parsed?.username?.trim()) return parsed.username.trim()
+    }
+  } catch {}
+  return 'Administrator'
+})
+
+const authenticatedUserRole = computed(() => {
+  if (authStore.user?.role_name?.trim()) return authStore.user.role_name.trim()
+  try {
+    const raw = localStorage.getItem('notane_user')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed?.role_name?.trim()) return parsed.role_name.trim()
+    }
+  } catch {}
+  return 'Staff Keuangan'
 })
 
 // Date filters for Income Statement & Journal
@@ -309,6 +338,32 @@ const closingForm = ref({
   notes: '',
 })
 
+// Sub-tab untuk Tab Tutup Buku Periode: 'periods' (Soft Close) atau 'closings' (Hard Close / Histori Tutup Buku)
+const closingSubTab = ref<'periods' | 'closings'>('periods')
+
+// State Server-Side Pagination & Sorting: Accounting Periods (Soft Close)
+const accountingPeriods = ref<any[]>([])
+const periodPage = ref<number>(1)
+const periodPageSize = ref<number>(10)
+const periodTotalItems = ref<number>(0)
+const periodTotalPages = ref<number>(1)
+const periodSortBy = ref<string>('start_date')
+const periodSortDir = ref<'asc' | 'desc'>('desc')
+const periodSearch = ref<string>('')
+const periodStatus = ref<string>('')
+const isPeriodLoading = ref<boolean>(false)
+
+// State Server-Side Pagination & Sorting: Accounting Closings (Hard Close)
+const closingPage = ref<number>(1)
+const closingPageSize = ref<number>(10)
+const closingTotalItems = ref<number>(0)
+const closingTotalPages = ref<number>(1)
+const closingSortBy = ref<string>('period_end')
+const closingSortDir = ref<'asc' | 'desc'>('desc')
+const closingSearch = ref<string>('')
+const closingStatus = ref<string>('')
+const isClosingLoading = ref<boolean>(false)
+
 // Modal: Buka Kembali Buku (Reopen)
 const showReopenModal = ref<boolean>(false)
 const selectedClosingToReopen = ref<any>(null)
@@ -316,7 +371,6 @@ const reopenReason = ref<string>('')
 const isSubmittingReopen = ref<boolean>(false)
 
 // State & Modal: Accounting Periods (Soft Close)
-const accountingPeriods = ref<any[]>([])
 const showPeriodModal = ref<boolean>(false)
 const isSubmittingPeriod = ref<boolean>(false)
 const periodForm = ref({
@@ -750,9 +804,11 @@ async function fetchDataForTab(tab: 'income' | 'balance_sheet' | 'journal' | 'cl
     } else if (tab === 'journal') {
       await fetchJournalEntries()
     } else if (tab === 'closing') {
-      const res = await api.get('/accounting/closings', { params })
-      if (res.data?.success) closingList.value = res.data.data
-      await fetchAccountingPeriods()
+      if (closingSubTab.value === 'periods') {
+        await fetchAccountingPeriods()
+      } else {
+        await fetchClosingList()
+      }
     } else if (tab === 'dividend') {
       await fetchDividendSummary()
       await fetchDividendList()
@@ -862,7 +918,7 @@ const accountingMenuTiles = computed(() => [
     tag: 'Period Closing',
     icon: Lock,
     iconName: 'fluent-color:lock-closed-24',
-    badge: `${closingList.value?.length || 0}`,
+    badge: `${closingSubTab.value === 'periods' ? (periodTotalItems.value || 0) : (closingTotalItems.value || 0)}`,
     badgeColor: 'bg-amber-100 text-amber-800',
   },
   {
@@ -972,6 +1028,9 @@ function checkTabHasData(tab: string): boolean {
 }
 
 function openPrintReport(tab?: 'income' | 'balance_sheet' | 'journal' | 'closing' | 'dividend' | 'capital' | 'bank' | 'coa') {
+  if (!authStore.user) {
+    authStore.fetchCurrentUser().catch(() => {})
+  }
   const targetTab = (typeof tab === 'string' && tab) ? tab : activeTab.value
   reportToPrint.value = targetTab
   showPrintReportModal.value = true
@@ -1134,14 +1193,111 @@ async function handleExecuteReopen() {
 // HANDLERS: SOFT CLOSE (PERIODE AKUNTANSI) & HARD CLOSE (TAHUNAN)
 // =========================================================================
 async function fetchAccountingPeriods() {
+  isPeriodLoading.value = true
   try {
-    const res = await api.get('/accounting/periods')
+    const params: any = {
+      page: periodPage.value,
+      page_size: periodPageSize.value,
+      sort_by: periodSortBy.value,
+      sort_dir: periodSortDir.value,
+    }
+    if (periodSearch.value.trim()) {
+      params.search = periodSearch.value.trim()
+    }
+    if (periodStatus.value) {
+      params.status = periodStatus.value
+    }
+    const res = await api.get('/accounting/periods', { params })
     if (res.data?.success) {
       accountingPeriods.value = res.data.data
+      periodTotalItems.value = res.data.total_items ?? res.data.data.length
+      periodTotalPages.value = res.data.total_pages ?? 1
     }
   } catch (err: any) {
     console.error('Gagal mengambil daftar periode akuntansi:', err)
+  } finally {
+    isPeriodLoading.value = false
   }
+}
+
+async function fetchClosingList() {
+  isClosingLoading.value = true
+  try {
+    const params: any = {
+      page: closingPage.value,
+      page_size: closingPageSize.value,
+      sort_by: closingSortBy.value,
+      sort_dir: closingSortDir.value,
+    }
+    if (selectedOutletId.value) {
+      params.outlet_id = selectedOutletId.value
+    }
+    if (closingSearch.value.trim()) {
+      params.search = closingSearch.value.trim()
+    }
+    if (closingStatus.value) {
+      params.status = closingStatus.value
+    }
+    const res = await api.get('/accounting/closings', { params })
+    if (res.data?.success) {
+      closingList.value = res.data.data
+      closingTotalItems.value = res.data.total_items ?? res.data.data.length
+      closingTotalPages.value = res.data.total_pages ?? 1
+    }
+  } catch (err: any) {
+    console.error('Gagal mengambil riwayat tutup buku:', err)
+  } finally {
+    isClosingLoading.value = false
+  }
+}
+
+async function switchClosingSubTab(tab: 'periods' | 'closings') {
+  closingSubTab.value = tab
+  if (tab === 'periods') {
+    await fetchAccountingPeriods()
+  } else {
+    await fetchClosingList()
+  }
+}
+
+function togglePeriodSort(col: string) {
+  if (periodSortBy.value === col) {
+    periodSortDir.value = periodSortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    periodSortBy.value = col
+    periodSortDir.value = 'desc'
+  }
+  periodPage.value = 1
+  fetchAccountingPeriods()
+}
+
+function toggleClosingSort(col: string) {
+  if (closingSortBy.value === col) {
+    closingSortDir.value = closingSortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    closingSortBy.value = col
+    closingSortDir.value = 'desc'
+  }
+  closingPage.value = 1
+  fetchClosingList()
+}
+
+let periodSearchTimeout: any = null
+function onPeriodSearchInput() {
+  clearTimeout(periodSearchTimeout)
+  periodSearchTimeout = setTimeout(() => {
+    periodPage.value = 1
+    fetchAccountingPeriods()
+  }, 350)
+}
+
+let closingSearchTimeout: any = null
+function onClosingSearchInput() {
+  clearTimeout(closingSearchTimeout)
+  closingSearchTimeout = setTimeout(() => {
+    closingPage.value = 1
+    fetchClosingList()
+  }, 350)
 }
 
 function openCreatePeriodModal() {
@@ -2377,7 +2533,7 @@ watch([selectedOutletId, startDate, endDate, asOfDate], () => {
 })
 
 onMounted(async () => {
-  authStore.fetchCurrentUser()
+  await authStore.fetchCurrentUser().catch(() => {})
   storeBrandingStore.fetchBranding().catch(() => {})
   await fetchOutlets()
   await fetchDataForTab('income', true)
@@ -3143,23 +3299,52 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Section: Manajemen Periode Akuntansi & Soft Close -->
-        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-          <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-2.5">
-              <div class="p-1.5 rounded-lg bg-emerald-100 text-emerald-800">
-                <Lock class="w-4 h-4" />
-              </div>
-              <div>
-                <h3 class="font-bold text-xs uppercase tracking-wider text-slate-800 font-mono">
-                  Periode Akuntansi & Kontrol Kunci Transaksi (Soft Close)
-                </h3>
-                <p class="text-[11px] text-slate-500 font-sans">
-                  Kunci periode mencegah pencatatan transaksi mutasi susulan (back-dated) di seluruh modul toko.
-                </p>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
+        <!-- Sub-Tab Switcher & Quick Actions -->
+        <div class="flex flex-wrap items-center justify-between gap-3 p-2 bg-slate-100/90 rounded-2xl border border-slate-200/90">
+          <div class="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-xl">
+            <button
+              type="button"
+              @click="switchClosingSubTab('periods')"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs',
+                closingSubTab === 'periods'
+                  ? 'bg-white text-emerald-900 shadow-sm ring-1 ring-emerald-500/20'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ]"
+            >
+              <Lock class="w-4 h-4 text-emerald-600" />
+              <span>Periode Akuntansi (Soft Close)</span>
+              <span
+                class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                :class="closingSubTab === 'periods' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'"
+              >
+                {{ periodTotalItems }}
+              </span>
+            </button>
+            <button
+              type="button"
+              @click="switchClosingSubTab('closings')"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs',
+                closingSubTab === 'closings'
+                  ? 'bg-white text-indigo-900 shadow-sm ring-1 ring-indigo-500/20'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ]"
+            >
+              <FileText class="w-4 h-4 text-indigo-600" />
+              <span>Histori Tutup Buku (Hard Close)</span>
+              <span
+                class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                :class="closingSubTab === 'closings' ? 'bg-indigo-100 text-indigo-900' : 'bg-slate-200 text-slate-600'"
+              >
+                {{ closingTotalItems }}
+              </span>
+            </button>
+          </div>
+
+          <!-- Header Quick Actions Sesuai Sub-Tab Aktif -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <template v-if="closingSubTab === 'periods'">
               <button
                 @click="openPrintReport('closing')"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs cursor-pointer"
@@ -3182,206 +3367,423 @@ onMounted(async () => {
                 title="Tutup Buku Akhir Tahun: Memindahkan saldo nominal ke Laba Ditahan (3201)"
               >
                 <Scale class="w-3.5 h-3.5" />
-                <span>Tutup Buku Akhir Tahun (Hard Close)</span>
+                <span>Tutup Buku Akhir Tahun</span>
+              </button>
+            </template>
+            <template v-else>
+              <button
+                @click="openPrintReport('closing')"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                <Printer class="w-3.5 h-3.5 text-indigo-400" />
+                <span>Cetak Riwayat (PDF)</span>
+              </button>
+              <button
+                v-if="authStore.hasPermission(['accounting:close_period', 'accounting:write'])"
+                @click="openClosingModal"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                <Plus class="w-3.5 h-3.5" />
+                <span>Tutup Buku Baru</span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- SUB-TAB 1: PERIODE AKUNTANSI & KONTROL SOFT CLOSE -->
+        <!-- ================================================================= -->
+        <div v-if="closingSubTab === 'periods'" class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+          <!-- Toolbar Filter Server-Side -->
+          <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <div class="p-1.5 rounded-lg bg-emerald-100 text-emerald-800">
+                <Lock class="w-4 h-4" />
+              </div>
+              <div>
+                <h3 class="font-bold text-xs uppercase tracking-wider text-slate-800 font-mono">
+                  Daftar Periode Akuntansi (Soft Close Control)
+                </h3>
+                <p class="text-[11px] text-slate-500 font-sans">
+                  Kunci periode mencegah pencatatan transaksi mutasi susulan (back-dated) di seluruh modul toko.
+                </p>
+              </div>
+            </div>
+
+            <!-- Search, Status Filter & Refresh -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="relative">
+                <Search class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  v-model="periodSearch"
+                  type="text"
+                  placeholder="Cari nama periode/alasan..."
+                  @input="onPeriodSearchInput"
+                  @keyup.enter="periodPage = 1; fetchAccountingPeriods()"
+                  class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-56"
+                />
+              </div>
+
+              <select
+                v-model="periodStatus"
+                @change="periodPage = 1; fetchAccountingPeriods()"
+                class="text-xs border border-slate-300 rounded-lg bg-white text-slate-700 px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                <option value="">Semua Status</option>
+                <option value="OPEN">Terbuka (Open)</option>
+                <option value="CLOSED">Terkunci (Closed)</option>
+              </select>
+
+              <button
+                type="button"
+                @click="periodSearch = ''; periodStatus = ''; periodPage = 1; fetchAccountingPeriods()"
+                class="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 rounded-lg transition cursor-pointer"
+                title="Reset Filter"
+              >
+                <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isPeriodLoading }" />
               </button>
             </div>
           </div>
 
-          <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-slate-100 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase tracking-wider">
-              <tr>
-                <th class="py-3 px-4">Nama Periode</th>
-                <th class="py-3 px-4">Rentang Tanggal</th>
-                <th class="py-3 px-4 text-center">Status Periode</th>
-                <th class="py-3 px-4">Catatan Penguncian</th>
-                <th class="py-3 px-4 text-center w-36">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 font-mono">
-              <tr v-if="accountingPeriods.length === 0">
-                <td colspan="5" class="py-8 text-center text-slate-400 font-sans">
-                  Belum ada periode akuntansi terdaftar. Klik tombol "Tambah Periode Baru" untuk mengelola periode fiskal.
-                </td>
-              </tr>
-              <tr v-for="p in accountingPeriods" :key="p.id" class="hover:bg-slate-50 transition">
-                <td class="py-3.5 px-4 font-bold text-slate-900 font-sans">
-                  {{ p.name }}
-                </td>
-                <td class="py-3.5 px-4 font-bold text-sky-800">
-                  {{ formatDate(p.start_date) }} s/d {{ formatDate(p.end_date) }}
-                </td>
-                <td class="py-3.5 px-4 text-center">
-                  <span
-                    v-if="p.is_closed"
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-900 border border-rose-300"
-                  >
-                    <Lock class="w-3 h-3 text-rose-700" />
-                    <span>TERKUNCI (SOFT CLOSED)</span>
-                  </span>
-                  <span
-                    v-else
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300"
-                  >
-                    <Unlock class="w-3 h-3 text-emerald-700" />
-                    <span>TERBUKA (OPEN)</span>
-                  </span>
-                </td>
-                <td class="py-3.5 px-4 text-[11px] font-sans text-slate-600">
-                  <div v-if="p.is_closed && p.closed_at">
-                    <span class="font-semibold text-rose-800">Dikunci:</span> {{ formatDate(p.closed_at) }}
-                    <span v-if="p.closed_by_name" class="text-slate-500">oleh {{ p.closed_by_name }}</span>
-                  </div>
-                  <div v-else-if="p.reopened_at">
-                    <span class="font-semibold text-amber-700">Dibuka Kembali:</span> {{ formatDate(p.reopened_at) }}
-                    <span v-if="p.reopened_by_name" class="text-slate-500">oleh {{ p.reopened_by_name }}</span>
-                    <p v-if="p.reopen_reason" class="text-amber-900 italic mt-0.5 font-sans">Alasan: {{ p.reopen_reason }}</p>
-                  </div>
-                  <div v-else class="text-slate-400 italic">
-                    Periode aktif berjalan (mutasi diperbolehkan)
-                  </div>
-                </td>
-                <td class="py-3.5 px-4 text-center">
-                  <button
-                    v-if="!p.is_closed && authStore.hasPermission(['accounting:periods:close', 'accounting:close_period', 'accounting:write'])"
-                    type="button"
-                    @click="handleSoftClosePeriod(p)"
-                    class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-bold transition cursor-pointer flex items-center justify-center gap-1 mx-auto"
-                  >
-                    <Lock class="w-3 h-3" />
-                    <span>Kunci Periode</span>
-                  </button>
-                  <div v-else-if="p.is_closed" class="flex flex-col gap-1 items-center justify-center">
-                    <button
-                      v-if="authStore.hasPermission(['accounting:periods:reopen', 'accounting:reopen_period', 'accounting:write'])"
-                      type="button"
-                      @click="openReopenPeriodModal(p)"
-                      class="px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 w-full"
-                    >
-                      <Unlock class="w-2.5 h-2.5" />
-                      <span>Buka Kunci</span>
-                    </button>
-                  </div>
-                  <span v-else class="text-slate-400 text-[11px] italic">-</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Closings List Table -->
-        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-          <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <FileText class="w-4 h-4 text-slate-700" />
-              <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700 font-mono">
-                Riwayat Dokumen Penutupan Buku Periode (Accounting Closings)
-              </h3>
-            </div>
-            <button
-              v-if="authStore.hasPermission(['accounting:close_period', 'accounting:write'])"
-              @click="openClosingModal"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
-            >
-              <Plus class="w-3.5 h-3.5" />
-              <span>Tutup Buku Baru</span>
-            </button>
+          <!-- Loading State -->
+          <div v-if="isPeriodLoading" class="py-12 text-center text-slate-500 font-sans flex flex-col items-center justify-center gap-2">
+            <RefreshCw class="w-6 h-6 animate-spin text-emerald-600" />
+            <span class="text-xs font-medium">Memuat data periode akuntansi...</span>
           </div>
 
-          <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-slate-100 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase tracking-wider">
-              <tr>
-                <th class="py-3 px-4">No. Tutup Buku</th>
-                <th class="py-3 px-4">Periode Penutupan</th>
-                <th class="py-3 px-4">Lingkup Cabang</th>
-                <th class="py-3 px-4 text-right">Laba/Rugi Bersih</th>
-                <th class="py-3 px-4 text-center">Status</th>
-                <th class="py-3 px-4">Catatan / Alasan Reopen</th>
-                <th class="py-3 px-4 text-center w-28">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 font-mono">
-              <tr v-if="closingList.length === 0">
-                <td colspan="7" class="py-12 text-center text-slate-400 font-sans">
-                  Belum ada riwayat tutup buku. Klik tombol "Tutup Buku Baru" untuk memulai.
-                </td>
-              </tr>
-              <tr v-for="c in closingList" :key="c.id" class="hover:bg-slate-50 transition">
-                <td class="py-3.5 px-4 font-bold text-slate-900">
-                  <div>{{ c.closing_number }}</div>
-                  <div class="text-[10px] text-slate-400 font-normal">Dibuat: {{ formatDate(c.closing_date) }}</div>
-                  <div v-if="c.journal_number" class="mt-1">
-                    <button
-                      type="button"
-                      @click="viewClosingJournal(c.journal_number)"
-                      class="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 hover:text-sky-900 px-2 py-0.5 rounded border border-sky-200 transition cursor-pointer"
-                      title="Lihat Rincian Jurnal Penutup di Tab Jurnal"
-                    >
-                      <BookOpen class="w-3 h-3 text-sky-600" />
-                      <span>{{ c.journal_number }}</span>
-                    </button>
-                  </div>
-                </td>
-                <td class="py-3.5 px-4 font-bold text-sky-800">
-                  {{ formatDate(c.period_start) }} s/d {{ formatDate(c.period_end) }}
-                </td>
-                <td class="py-3.5 px-4 font-sans">
-                  <span v-if="c.outlet_name" class="font-bold text-slate-800">{{ c.outlet_name }}</span>
-                  <span v-else class="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px]">
-                    Konsolidasi Seluruh Outlet
-                  </span>
-                </td>
-                <td class="py-3.5 px-4 text-right font-bold" :class="Number(c.net_income) >= 0 ? 'text-emerald-700' : 'text-rose-700'">
-                  {{ formatCurrency(c.net_income) }}
-                </td>
-                <td class="py-3.5 px-4 text-center">
-                  <span
-                    v-if="c.status === 'CLOSED'"
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
+          <!-- Table Content -->
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="bg-slate-100 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase tracking-wider">
+                <tr>
+                  <th
+                    @click="togglePeriodSort('name')"
+                    class="py-3 px-4 cursor-pointer hover:bg-slate-200/70 select-none transition"
                   >
-                    <Lock class="w-3 h-3 text-amber-700" />
-                    <span>TERKUNCI (CLOSED)</span>
-                  </span>
-                  <span
-                    v-else
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300"
+                    <div class="flex items-center gap-1.5">
+                      <span>Nama Periode</span>
+                      <ArrowUp v-if="periodSortBy === 'name' && periodSortDir === 'asc'" class="w-3.5 h-3.5 text-emerald-600" />
+                      <ArrowDown v-else-if="periodSortBy === 'name' && periodSortDir === 'desc'" class="w-3.5 h-3.5 text-emerald-600" />
+                      <ArrowUpDown v-else class="w-3 h-3 text-slate-400 opacity-60" />
+                    </div>
+                  </th>
+                  <th
+                    @click="togglePeriodSort('start_date')"
+                    class="py-3 px-4 cursor-pointer hover:bg-slate-200/70 select-none transition"
                   >
-                    <Unlock class="w-3 h-3 text-slate-500" />
-                    <span>DIBUKA KEMBALI</span>
-                  </span>
-                </td>
-                <td class="py-3.5 px-4 font-sans text-slate-600 max-w-xs truncate">
-                  <span v-if="c.status === 'REOPENED' && c.reopen_reason" class="text-rose-700 font-medium">
-                    Alasan Reopen: {{ c.reopen_reason }}
-                  </span>
-                  <span v-else>{{ c.notes || '-' }}</span>
-                </td>
-                <td class="py-3.5 px-4 text-center">
-                  <div class="flex flex-col gap-1 items-center justify-center">
-                    <button
-                      v-if="c.status === 'CLOSED' && Number(c.net_income) > 0 && authStore.hasPermission(['accounting:dividend:create', 'accounting:write'])"
-                      type="button"
-                      @click="openCreateDividendModal(c.id)"
-                      class="px-2 py-0.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 w-full"
-                      title="Bagi dividen dari hasil penutupan buku ini"
+                    <div class="flex items-center gap-1.5">
+                      <span>Rentang Tanggal</span>
+                      <ArrowUp v-if="periodSortBy === 'start_date' && periodSortDir === 'asc'" class="w-3.5 h-3.5 text-emerald-600" />
+                      <ArrowDown v-else-if="periodSortBy === 'start_date' && periodSortDir === 'desc'" class="w-3.5 h-3.5 text-emerald-600" />
+                      <ArrowUpDown v-else class="w-3 h-3 text-slate-400 opacity-60" />
+                    </div>
+                  </th>
+                  <th
+                    @click="togglePeriodSort('is_closed')"
+                    class="py-3 px-4 text-center cursor-pointer hover:bg-slate-200/70 select-none transition"
+                  >
+                    <div class="flex items-center justify-center gap-1.5">
+                      <span>Status Periode</span>
+                      <ArrowUp v-if="periodSortBy === 'is_closed' && periodSortDir === 'asc'" class="w-3.5 h-3.5 text-emerald-600" />
+                      <ArrowDown v-else-if="periodSortBy === 'is_closed' && periodSortDir === 'desc'" class="w-3.5 h-3.5 text-emerald-600" />
+                      <ArrowUpDown v-else class="w-3 h-3 text-slate-400 opacity-60" />
+                    </div>
+                  </th>
+                  <th class="py-3 px-4">Catatan Penguncian</th>
+                  <th class="py-3 px-4 text-center w-36">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 font-mono">
+                <tr v-if="accountingPeriods.length === 0">
+                  <td colspan="5" class="py-12 text-center text-slate-400 font-sans">
+                    <p class="font-medium text-slate-600">Tidak ada periode akuntansi yang sesuai.</p>
+                    <p class="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci pencarian atau tambah periode baru.</p>
+                  </td>
+                </tr>
+                <tr v-for="p in accountingPeriods" :key="p.id" class="hover:bg-slate-50 transition">
+                  <td class="py-3.5 px-4 font-bold text-slate-900 font-sans">
+                    {{ p.name }}
+                  </td>
+                  <td class="py-3.5 px-4 font-bold text-sky-800">
+                    {{ formatDate(p.start_date) }} s/d {{ formatDate(p.end_date) }}
+                  </td>
+                  <td class="py-3.5 px-4 text-center">
+                    <span
+                      v-if="p.is_closed"
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-900 border border-rose-300"
                     >
-                      <Coins class="w-2.5 h-2.5 text-emerald-600" />
-                      <span>Bagi Dividen</span>
-                    </button>
-                    <button
-                      v-if="c.status === 'CLOSED' && authStore.hasPermission(['accounting:reopen_period', 'accounting:write'])"
-                      type="button"
-                      @click="openReopenModal(c)"
-                      class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-bold transition cursor-pointer w-full"
+                      <Lock class="w-3 h-3 text-rose-700" />
+                      <span>TERKUNCI (SOFT CLOSED)</span>
+                    </span>
+                    <span
+                      v-else
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300"
                     >
-                      Buka Kembali
+                      <Unlock class="w-3 h-3 text-emerald-700" />
+                      <span>TERBUKA (OPEN)</span>
+                    </span>
+                  </td>
+                  <td class="py-3.5 px-4 text-[11px] font-sans text-slate-600">
+                    <div v-if="p.is_closed && p.closed_at">
+                      <span class="font-semibold text-rose-800">Dikunci:</span> {{ formatDate(p.closed_at) }}
+                      <span v-if="p.closed_by_name" class="text-slate-500">oleh {{ p.closed_by_name }}</span>
+                    </div>
+                    <div v-else-if="p.reopened_at">
+                      <span class="font-semibold text-amber-700">Dibuka Kembali:</span> {{ formatDate(p.reopened_at) }}
+                      <span v-if="p.reopened_by_name" class="text-slate-500">oleh {{ p.reopened_by_name }}</span>
+                      <p v-if="p.reopen_reason" class="text-amber-900 italic mt-0.5 font-sans">Alasan: {{ p.reopen_reason }}</p>
+                    </div>
+                    <div v-else class="text-slate-400 italic">
+                      Periode aktif berjalan (mutasi diperbolehkan)
+                    </div>
+                  </td>
+                  <td class="py-3.5 px-4 text-center">
+                    <button
+                      v-if="!p.is_closed && authStore.hasPermission(['accounting:periods:close', 'accounting:close_period', 'accounting:write'])"
+                      type="button"
+                      @click="handleSoftClosePeriod(p)"
+                      class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-bold transition cursor-pointer flex items-center justify-center gap-1 mx-auto"
+                    >
+                      <Lock class="w-3 h-3" />
+                      <span>Kunci Periode</span>
                     </button>
-                    <span v-else-if="c.status === 'CLOSED'" class="text-slate-400 text-[11px] italic">Terkunci</span>
-                    <span v-else class="text-slate-400 text-[11px] italic">Terbuka</span>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    <div v-else-if="p.is_closed" class="flex flex-col gap-1 items-center justify-center">
+                      <button
+                        v-if="authStore.hasPermission(['accounting:periods:reopen', 'accounting:reopen_period', 'accounting:write'])"
+                        type="button"
+                        @click="openReopenPeriodModal(p)"
+                        class="px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 w-full"
+                      >
+                        <Unlock class="w-2.5 h-2.5" />
+                        <span>Buka Kunci</span>
+                      </button>
+                    </div>
+                    <span v-else class="text-slate-400 text-[11px] italic">-</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <PaginationBar
+            v-model:currentPage="periodPage"
+            v-model:pageSize="periodPageSize"
+            :totalItems="periodTotalItems"
+            @update:currentPage="fetchAccountingPeriods"
+            @update:pageSize="() => { periodPage = 1; fetchAccountingPeriods(); }"
+          />
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- SUB-TAB 2: HISTORI DOKUMEN TUTUP BUKU (ACCOUNTING CLOSINGS) -->
+        <!-- ================================================================= -->
+        <div v-else-if="closingSubTab === 'closings'" class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+          <!-- Toolbar Filter Server-Side -->
+          <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <div class="p-1.5 rounded-lg bg-indigo-100 text-indigo-800">
+                <FileText class="w-4 h-4 text-indigo-700" />
+              </div>
+              <div>
+                <h3 class="font-bold text-xs uppercase tracking-wider text-slate-800 font-mono">
+                  Riwayat Dokumen Penutupan Buku Periode (Accounting Closings)
+                </h3>
+                <p class="text-[11px] text-slate-500 font-sans">
+                  Daftar dokumen penutupan buku resmi dengan jurnal penutup otomatis ke laba ditahan.
+                </p>
+              </div>
+            </div>
+
+            <!-- Search, Status Filter & Refresh -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="relative">
+                <Search class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  v-model="closingSearch"
+                  type="text"
+                  placeholder="Cari no. closing/jurnal..."
+                  @input="onClosingSearchInput"
+                  @keyup.enter="closingPage = 1; fetchClosingList()"
+                  class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-56"
+                />
+              </div>
+
+              <select
+                v-model="closingStatus"
+                @change="closingPage = 1; fetchClosingList()"
+                class="text-xs border border-slate-300 rounded-lg bg-white text-slate-700 px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              >
+                <option value="">Semua Status</option>
+                <option value="CLOSED">Terkunci (Closed)</option>
+                <option value="REOPENED">Dibuka Kembali</option>
+              </select>
+
+              <button
+                type="button"
+                @click="closingSearch = ''; closingStatus = ''; closingPage = 1; fetchClosingList()"
+                class="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 rounded-lg transition cursor-pointer"
+                title="Reset Filter"
+              >
+                <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isClosingLoading }" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Loading State -->
+          <div v-if="isClosingLoading" class="py-12 text-center text-slate-500 font-sans flex flex-col items-center justify-center gap-2">
+            <RefreshCw class="w-6 h-6 animate-spin text-indigo-600" />
+            <span class="text-xs font-medium">Memuat data histori tutup buku...</span>
+          </div>
+
+          <!-- Table Content -->
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="bg-slate-100 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase tracking-wider">
+                <tr>
+                  <th
+                    @click="toggleClosingSort('closing_number')"
+                    class="py-3 px-4 cursor-pointer hover:bg-slate-200/70 select-none transition"
+                  >
+                    <div class="flex items-center gap-1.5">
+                      <span>No. Tutup Buku</span>
+                      <ArrowUp v-if="closingSortBy === 'closing_number' && closingSortDir === 'asc'" class="w-3.5 h-3.5 text-indigo-600" />
+                      <ArrowDown v-else-if="closingSortBy === 'closing_number' && closingSortDir === 'desc'" class="w-3.5 h-3.5 text-indigo-600" />
+                      <ArrowUpDown v-else class="w-3 h-3 text-slate-400 opacity-60" />
+                    </div>
+                  </th>
+                  <th
+                    @click="toggleClosingSort('period_end')"
+                    class="py-3 px-4 cursor-pointer hover:bg-slate-200/70 select-none transition"
+                  >
+                    <div class="flex items-center gap-1.5">
+                      <span>Periode Penutupan</span>
+                      <ArrowUp v-if="closingSortBy === 'period_end' && closingSortDir === 'asc'" class="w-3.5 h-3.5 text-indigo-600" />
+                      <ArrowDown v-else-if="closingSortBy === 'period_end' && closingSortDir === 'desc'" class="w-3.5 h-3.5 text-indigo-600" />
+                      <ArrowUpDown v-else class="w-3 h-3 text-slate-400 opacity-60" />
+                    </div>
+                  </th>
+                  <th class="py-3 px-4">Lingkup Cabang</th>
+                  <th
+                    @click="toggleClosingSort('net_income')"
+                    class="py-3 px-4 text-right cursor-pointer hover:bg-slate-200/70 select-none transition"
+                  >
+                    <div class="flex items-center justify-end gap-1.5">
+                      <span>Laba/Rugi Bersih</span>
+                      <ArrowUp v-if="closingSortBy === 'net_income' && closingSortDir === 'asc'" class="w-3.5 h-3.5 text-indigo-600" />
+                      <ArrowDown v-else-if="closingSortBy === 'net_income' && closingSortDir === 'desc'" class="w-3.5 h-3.5 text-indigo-600" />
+                      <ArrowUpDown v-else class="w-3 h-3 text-slate-400 opacity-60" />
+                    </div>
+                  </th>
+                  <th
+                    @click="toggleClosingSort('status')"
+                    class="py-3 px-4 text-center cursor-pointer hover:bg-slate-200/70 select-none transition"
+                  >
+                    <div class="flex items-center justify-center gap-1.5">
+                      <span>Status</span>
+                      <ArrowUp v-if="closingSortBy === 'status' && closingSortDir === 'asc'" class="w-3.5 h-3.5 text-indigo-600" />
+                      <ArrowDown v-else-if="closingSortBy === 'status' && closingSortDir === 'desc'" class="w-3.5 h-3.5 text-indigo-600" />
+                      <ArrowUpDown v-else class="w-3 h-3 text-slate-400 opacity-60" />
+                    </div>
+                  </th>
+                  <th class="py-3 px-4">Catatan / Alasan Reopen</th>
+                  <th class="py-3 px-4 text-center w-28">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 font-mono">
+                <tr v-if="closingList.length === 0">
+                  <td colspan="7" class="py-12 text-center text-slate-400 font-sans">
+                    <p class="font-medium text-slate-600">Belum ada dokumen penutupan buku yang sesuai.</p>
+                    <p class="text-xs text-slate-400 mt-1">Gunakan tombol "Tutup Buku Baru" untuk memulai proses tutup periode.</p>
+                  </td>
+                </tr>
+                <tr v-for="c in closingList" :key="c.id" class="hover:bg-slate-50 transition">
+                  <td class="py-3.5 px-4 font-bold text-slate-900">
+                    <div>{{ c.closing_number }}</div>
+                    <div class="text-[10px] text-slate-400 font-normal">Dibuat: {{ formatDate(c.closing_date) }}</div>
+                    <div v-if="c.journal_number" class="mt-1">
+                      <button
+                        type="button"
+                        @click="viewClosingJournal(c.journal_number)"
+                        class="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 hover:text-sky-900 px-2 py-0.5 rounded border border-sky-200 transition cursor-pointer"
+                        title="Lihat Rincian Jurnal Penutup di Tab Jurnal"
+                      >
+                        <BookOpen class="w-3 h-3 text-sky-600" />
+                        <span>{{ c.journal_number }}</span>
+                      </button>
+                    </div>
+                  </td>
+                  <td class="py-3.5 px-4 font-bold text-sky-800">
+                    {{ formatDate(c.period_start) }} s/d {{ formatDate(c.period_end) }}
+                  </td>
+                  <td class="py-3.5 px-4 font-sans">
+                    <span v-if="c.outlet_name" class="font-bold text-slate-800">{{ c.outlet_name }}</span>
+                    <span v-else class="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px]">
+                      Konsolidasi Seluruh Outlet
+                    </span>
+                  </td>
+                  <td class="py-3.5 px-4 text-right font-bold" :class="Number(c.net_income) >= 0 ? 'text-emerald-700' : 'text-rose-700'">
+                    {{ formatCurrency(c.net_income) }}
+                  </td>
+                  <td class="py-3.5 px-4 text-center">
+                    <span
+                      v-if="c.status === 'CLOSED'"
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
+                    >
+                      <Lock class="w-3 h-3 text-amber-700" />
+                      <span>TERKUNCI (CLOSED)</span>
+                    </span>
+                    <span
+                      v-else
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300"
+                    >
+                      <Unlock class="w-3 h-3 text-slate-500" />
+                      <span>DIBUKA KEMBALI</span>
+                    </span>
+                  </td>
+                  <td class="py-3.5 px-4 font-sans text-slate-600 max-w-xs truncate">
+                    <span v-if="c.status === 'REOPENED' && c.reopen_reason" class="text-rose-700 font-medium">
+                      Alasan Reopen: {{ c.reopen_reason }}
+                    </span>
+                    <span v-else>{{ c.notes || '-' }}</span>
+                  </td>
+                  <td class="py-3.5 px-4 text-center">
+                    <div class="flex flex-col gap-1 items-center justify-center">
+                      <button
+                        v-if="c.status === 'CLOSED' && Number(c.net_income) > 0 && authStore.hasPermission(['accounting:dividend:create', 'accounting:write'])"
+                        type="button"
+                        @click="openCreateDividendModal(c.id)"
+                        class="px-2 py-0.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 w-full"
+                        title="Bagi dividen dari hasil penutupan buku ini"
+                      >
+                        <Coins class="w-2.5 h-2.5 text-emerald-600" />
+                        <span>Bagi Dividen</span>
+                      </button>
+                      <button
+                        v-if="c.status === 'CLOSED' && authStore.hasPermission(['accounting:reopen_period', 'accounting:write'])"
+                        type="button"
+                        @click="openReopenModal(c)"
+                        class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-bold transition cursor-pointer w-full"
+                      >
+                        Buka Kembali
+                      </button>
+                      <span v-else-if="c.status === 'CLOSED'" class="text-slate-400 text-[11px] italic">Terkunci</span>
+                      <span v-else class="text-slate-400 text-[11px] italic">Terbuka</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <PaginationBar
+            v-model:currentPage="closingPage"
+            v-model:pageSize="closingPageSize"
+            :totalItems="closingTotalItems"
+            @update:currentPage="fetchClosingList"
+            @update:pageSize="() => { closingPage = 1; fetchClosingList(); }"
+          />
         </div>
       </div>
 
@@ -6603,7 +7005,7 @@ onMounted(async () => {
                   <div class="text-right font-mono text-[11px] text-slate-500 space-y-0.5 shrink-0">
                     <div>Entitas: <strong class="text-slate-800">{{ selectedOutletName }}</strong></div>
                     <div>Dicetak: <strong class="text-slate-800">{{ formatDate(todayStr) }}</strong></div>
-                    <div>Operator: <strong class="text-slate-800">{{ authStore.user?.full_name || authStore.user?.username || 'Administrator' }}</strong></div>
+                    <div>Operator: <strong class="text-slate-800">{{ authenticatedUserSignature }}</strong></div>
                   </div>
                 </div>
 
@@ -7077,16 +7479,18 @@ onMounted(async () => {
                 </p>
                 <div class="grid grid-cols-2 gap-12 text-center">
                   <div>
-                    <p class="text-slate-600 font-bold mb-20">Disiapkan Oleh (Staff / Kasir),</p>
-                    <div class="border-t border-slate-400 pt-1.5 w-48 mx-auto font-bold font-mono">
-                      ( {{ authStore.user?.full_name || authStore.user?.username || 'Staff Keuangan' }} )
+                    <p class="text-slate-600 font-bold mb-20">Disiapkan Oleh,</p>
+                    <div class="border-t border-slate-400 pt-1.5 w-52 mx-auto font-bold font-mono text-slate-900">
+                      ( {{ authenticatedUserSignature }} )
                     </div>
+                    <p class="text-[10px] text-slate-500 font-mono mt-0.5">{{ authenticatedUserRole }}</p>
                   </div>
                   <div>
-                    <p class="text-slate-600 font-bold mb-20">Disetujui Oleh (Owner / Direktur),</p>
-                    <div class="border-t border-slate-400 pt-1.5 w-48 mx-auto font-bold font-mono">
-                      ( ......................................... )
+                    <p class="text-slate-600 font-bold mb-20">Disetujui Oleh,</p>
+                    <div class="border-t border-slate-400 pt-1.5 w-52 mx-auto font-bold font-mono text-slate-800">
+                      (&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)
                     </div>
+                    <p class="text-[10px] text-slate-500 font-mono mt-0.5">Owner / Direktur</p>
                   </div>
                 </div>
               </div>

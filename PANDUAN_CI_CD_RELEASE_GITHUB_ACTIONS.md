@@ -1,0 +1,75 @@
+# Panduan Rilis Otomatis Multi-Platform (GitHub Actions OTA Builder)
+
+Dokumen ini menjelaskan cara menggunakan **GitHub Actions** untuk mem-build dan menghasilkan bundle rilis **Notane Client** dan **Notane Server** secara otomatis untuk seluruh sistem operasi (**Windows, Linux, macOS Intel, & macOS Apple Silicon**) tanpa harus berganti-ganti komputer.
+
+---
+
+## 1. Arsitektur File Rilis
+
+File rilis yang akan otomatis dihasilkan oleh GitHub Actions:
+
+| Nama File Rilis | Komponen | Platform Target | Deskripsi |
+| :--- | :--- | :--- | :--- |
+| `notane-client-ui-vX.X.X.zip` | **Client** | **Universal (Semua OS)** | Bundle aset UI Frontend Kasir & Back-Office (HTML, JS, CSS). Berlaku langsung untuk Windows, Linux, & macOS. |
+| `notane-server-vX.X.X-windows-x64.zip` | **Server** | **Windows (x64)** | Biner backend `notane-retail-server.exe`, Host UI, dan migrasi SQL. |
+| `notane-server-vX.X.X-linux-x64.zip` | **Server** | **Linux (x64)** | Biner backend Linux ELF, Host UI, dan migrasi SQL. |
+| `notane-server-vX.X.X-macos-arm64.zip` | **Server** | **macOS (M1/M2/M3/M4)** | Biner backend macOS Apple Silicon ARM64, Host UI, dan migrasi SQL. |
+| `notane-server-vX.X.X-macos-x64.zip` | **Server** | **macOS (Intel)** | Biner backend macOS Intel x86_64, Host UI, dan migrasi SQL. |
+| `CHECKSUMS.txt` & `CHECKSUMS.md` | **Checksum** | **Semua** | Daftar hash SHA-256 dari seluruh file ZIP yang siap di-copy-paste ke Notane Manager. |
+
+---
+
+## 2. Cara Memulai Rilis di GitHub
+
+Terdapat **2 cara** mudah untuk menjalankan rilis otomatis:
+
+### Cara 1: Menggunakan Git Tag (Sangat Direkomendasikan)
+Cukup buat tag versi di git lokal Anda dan push ke GitHub:
+
+```bash
+# 1. Pastikan seluruh kodingan telah di-commit
+git add .
+git commit -m "feat: rilis pembaruan versi 1.2.0"
+
+# 2. Buat tag semver (misal: v1.2.0)
+git tag v1.2.0
+
+# 3. Push commit & tag ke GitHub
+git push origin main
+git push origin v1.2.0
+```
+
+GitHub Actions akan langsung otomatis mendeteksi tag `v1.2.0` dan mem-build seluruh platform secara paralel!
+
+---
+
+### Cara 2: Menjalankan Manual dari Antarmuka Web GitHub (One-Click)
+Jika Anda belum ingin membuat tag git lokal:
+1. Buka repositori proyek Anda di GitHub.
+2. Klik tab **"Actions"** di bar menu atas.
+3. Di panel sebelah kiri, pilih workflow **"Multi-Platform OTA Release Builder"**.
+4. Klik tombol **"Run workflow"** di sebelah kanan.
+5. Masukkan rincian:
+   - **Nomor Versi Rilis:** contoh `1.2.0`
+   - **Catatan Perubahan (Changelog):** rangkuman fitur baru / perbaikan bug
+   - Centang apakah ingin mem-build Client, Server, atau keduanya.
+6. Klik tombol hijau **"Run workflow"**.
+
+---
+
+## 3. Mengambil Hasil Build & Memasukkan ke Notane Manager
+
+Setelah GitHub Actions selesai berjalan (sekitar 3–5 menit):
+
+1. Masuk ke halaman **"Releases"** di repositori GitHub Anda (`https://github.com/username/repository/releases`).
+2. Di rilis terbaru tersebut, Anda akan melihat:
+   - File-file `.zip` untuk setiap OS yang siap diunduh langsung.
+   - Tabel ringkasan **Checksum SHA-256** dari setiap file.
+3. **Pendaftaran ke Notane Manager:**
+   - Buka aplikasi **Notane Manager** -> menu **Rilis OTA**.
+   - Klik **"Rilis Client (UI)"** atau **"Rilis Server"**.
+   - Salin URL file `.zip` (bisa menggunakan URL rilis GitHub langsung, atau upload ke hosting Anda).
+   - Salin nilai **SHA-256 Checksum** yang tertera pada tabel GitHub Release.
+   - Klik **"Terbitkan & Tanda Tangani Ed25519"**.
+
+Selesai! Seluruh terminal kasir dan host server Notane Retail akan langsung mendeteksi ketersediaan pembaruan resmi yang aman dan terverifikasi secara kriptografis.

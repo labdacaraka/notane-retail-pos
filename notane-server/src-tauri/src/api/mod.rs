@@ -15,6 +15,7 @@ pub mod sales_returns;
 pub mod cash_drops;
 pub mod audit_middleware;
 pub mod dividend;
+pub mod exports;
 
 use axum::{
     extract::{Request, State},
@@ -88,7 +89,7 @@ pub fn create_pos_router(pool: PgPool, ws_state: AppState) -> Router {
         .merge(banks::router())
         .merge(dividend::router())
         .layer(from_fn_with_state(pool.clone(), audit_middleware::audit_log_middleware))
-        .with_state(pool)
+        .with_state(pool.clone())
         .layer(from_fn_with_state(ws_state.clone(), check_server_running_middleware));
 
     // Direktori gambar produk di filesystem lokal atau volume Docker
@@ -105,6 +106,7 @@ pub fn create_pos_router(pool: PgPool, ws_state: AppState) -> Router {
 
     let mut router = Router::new()
         .nest("/api/v1", api_routes)
+        .nest("/api/v1", exports::routes(pool.clone(), ws_state.clone()))
         .nest("/api/v1/system", system::system_routes(ws_state.clone()))
         .nest("/ws/v1", ws_routes(ws_state))
         .nest_service("/uploads/product_images", ServeDir::new(product_images_dir));

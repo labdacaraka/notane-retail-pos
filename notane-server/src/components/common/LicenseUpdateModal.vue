@@ -20,16 +20,22 @@ import {
 } from 'lucide-vue-next'
 import { useLicenseStore } from '@/stores/licenseStore'
 
-defineProps<{
-  isOpen: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    isOpen: boolean
+    initialTab?: 'LICENSE' | 'PROVIDER' | 'UPDATE'
+  }>(),
+  {
+    initialTab: 'LICENSE',
+  }
+)
 
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
 const licenseStore = useLicenseStore()
-const activeTab = ref<'LICENSE' | 'PROVIDER' | 'UPDATE'>('LICENSE')
+const activeTab = ref<'LICENSE' | 'PROVIDER' | 'UPDATE'>(props.initialTab || 'LICENSE')
 const activationMode = ref<'ONLINE' | 'OFFLINE'>('ONLINE')
 
 // Form Aktivasi
@@ -37,6 +43,22 @@ const onlineLicenseKey = ref('')
 const tokenInput = ref('')
 const signatureInput = ref('')
 const copiedHwid = ref(false)
+
+import { watch } from 'vue'
+
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open) {
+      if (props.initialTab) {
+        activeTab.value = props.initialTab
+      }
+      if (activeTab.value === 'UPDATE') {
+        handleCheckUpdate()
+      }
+    }
+  }
+)
 
 onMounted(async () => {
   await licenseStore.fetchVersionInfo()

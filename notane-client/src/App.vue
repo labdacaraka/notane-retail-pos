@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import GlobalDialogModal from '@/components/common/GlobalDialogModal.vue'
 import ServerRecoveryBanner from '@/components/common/ServerRecoveryBanner.vue'
+import BackgroundExportWidget from '@/components/common/BackgroundExportWidget.vue'
 </script>
 
 <template>
@@ -8,5 +9,6 @@ import ServerRecoveryBanner from '@/components/common/ServerRecoveryBanner.vue'
     <ServerRecoveryBanner />
     <router-view />
     <GlobalDialogModal />
+    <BackgroundExportWidget />
   </div>
 </template>

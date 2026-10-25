@@ -4,7 +4,8 @@ use crate::models::accounting::{
     CreateClosingRequest, ReopenClosingRequest, ManualJournalRequest,
     CreateCoaRequest, UpdateCoaRequest, JournalQueryFilter, PaginatedJournalEntries,
     FundTransferRequest, FundTransferResponse, AccountingPeriod, CreatePeriodRequest,
-    ReopenPeriodRequest, HardCloseRequest,
+    ReopenPeriodRequest, HardCloseRequest, PeriodQueryFilter, PaginatedAccountingPeriods,
+    ClosingQueryFilter, PaginatedAccountingClosings,
 };
 use chrono::{Local, NaiveDate};
 use rust_decimal::Decimal;
@@ -1151,20 +1152,80 @@ pub async fn reopen_accounting_closing(
 
 pub async fn list_accounting_closings(
     pool: &PgPool,
-    outlet_id: Option<Uuid>,
-) -> Result<Vec<AccountingClosing>, String> {
-    let mut sql = "SELECT ac.*, o.name as outlet_name, u.full_name as creator_name, je.journal_number 
-                   FROM accounting_closings ac 
-                   LEFT JOIN outlets o ON ac.outlet_id = o.id 
-                   LEFT JOIN users u ON ac.created_by = u.id 
-                   LEFT JOIN journal_entries je ON ac.journal_entry_id = je.id 
-                   WHERE 1=1".to_string();
+    filter: ClosingQueryFilter,
+) -> Result<PaginatedAccountingClosings, String> {
+    let mut where_clause = " WHERE 1=1".to_string();
 
-    if let Some(oid) = outlet_id {
-        sql.push_str(&format!(" AND (ac.outlet_id = '{oid}' OR ac.outlet_id IS NULL)"));
+    if let Some(oid) = filter.outlet_id {
+        where_clause.push_str(&format!(" AND (ac.outlet_id = '{oid}' OR ac.outlet_id IS NULL)"));
     }
 
-    sql.push_str(" ORDER BY ac.period_end DESC, ac.created_at DESC");
+    if let Some(ref st) = filter.status {
+        let st_clean = st.trim().to_uppercase();
+        if !st_clean.is_empty() && st_clean != "ALL" {
+            let clean = st_clean.replace('\'', "''");
+            where_clause.push_str(&format!(" AND ac.status = '{clean}'"));
+        }
+    }
+
+    if let Some(ref q) = filter.search {
+        let clean = q.trim().replace('\'', "''");
+        if !clean.is_empty() {
+            where_clause.push_str(&format!(
+                " AND (ac.closing_number ILIKE '%{clean}%' OR ac.notes ILIKE '%{clean}%' OR ac.reopen_reason ILIKE '%{clean}%' OR je.journal_number ILIKE '%{clean}%' OR o.name ILIKE '%{clean}%' OR u.full_name ILIKE '%{clean}%')"
+            ));
+        }
+    }
+
+    let count_sql = format!(
+        "SELECT COUNT(*)::bigint 
+         FROM accounting_closings ac 
+         LEFT JOIN outlets o ON ac.outlet_id = o.id 
+         LEFT JOIN users u ON ac.created_by = u.id 
+         LEFT JOIN journal_entries je ON ac.journal_entry_id = je.id 
+         {}",
+        where_clause
+    );
+    let total_items: i64 = sqlx::query_scalar(&count_sql)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(0);
+
+    let sort_col = match filter.sort_by.as_deref() {
+        Some("closing_number") => "ac.closing_number",
+        Some("period_start") => "ac.period_start",
+        Some("period_end") => "ac.period_end",
+        Some("closing_date") => "ac.closing_date",
+        Some("net_income") => "ac.net_income",
+        Some("status") => "ac.status",
+        Some("created_at") => "ac.created_at",
+        _ => "ac.period_end",
+    };
+    let sort_dir = match filter.sort_dir.as_deref() {
+        Some("asc") | Some("ASC") => "ASC",
+        _ => "DESC",
+    };
+
+    let page = filter.page.unwrap_or(1).max(1);
+    let page_size = filter.page_size.unwrap_or(filter.limit.unwrap_or(10)).max(1);
+    let total_pages = if total_items > 0 {
+        ((total_items as f64) / (page_size as f64)).ceil() as i64
+    } else {
+        1
+    };
+    let offset = (page - 1) * page_size;
+
+    let sql = format!(
+        "SELECT ac.*, o.name as outlet_name, u.full_name as creator_name, je.journal_number 
+         FROM accounting_closings ac 
+         LEFT JOIN outlets o ON ac.outlet_id = o.id 
+         LEFT JOIN users u ON ac.created_by = u.id 
+         LEFT JOIN journal_entries je ON ac.journal_entry_id = je.id 
+         {} 
+         ORDER BY {} {}, ac.created_at DESC 
+         LIMIT {} OFFSET {}",
+        where_clause, sort_col, sort_dir, page_size, offset
+    );
 
     let rows = sqlx::query(&sql)
         .fetch_all(pool)
@@ -1197,7 +1258,13 @@ pub async fn list_accounting_closings(
         })
         .collect();
 
-    Ok(list)
+    Ok(PaginatedAccountingClosings {
+        data: list,
+        total_items,
+        total_pages,
+        page,
+        page_size,
+    })
 }
 
 pub async fn create_manual_journal_entry(
@@ -1677,19 +1744,114 @@ pub async fn create_fund_transfer(
 // SOFT CLOSE & HARD CLOSE (DIMENSIONAL ACCOUNTING CLOSING LIFECYCLE)
 // ============================================================================
 
-pub async fn list_accounting_periods(pool: &PgPool) -> Result<Vec<AccountingPeriod>, String> {
-    let rows = sqlx::query(
+pub async fn get_accounting_period_by_id(pool: &PgPool, id: Uuid) -> Result<AccountingPeriod, String> {
+    let r = sqlx::query(
         "SELECT ap.*, 
                 u1.full_name as closed_by_name,
                 u2.full_name as reopened_by_name
          FROM accounting_periods ap
          LEFT JOIN users u1 ON ap.closed_by = u1.id
          LEFT JOIN users u2 ON ap.reopened_by = u2.id
-         ORDER BY ap.start_date DESC",
+         WHERE ap.id = $1",
     )
-    .fetch_all(pool)
+    .bind(id)
+    .fetch_optional(pool)
     .await
-    .map_err(|e| format!("Gagal mengambil daftar periode akuntansi: {}", e))?;
+    .map_err(|e| format!("Database error: {}", e))?
+    .ok_or_else(|| "Periode akuntansi tidak ditemukan".to_string())?;
+
+    Ok(AccountingPeriod {
+        id: r.get("id"),
+        name: r.get("name"),
+        start_date: r.get("start_date"),
+        end_date: r.get("end_date"),
+        is_closed: r.get("is_closed"),
+        closed_at: r.get("closed_at"),
+        closed_by: r.get("closed_by"),
+        closed_by_name: r.get("closed_by_name"),
+        reopened_at: r.get("reopened_at"),
+        reopened_by: r.get("reopened_by"),
+        reopened_by_name: r.get("reopened_by_name"),
+        reopen_reason: r.get("reopen_reason"),
+        created_at: r.get("created_at"),
+        updated_at: r.get("updated_at"),
+    })
+}
+
+pub async fn list_accounting_periods(
+    pool: &PgPool,
+    filter: PeriodQueryFilter,
+) -> Result<PaginatedAccountingPeriods, String> {
+    let mut where_clause = " WHERE 1=1".to_string();
+
+    if let Some(ref st) = filter.status {
+        let st_clean = st.trim().to_uppercase();
+        if st_clean == "OPEN" {
+            where_clause.push_str(" AND ap.is_closed = FALSE");
+        } else if st_clean == "CLOSED" {
+            where_clause.push_str(" AND ap.is_closed = TRUE");
+        }
+    }
+
+    if let Some(ref q) = filter.search {
+        let clean = q.trim().replace('\'', "''");
+        if !clean.is_empty() {
+            where_clause.push_str(&format!(
+                " AND (ap.name ILIKE '%{clean}%' OR ap.reopen_reason ILIKE '%{clean}%' OR u1.full_name ILIKE '%{clean}%' OR u2.full_name ILIKE '%{clean}%')"
+            ));
+        }
+    }
+
+    let count_sql = format!(
+        "SELECT COUNT(*)::bigint FROM accounting_periods ap
+         LEFT JOIN users u1 ON ap.closed_by = u1.id
+         LEFT JOIN users u2 ON ap.reopened_by = u2.id
+         {}",
+        where_clause
+    );
+    let total_items: i64 = sqlx::query_scalar(&count_sql)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(0);
+
+    let sort_col = match filter.sort_by.as_deref() {
+        Some("name") => "ap.name",
+        Some("end_date") => "ap.end_date",
+        Some("is_closed") => "ap.is_closed",
+        Some("created_at") => "ap.created_at",
+        _ => "ap.start_date",
+    };
+    let sort_dir = match filter.sort_dir.as_deref() {
+        Some("asc") | Some("ASC") => "ASC",
+        _ => "DESC",
+    };
+
+    let page = filter.page.unwrap_or(1).max(1);
+    let page_size = filter.page_size.unwrap_or(filter.limit.unwrap_or(10)).max(1);
+    let total_pages = if total_items > 0 {
+        ((total_items as f64) / (page_size as f64)).ceil() as i64
+    } else {
+        1
+    };
+    let offset = (page - 1) * page_size;
+
+    let sql = format!(
+        "SELECT ap.*, 
+                u1.full_name as closed_by_name,
+                u2.full_name as reopened_by_name
+         FROM accounting_periods ap
+         LEFT JOIN users u1 ON ap.closed_by = u1.id
+         LEFT JOIN users u2 ON ap.reopened_by = u2.id
+         {}
+         ORDER BY {} {}, ap.created_at DESC
+         LIMIT {} OFFSET {}",
+        where_clause, sort_col, sort_dir, page_size, offset
+    );
+
+    let rows = sqlx::query(&sql)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| format!("Gagal mengambil daftar periode akuntansi: {}", e))?;
 
     let list = rows
         .into_iter()
@@ -1711,7 +1873,13 @@ pub async fn list_accounting_periods(pool: &PgPool) -> Result<Vec<AccountingPeri
         })
         .collect();
 
-    Ok(list)
+    Ok(PaginatedAccountingPeriods {
+        data: list,
+        total_items,
+        total_pages,
+        page,
+        page_size,
+    })
 }
 
 pub async fn create_accounting_period(
@@ -1736,8 +1904,7 @@ pub async fn create_accounting_period(
     .await
     .map_err(|e| format!("Gagal membuat periode akuntansi: {}", e))?;
 
-    let periods = list_accounting_periods(pool).await?;
-    periods.into_iter().find(|p| p.id == id).ok_or_else(|| "Periode berhasil dibuat".to_string())
+    get_accounting_period_by_id(pool, id).await
 }
 
 pub async fn soft_close_accounting_period(
@@ -1763,8 +1930,7 @@ pub async fn soft_close_accounting_period(
         return Err("Periode tidak ditemukan atau sudah dalam status terkunci (CLOSED).".to_string());
     }
 
-    let periods = list_accounting_periods(pool).await?;
-    periods.into_iter().find(|p| p.id == id).ok_or_else(|| "Soft close berhasil".to_string())
+    get_accounting_period_by_id(pool, id).await
 }
 
 pub async fn reopen_accounting_period(
@@ -1797,8 +1963,7 @@ pub async fn reopen_accounting_period(
         return Err("Periode tidak ditemukan atau memang belum berstatus terkunci.".to_string());
     }
 
-    let periods = list_accounting_periods(pool).await?;
-    periods.into_iter().find(|p| p.id == id).ok_or_else(|| "Periode berhasil dibuka kembali".to_string())
+    get_accounting_period_by_id(pool, id).await
 }
 
 pub async fn perform_hard_close(

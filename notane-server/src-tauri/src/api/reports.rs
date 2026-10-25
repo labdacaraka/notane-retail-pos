@@ -3,6 +3,7 @@ use crate::models::accounting::{
     CreateCoaRequest, UpdateCoaRequest, JournalQueryFilter,
     FundTransferRequest, CreatePeriodRequest,
     ReopenPeriodRequest, HardCloseRequest,
+    ClosingQueryFilter, PeriodQueryFilter,
 };
 use crate::services::accounting_service::{
     create_manual_journal_entry, get_balance_sheet, get_income_statement,
@@ -471,18 +472,28 @@ async fn create_manual_journal_handler(
     }
 }
 
-#[derive(Deserialize)]
-struct ClosingQuery {
-    outlet_id: Option<Uuid>,
-}
-
 async fn list_closings_handler(
     State(pool): State<PgPool>,
-    Query(query): Query<ClosingQuery>,
+    Query(query): Query<ClosingQueryFilter>,
 ) -> impl IntoResponse {
-    match list_accounting_closings(&pool, query.outlet_id).await {
-        Ok(closings) => (StatusCode::OK, Json(json!({ "success": true, "data": closings }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e }))).into_response(),
+    match list_accounting_closings(&pool, query).await {
+        Ok(res) => (
+            StatusCode::OK,
+            Json(json!({
+                "success": true,
+                "data": res.data,
+                "total_items": res.total_items,
+                "total_pages": res.total_pages,
+                "page": res.page,
+                "page_size": res.page_size
+            })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "message": e })),
+        )
+            .into_response(),
     }
 }
 
@@ -608,10 +619,26 @@ async fn create_fund_transfer_handler(
 
 async fn list_periods_handler(
     State(pool): State<PgPool>,
+    Query(query): Query<PeriodQueryFilter>,
 ) -> impl IntoResponse {
-    match list_accounting_periods(&pool).await {
-        Ok(periods) => (StatusCode::OK, Json(json!({ "success": true, "data": periods }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e }))).into_response(),
+    match list_accounting_periods(&pool, query).await {
+        Ok(res) => (
+            StatusCode::OK,
+            Json(json!({
+                "success": true,
+                "data": res.data,
+                "total_items": res.total_items,
+                "total_pages": res.total_pages,
+                "page": res.page,
+                "page_size": res.page_size
+            })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "message": e })),
+        )
+            .into_response(),
     }
 }
 

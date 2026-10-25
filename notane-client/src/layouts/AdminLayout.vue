@@ -3,10 +3,12 @@ import { useRouter, useRoute } from 'vue-router'
 import { LogOut } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'
 import { useNetworkStore } from '@/stores/networkStore'
-import UserProfileSecurityModal from '@/components/common/UserProfileSecurityModal.vue'
 import { useLocationStore } from '@/stores/locationStore'
 import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
 import { useDialog } from '@/composables/useDialog'
+import { useLicenseStore } from '@/stores/licenseStore'
+import UserProfileSecurityModal from '@/components/common/UserProfileSecurityModal.vue'
+import ClientUpdateModal from '@/components/common/ClientUpdateModal.vue'
 import { ref, computed, onMounted } from 'vue'
 
 const router = useRouter()
@@ -16,8 +18,10 @@ const networkStore = useNetworkStore()
 const locationStore = useLocationStore()
 const storeBrandingStore = useStoreBrandingStore()
 const dialog = useDialog()
+const licenseStore = useLicenseStore()
 const showSecurityModal = ref(false)
 const showLocationDropdown = ref(false)
+const showClientUpdateModal = ref(false)
 
 const isDisconnected = computed(() => {
   if (networkStore.nodeRole === 'SERVER') return false
@@ -218,6 +222,23 @@ async function handleExitImpersonation() {
 
 
 
+        <!-- Tombol Update Client UI -->
+        <button
+          type="button"
+          @click="showClientUpdateModal = true"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer transition-all hover:opacity-90 active:scale-95 bg-cyan-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
+          title="Periksa Pembaruan UI Notane Client"
+        >
+          <Icon icon="fluent:arrow-sync-circle-16-filled" class="w-3.5 h-3.5 text-cyan-600" />
+          <span>Update UI</span>
+          <span
+            v-if="licenseStore.updateInfo?.has_update && licenseStore.updateInfo?.component === 'client'"
+            class="px-1.5 py-0.2 rounded-full text-[9px] bg-cyan-600 text-white font-extrabold animate-pulse"
+          >
+            Baru!
+          </span>
+        </button>
+
         <!-- Server Host Connection Status Button -->
         <button
           type="button"
@@ -274,6 +295,12 @@ async function handleExitImpersonation() {
     <UserProfileSecurityModal
       :show="showSecurityModal"
       @close="showSecurityModal = false"
+    />
+
+    <!-- Modal Pembaruan Notane Client UI -->
+    <ClientUpdateModal
+      :is-open="showClientUpdateModal"
+      @close="showClientUpdateModal = false"
     />
 
     <!-- 2. TOP DESKTOP COMMAND TILES RIBBON ("Kotak-Kotak di Atas") -->

@@ -133,9 +133,19 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
             min_license_tier TEXT NOT NULL DEFAULT 'BASIC',
             has_db_migration INTEGER NOT NULL DEFAULT 1,
             is_published INTEGER NOT NULL DEFAULT 1,
+            component TEXT NOT NULL DEFAULT 'server',
+            min_server_version TEXT,
             created_at TEXT NOT NULL
         );"
     ).execute(pool).await?;
+
+    // Migration kolom jika tabel sudah ada sebelumnya
+    let _ = sqlx::query("ALTER TABLE provider_app_releases ADD COLUMN component TEXT NOT NULL DEFAULT 'server';")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_app_releases ADD COLUMN min_server_version TEXT;")
+        .execute(pool)
+        .await;
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS provider_license_audit_logs (
@@ -291,15 +301,38 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
             "INSERT INTO provider_app_releases (
                 id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
-                has_db_migration, is_published, created_at
-            ) VALUES (?, '1.2.0', 'Notane Retail POS Enterprise Q4',
-                      '1. Integrasi EDC Multi-Bank\n2. Optimasi kecepatan kasir 5x lipat\n3. Pembaruan skema promo diskon',
-                      '2026-10-01', 'https://update.notane.id/releases/v1.2.0/notane-update-bundle.zip',
+                has_db_migration, is_published, component, min_server_version, created_at
+            ) VALUES (?, '1.2.0', 'Notane Retail Server Enterprise Update',
+                      '1. Core Engine Axum Multi-threaded\n2. Optimasi streaming data jutaan baris\n3. Migrasi skema database terintegrasi',
+                      '2026-10-01', 'https://update.notane.id/releases/v1.2.0/notane-server-bundle.zip',
                       'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-                      ?, 0, 'BASIC', 1, 1, ?);"
+                      ?, 0, 'BASIC', 1, 1, 'server', NULL, ?);"
         )
         .bind(rel_id)
         .bind(sig)
+        .bind(&now)
+        .execute(pool)
+        .await?;
+
+        let client_rel_id = uuid::Uuid::new_v4().to_string();
+        let client_sig = crate::crypto::ed25519::sign_message(
+            DEFAULT_MASTER_PRIVATE_KEY_HEX,
+            "1.2.0:f4c0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b866"
+        ).unwrap_or_default();
+
+        sqlx::query(
+            "INSERT INTO provider_app_releases (
+                id, version, release_name, changelog, release_date, download_url,
+                checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
+                has_db_migration, is_published, component, min_server_version, created_at
+            ) VALUES (?, '1.2.0', 'Notane Retail Client (UI Kasir & Back-Office)',
+                      '1. Antarmuka Kasir POS modern & responsif\n2. Widget unduhan ekspor real-time\n3. Desain struk dinamis',
+                      '2026-10-01', 'https://update.notane.id/releases/v1.2.0/notane-client-bundle.zip',
+                      'f4c0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b866',
+                      ?, 0, 'BASIC', 0, 1, 'client', '1.1.0', ?);"
+        )
+        .bind(client_rel_id)
+        .bind(client_sig)
         .bind(&now)
         .execute(pool)
         .await?;

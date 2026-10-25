@@ -274,3 +274,44 @@ pub struct HardCloseRequest {
     pub description: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct PeriodQueryFilter {
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
+    pub limit: Option<i64>,
+    pub sort_by: Option<String>,
+    pub sort_dir: Option<String>,
+    pub search: Option<String>,
+    pub status: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PaginatedAccountingPeriods {
+    pub data: Vec<AccountingPeriod>,
+    pub total_items: i64,
+    pub total_pages: i64,
+    pub page: i64,
+    pub page_size: i64,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ClosingQueryFilter {
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
+    pub limit: Option<i64>,
+    pub sort_by: Option<String>,
+    pub sort_dir: Option<String>,
+    pub search: Option<String>,
+    pub status: Option<String>,
+    pub outlet_id: Option<Uuid>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PaginatedAccountingClosings {
+    pub data: Vec<AccountingClosing>,
+    pub total_items: i64,
+    pub total_pages: i64,
+    pub page: i64,
+    pub page_size: i64,
+}
+

@@ -26,17 +26,20 @@ import {
   Calculator,
   Globe,
   Receipt,
+  FileSpreadsheet,
 } from 'lucide-vue-next'
 import { Icon } from '@iconify/vue'
 import { api, getApiBaseUrl } from '@/services/api'
 import type { InventoryCostingSettings } from '@/types'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocationStore } from '@/stores/locationStore'
+import { useExportStore } from '@/stores/exportStore'
 import { useDialog } from '@/composables/useDialog'
 import { formatCurrency, formatQty } from '@/utils/formatters'
 
 const authStore = useAuthStore()
 const locationStore = useLocationStore()
+const exportStore = useExportStore()
 const dialog = useDialog()
 
 const products = ref<any[]>([])
@@ -313,6 +316,22 @@ async function fetchMasterMeta() {
   } catch (err) {
     console.error(err)
   }
+}
+
+function exportProductsToExcel() {
+  const currentParams: Record<string, any> = {
+    search: searchQuery.value?.trim() || undefined,
+    category_id: selectedCategory.value || undefined,
+    stock_status: selectedStockStatus.value !== 'ALL' ? selectedStockStatus.value : undefined,
+    sort_by: sortBy.value,
+    sort_dir: sortDir.value,
+  }
+
+  exportStore.queueServerExport({
+    title: 'Master Produk (Format Template Import)',
+    module: 'products',
+    filterParams: currentParams,
+  })
 }
 
 // Ref untuk loading state upload foto
@@ -911,6 +930,17 @@ onUnmounted(() => {
         </div>
 
         <div class="flex items-center gap-2">
+          <!-- Tombol Ekspor Excel Format Template Import -->
+          <button
+            v-if="authStore.hasPermission(['products:export', 'products:read', 'master:read'])"
+            @click="exportProductsToExcel"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-2 transition active:scale-95 border border-emerald-700 cursor-pointer"
+            title="Ekspor seluruh produk terfilter ke format Excel template import (bisa langsung di-import di server lain)"
+          >
+            <FileSpreadsheet class="w-4 h-4" />
+            <span>Ekspor Excel (Format Import)</span>
+          </button>
+
           <button
             v-if="authStore.hasPermission(['products:import', 'master:write'])"
             @click="showImportModal = true"

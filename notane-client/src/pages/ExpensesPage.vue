@@ -25,12 +25,14 @@ import {
   Wallet,
   Building2,
   Sparkles,
+  FileSpreadsheet,
 } from 'lucide-vue-next'
 import { Icon } from '@iconify/vue'
 import { api } from '@/services/api'
 import { useDialog } from '@/composables/useDialog'
 import { useLocationStore } from '@/stores/locationStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useExportStore } from '@/stores/exportStore'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import type {
   ExpenseTransaction,
@@ -41,6 +43,7 @@ import type {
 
 const locationStore = useLocationStore()
 const authStore = useAuthStore()
+const exportStore = useExportStore()
 const dialog = useDialog()
 
 // Tab state: 'transactions' | 'categories'
@@ -256,6 +259,23 @@ async function fetchExpenses() {
   } finally {
     isLoading.value = false
   }
+}
+
+function exportExpensesToExcel() {
+  const currentParams: Record<string, any> = {}
+  if (selectedOutletId.value) currentParams.outlet_id = selectedOutletId.value
+  if (selectedCategoryId.value) currentParams.category_id = selectedCategoryId.value
+  if (selectedStatus.value) currentParams.status = selectedStatus.value
+  if (startDate.value) currentParams.start_date = startDate.value
+  if (endDate.value) currentParams.end_date = endDate.value
+  if (searchQuery.value.trim()) currentParams.search = searchQuery.value.trim()
+
+  exportStore.queueServerExport({
+    title: 'Transaksi Pengeluaran Operasional',
+    module: 'expenses',
+    filterParams: currentParams,
+    outletId: selectedOutletId.value || undefined,
+  })
 }
 
 async function fetchSummary() {
@@ -743,6 +763,18 @@ async function handleSaveCategory() {
               title="Segarkan Data"
             >
               <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoading }" />
+            </button>
+
+            <!-- Tombol Ekspor Excel Pengeluaran -->
+            <button
+              v-if="authStore.hasPermission(['expenses:export', 'expenses:read', 'expenses:view'])"
+              type="button"
+              @click="exportExpensesToExcel"
+              class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs border border-emerald-700"
+              title="Ekspor seluruh data pengeluaran terfilter ke Excel di latar belakang"
+            >
+              <FileSpreadsheet class="w-4 h-4" />
+              <span>Ekspor Excel</span>
             </button>
           </div>
         </div>

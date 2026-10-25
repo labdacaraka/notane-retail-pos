@@ -49,6 +49,8 @@ pub struct VerifyRequest {
 #[derive(Debug, Deserialize)]
 pub struct UpdateCheckRequest {
     pub current_version: String,
+    pub component: Option<String>,      // "server" | "client" (defaults to "server")
+    pub server_version: Option<String>, // sent by client to verify compatibility
     pub hardware_id: Option<String>,
     pub license_key: Option<String>,
 }
@@ -93,6 +95,8 @@ struct LatestReleaseRow {
     checksum_sha256: String,
     signature_ed25519: String,
     is_mandatory: i64,
+    component: String,
+    min_server_version: Option<String>,
 }
 
 pub fn create_api_router(state: ApiState) -> Router {
@@ -479,6 +483,23 @@ async fn handle_verify(
     )
 }
 
+fn parse_version_tuple(v: &str) -> (u32, u32, u32) {
+    let clean = v.trim().trim_start_matches('v').trim_start_matches('V');
+    let parts: Vec<&str> = clean.split('.').collect();
+    let major = parts.get(0).and_then(|s| s.split('-').next()).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let minor = parts.get(1).and_then(|s| s.split('-').next()).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let patch = parts.get(2).and_then(|s| s.split('-').next()).and_then(|s| s.parse().ok()).unwrap_or(0);
+    (major, minor, patch)
+}
+
+fn is_version_newer(latest: &str, current: &str) -> bool {
+    parse_version_tuple(latest) > parse_version_tuple(current)
+}
+
+fn is_server_compatible(server_version: &str, min_server_version: &str) -> bool {
+    parse_version_tuple(server_version) >= parse_version_tuple(min_server_version)
+}
+
 // ------------------------------------------------------------------------------
 // POST /api/v1/updates/check
 // ------------------------------------------------------------------------------
@@ -486,13 +507,16 @@ async fn handle_update_check(
     State(state): State<ApiState>,
     Json(payload): Json<UpdateCheckRequest>,
 ) -> impl IntoResponse {
+    let req_component = payload.component.as_deref().unwrap_or("server").to_lowercase();
+
     let latest_row = sqlx::query_as::<_, LatestReleaseRow>(
         "SELECT version, release_name, changelog, release_date, download_url,
-                checksum_sha256, signature_ed25519, is_mandatory
+                checksum_sha256, signature_ed25519, is_mandatory, component, min_server_version
          FROM provider_app_releases
-         WHERE is_published = 1
+         WHERE is_published = 1 AND component = ?
          ORDER BY created_at DESC LIMIT 1"
     )
+    .bind(&req_component)
     .fetch_optional(&state.pool)
     .await;
 
@@ -502,19 +526,44 @@ async fn handle_update_check(
             return Json(json!({
                 "has_update": false,
                 "latest_version": payload.current_version,
-                "message": "Belum ada rilis update tersedia"
+                "component": req_component,
+                "can_update": false,
+                "server_compatible": true,
+                "message": format!("Belum ada rilis update tersedia untuk komponen {}", req_component)
             }));
         }
     };
 
-    let has_update = latest.version != payload.current_version.trim();
+    let has_update = is_version_newer(&latest.version, &payload.current_version);
 
     if !has_update {
         return Json(json!({
             "has_update": false,
             "latest_version": payload.current_version,
-            "message": "Aplikasi Anda sudah dalam versi terbaru"
+            "component": req_component,
+            "can_update": false,
+            "server_compatible": true,
+            "message": format!("Komponen {} Anda sudah dalam versi terbaru ({})", req_component, payload.current_version)
         }));
+    }
+
+    // Periksa kompatibilitas server jika komponen adalah client
+    let mut server_compatible = true;
+    let mut can_update = true;
+    let mut update_message = format!("Pembaruan versi resmi {} ({}) siap diunduh.", req_component, latest.version);
+
+    if req_component == "client" {
+        if let Some(ref min_srv) = latest.min_server_version {
+            let srv_ver = payload.server_version.as_deref().unwrap_or("0.0.0");
+            if !is_server_compatible(srv_ver, min_srv) {
+                server_compatible = false;
+                can_update = false;
+                update_message = format!(
+                    "Pembaruan Notane Client ({}) memerlukan Notane Server minimal versi {}. Server saat ini terdeteksi versi {}. Harap perbarui Notane Server terlebih dahulu sebelum memperbarui UI Klien.",
+                    latest.version, min_srv, srv_ver
+                );
+            }
+        }
     }
 
     Json(json!({
@@ -527,8 +576,11 @@ async fn handle_update_check(
         "checksum_sha256": latest.checksum_sha256,
         "signature": latest.signature_ed25519,
         "is_mandatory": latest.is_mandatory == 1,
-        "can_update": true,
-        "message": "Pembaruan versi resmi siap diunduh"
+        "component": req_component,
+        "min_server_version": latest.min_server_version,
+        "server_compatible": server_compatible,
+        "can_update": can_update,
+        "message": update_message
     }))
 }
 

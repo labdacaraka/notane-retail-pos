@@ -19,6 +19,8 @@ import { soundService } from '@/services/soundService'
 import { useDialog } from '@/composables/useDialog'
 
 import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
+import { useLicenseStore } from '@/stores/licenseStore'
+import ClientUpdateModal from '@/components/common/ClientUpdateModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -27,6 +29,7 @@ const networkStore = useNetworkStore()
 const printerStore = usePrinterStore()
 const locationStore = useLocationStore()
 const storeBrandingStore = useStoreBrandingStore()
+const licenseStore = useLicenseStore()
 const dialog = useDialog()
 
 const showNetworkModal = ref<boolean>(false)
@@ -34,6 +37,7 @@ const showPrinterModal = ref<boolean>(false)
 const showSecurityModal = ref<boolean>(false)
 const showSalesReturnModal = ref<boolean>(false)
 const showCashDropModal = ref<boolean>(false)
+const showClientUpdateModal = ref<boolean>(false)
 const isSoundOn = ref<boolean>(soundService.isEnabled())
 const currentTime = ref<string>('')
 let timer: any = null
@@ -351,6 +355,27 @@ onUnmounted(() => {
                 SQLite Buffer Siap
               </span>
             </div>
+
+            <!-- Section 4: Versi Client UI & Pembaruan -->
+            <div class="bg-cyan-50/60 rounded-lg p-2.5 border border-cyan-200/80">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[11px] font-bold text-cyan-900 flex items-center gap-1.5">
+                  <Icon icon="fluent:desktop-pulse-20-filled" class="w-3.5 h-3.5 text-cyan-600" />
+                  Notane Client UI
+                </span>
+                <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 border border-cyan-300">
+                  v{{ licenseStore.clientVersionInfo.version }}
+                </span>
+              </div>
+              <button
+                type="button"
+                @click="showSystemMenu = false; showClientUpdateModal = true"
+                class="w-full mt-1.5 bg-white hover:bg-cyan-100 text-cyan-800 border border-cyan-300 text-xs font-bold py-1 px-2 rounded-md transition shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <Icon icon="fluent:arrow-sync-circle-16-filled" class="w-3.5 h-3.5 text-cyan-600" />
+                <span>Cek Pembaruan UI Client</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -645,6 +670,12 @@ onUnmounted(() => {
       v-model="showCashDropModal"
       :shift-id="shiftStore.currentShift.id"
       @drop-completed="dialog.toast('Setor kas laci (cash drop) berhasil disimpan!', 'success')"
+    />
+
+    <!-- Modal Pembaruan Notane Client UI -->
+    <ClientUpdateModal
+      :is-open="showClientUpdateModal"
+      @close="showClientUpdateModal = false"
     />
   </div>
 </template>

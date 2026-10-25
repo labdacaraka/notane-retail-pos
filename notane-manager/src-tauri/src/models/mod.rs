@@ -245,6 +245,8 @@ pub struct AppRelease {
     pub min_license_tier: String,
     pub has_db_migration: i64, // 1 or 0
     pub is_published: i64,     // 1 or 0
+    pub component: String,     // 'server' or 'client'
+    pub min_server_version: Option<String>,
     pub created_at: String,
 }
 
@@ -264,6 +266,8 @@ pub struct CreateReleaseDto {
     pub is_mandatory: bool,
     pub min_license_tier: String,
     pub has_db_migration: bool,
+    pub component: Option<String>, // defaults to "server"
+    pub min_server_version: Option<String>,
 }
 
 // ==============================================================================

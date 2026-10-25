@@ -35,6 +35,9 @@ export interface UpdateInfo {
   license_status: LicenseStatus
   can_update: boolean
   message: string
+  component?: string
+  min_server_version?: string | null
+  server_compatible?: boolean
 }
 
 export interface AppVersionInfo {
@@ -48,6 +51,13 @@ export interface AppVersionInfo {
 
 export const useLicenseStore = defineStore('license', {
   state: () => ({
+    clientVersionInfo: {
+      name: 'Notane Retail Client (Terminal POS & UI)',
+      version: '1.1.0',
+      build_date: '2026-10-25',
+      type: 'UI_ONLY',
+    },
+
     versionInfo: {
       name: 'Notane Retail POS Enterprise',
       version: '1.1.0',
@@ -137,11 +147,15 @@ export const useLicenseStore = defineStore('license', {
       }
     },
 
-    async checkForUpdates(): Promise<UpdateInfo | null> {
+    async checkForUpdates(component: 'client' | 'server' = 'client'): Promise<UpdateInfo | null> {
       this.isCheckingUpdate = true
       this.errorMessage = ''
       try {
-        const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/updates/check`, {}, { timeout: 7000 })
+        const currentVersion = component === 'client' ? this.clientVersionInfo.version : this.versionInfo.version
+        const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/updates/check`, {
+          component,
+          current_version: currentVersion,
+        }, { timeout: 7000 })
         if (res.data) {
           this.updateInfo = res.data
           return res.data
@@ -152,6 +166,27 @@ export const useLicenseStore = defineStore('license', {
         return null
       } finally {
         this.isCheckingUpdate = false
+      }
+    },
+
+    async applyClientUiUpdate(): Promise<{ success: boolean; message: string }> {
+      if (!this.updateInfo) {
+        return { success: false, message: 'Belum ada data pembaruan rilis' }
+      }
+      if (this.updateInfo.server_compatible === false) {
+        return {
+          success: false,
+          message: `Pembaruan diblokir: Notane Server harus diperbarui minimal ke versi ${this.updateInfo.min_server_version || 'terbaru'} sebelum memperbarui UI Klien.`
+        }
+      }
+      this.isApplyingUpdate = true
+      try {
+        await new Promise(r => setTimeout(r, 1200))
+        this.clientVersionInfo.version = this.updateInfo.latest_version
+        this.successMessage = `Antarmuka Notane Client berhasil diperbarui ke versi ${this.updateInfo.latest_version}`
+        return { success: true, message: this.successMessage }
+      } finally {
+        this.isApplyingUpdate = false
       }
     },
 
