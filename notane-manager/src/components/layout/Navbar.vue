@@ -13,6 +13,7 @@ import {
   User,
   Lock,
 } from 'lucide-vue-next'
+import ThemeToggle from '../common/ThemeToggle.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -97,6 +98,9 @@ async function handleLogout() {
         <Power class="w-3.5 h-3.5" />
         <span>{{ providerStore.status.is_server_running ? 'Hentikan API' : 'Nyalakan API' }}</span>
       </button>
+
+      <!-- Switch Dark / Light Mode -->
+      <ThemeToggle />
 
       <!-- User Chip & Lock/Logout -->
       <div class="h-6 w-px bg-slate-800 mx-1"></div>

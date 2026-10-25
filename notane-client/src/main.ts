@@ -13,8 +13,12 @@ addCollection(streamlineIcons)
 addCollection(flatColorIcons)
 addCollection(fluentColorIcons)
 
+import { useTheme } from './composables/useTheme'
+
 const app = createApp(App)
 const pinia = createPinia()
+
+useTheme().initTheme()
 
 app.component('Icon', Icon)
 app.use(pinia)

@@ -6,22 +6,35 @@ Dokumen ini menjelaskan cara menggunakan **GitHub Actions** untuk mem-build dan 
 
 ## 1. Arsitektur File yang Dihasilkan Otomatis
 
-Setiap kali Anda membuat rilis, GitHub Actions akan menghasilkan **2 kategori paket sekaligus**:
+Setiap kali Anda membuat rilis, GitHub Actions akan menghasilkan **3 kategori paket sekaligus**:
 
-### A. 📦 Installer Desktop untuk Pengguna Baru (First-Time Install)
-File installer resmi (*wizard "Next > Next > Install > Finish"*) untuk dibagikan kepada pengguna/komputer kasir yang baru pertama kali memasang aplikasi:
+### A. 🖥️ Installer Desktop Notane Server (Komputer Induk / Host Toko)
+File installer resmi (*wizard GUI Desktop Host Manager*) untuk dipasang pada komputer server / pusat data toko:
 
-| Sistem Operasi | Ekstensi / Format | Nama File Installer |
-| :--- | :--- | :--- |
-| **Windows (64-bit)** | `.exe` (Setup) & `.msi` | `Notane-Retail-POS_x64-setup.exe` / `.msi` |
-| **Windows (32-bit / x86)** | `.exe` (Setup) & `.msi` | `Notane-Retail-POS_x86-setup.exe` / `.msi` (Untuk POS Jadul / Atom / Celeron) |
-| **macOS** | `.dmg` (Disk Image) | `Notane-Retail-POS.dmg` (Universal / Apple Silicon & Intel) |
-| **Linux (Debian/Ubuntu)** | `.deb` | `notane-retail-pos_amd64.deb` |
-| **Linux (Universal)** | `.AppImage` | `notane-retail-pos_amd64.AppImage` |
+| Sistem Operasi | Ekstensi / Format | Nama File Installer Server | Keterangan |
+| :--- | :--- | :--- | :--- |
+| **Windows (64-bit)** | `.exe` (Setup) & `.msi` | `Notane-Retail-Server_x64-setup.exe` / `.msi` | Komputer server Windows modern 64-bit |
+| **Windows (32-bit / x86)** | `.exe` (Setup) & `.msi` | `Notane-Retail-Server_x86-setup.exe` / `.msi` | Komputer kasir/server POS Windows 32-bit |
+| **macOS** | `.dmg` (Disk Image) | `Notane-Retail-Server.dmg` | macOS Apple Silicon (M1-M4) & Intel x64 |
+| **Linux (Debian/Ubuntu)** | `.deb` | `notane-retail-server_amd64.deb` | Ubuntu / Debian / Linux Mint |
+| **Linux (Universal)** | `.AppImage` | `notane-retail-server_amd64.AppImage` | Portable binary tanpa perlu instalasi rumit |
 
 ---
 
-### B. 🔄 Paket Pembaruan OTA (Over-The-Air) untuk Di-upload ke Notane Manager
+### B. 🛒 Installer Desktop Notane Client (Komputer Terminal Kasir POS)
+File installer resmi untuk dibagikan kepada pengguna / komputer kasir terminal baru:
+
+| Sistem Operasi | Ekstensi / Format | Nama File Installer Kasir | Keterangan |
+| :--- | :--- | :--- | :--- |
+| **Windows (64-bit)** | `.exe` (Setup) & `.msi` | `Notane-Retail-POS_x64-setup.exe` / `.msi` | Terminal POS Windows 64-bit |
+| **Windows (32-bit / x86)** | `.exe` (Setup) & `.msi` | `Notane-Retail-POS_x86-setup.exe` / `.msi` | Terminal POS hemat daya / Atom / Celeron 32-bit |
+| **macOS** | `.dmg` (Disk Image) | `Notane-Retail-POS.dmg` | Terminal POS macOS Apple Silicon & Intel |
+| **Linux (Debian/Ubuntu)** | `.deb` | `notane-retail-pos_amd64.deb` | Terminal POS Ubuntu / Debian |
+| **Linux (Universal)** | `.AppImage` | `notane-retail-pos_amd64.AppImage` | Terminal POS portable AppImage |
+
+---
+
+### C. 🔄 Paket Pembaruan OTA (Over-The-Air) untuk Di-upload ke Notane Manager
 Paket pembaruan yang digunakan oleh toko yang sudah berjalan (kasir tinggal klik tombol *"Update"* dari dalam aplikasi):
 
 | Nama File Rilis | Komponen | Platform Target | Deskripsi |

@@ -9,6 +9,7 @@ import { useDialog } from '@/composables/useDialog'
 import { useLicenseStore } from '@/stores/licenseStore'
 import UserProfileSecurityModal from '@/components/common/UserProfileSecurityModal.vue'
 import ClientUpdateModal from '@/components/common/ClientUpdateModal.vue'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 import { ref, computed, onMounted } from 'vue'
 
 const router = useRouter()
@@ -278,6 +279,9 @@ async function handleExitImpersonation() {
             </div>
           </div>
         </button>
+
+        <!-- Switch Dark / Light Mode -->
+        <ThemeToggle />
 
         <button
           @click="handleLogout"

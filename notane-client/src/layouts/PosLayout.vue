@@ -21,6 +21,7 @@ import { useDialog } from '@/composables/useDialog'
 import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
 import { useLicenseStore } from '@/stores/licenseStore'
 import ClientUpdateModal from '@/components/common/ClientUpdateModal.vue'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -508,6 +509,9 @@ onUnmounted(() => {
             <Volume2 v-if="isSoundOn" class="w-3.5 h-3.5 text-emerald-600 drop-shadow-2xs" />
             <VolumeX v-else class="w-3.5 h-3.5 text-slate-400" />
           </button>
+
+          <!-- Switch Dark / Light Mode -->
+          <ThemeToggle />
 
           <!-- Customer Display -->
           <button

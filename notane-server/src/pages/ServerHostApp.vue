@@ -34,6 +34,7 @@ import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
 import { useInitialSetupStore } from '@/stores/initialSetupStore'
 import LicenseUpdateModal from '@/components/common/LicenseUpdateModal.vue'
 import InitialSetupWizardModal from '@/components/common/InitialSetupWizardModal.vue'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 const networkStore = useNetworkStore()
 const licenseStore = useLicenseStore()
@@ -371,6 +372,9 @@ const restartServer = async () => {
           <span class="w-2.5 h-2.5 rounded-full" :class="isServerRunning ? 'bg-emerald-500 animate-pulse' : !isLicenseValid ? 'bg-rose-500' : 'bg-amber-500'"></span>
           <span>{{ isServerRunning ? 'SERVER AKTIF' : !isLicenseValid ? 'BELUM DIAKTIVASI' : 'SERVER BERHENTI' }}</span>
         </div>
+
+        <!-- Switch Dark / Light Mode -->
+        <ThemeToggle />
       </div>
     </header>
 

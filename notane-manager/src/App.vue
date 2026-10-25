@@ -20,12 +20,12 @@ onMounted(async () => {
 
 <template>
   <!-- Full Screen Login View -->
-  <div v-if="route.name === 'login'" class="h-screen w-screen overflow-hidden bg-slate-950">
+  <div v-if="route.name === 'login'" class="h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
     <router-view />
   </div>
 
   <!-- Authenticated Studio Layout -->
-  <div v-else class="flex h-screen w-screen overflow-hidden bg-slate-950 font-sans text-slate-100">
+  <div v-else class="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-200">
     <!-- Left Navigation Sidebar -->
     <Sidebar />
 
