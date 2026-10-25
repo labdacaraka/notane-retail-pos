@@ -78,11 +78,11 @@ async function copySignature() {
         </div>
         <div>
           <h2 class="text-base font-bold text-white flex items-center gap-2">
-            Generator Sertifikat Lisensi Offline
+            Aktivasi Lisensi Manual
             <Sparkles class="w-4 h-4 text-brand-400" />
           </h2>
           <p class="text-xs text-slate-300 mt-1 leading-relaxed">
-            Digunakan untuk terminal kasir yang tidak memiliki koneksi internet keluar (jaringan terisolasi). Masukkan nomor lisensi dan Hardware ID (HWID) mesin klien untuk menghasilkan token JSON bertanda tangan kriptografis Ed25519.
+            Digunakan untuk komputer toko yang tidak terhubung ke internet. Masukkan nomor lisensi dan kode perangkat untuk menghasilkan kode aktivasi toko.
           </p>
         </div>
       </div>
@@ -123,7 +123,7 @@ async function copySignature() {
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
             <Cpu class="w-3.5 h-3.5 text-blue-400" />
-            <span>Hardware ID Mesin Kasir (HWID) *</span>
+            <span>Kode Perangkat Komputer (ID Mesin) *</span>
           </label>
           <input
             v-model="hardwareId"
@@ -132,7 +132,7 @@ async function copySignature() {
             class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-brand-500"
           />
           <span class="text-[11px] text-slate-500 mt-1 block">
-            Salin HWID dari menu 'Pengaturan > Lisensi' pada aplikasi kasir klien Notane POS.
+            Salin ID Mesin dari menu Lisensi pada aplikasi server toko atau kasir Notane POS.
           </span>
         </div>
       </div>
@@ -149,7 +149,7 @@ async function copySignature() {
           class="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-brand-600/30 flex items-center gap-2"
         >
           <ShieldCheck class="w-4 h-4" />
-          <span>{{ isGenerating ? 'Menandatangani Kriptografi...' : 'Tanda Tangani Token Lisensi (Ed25519)' }}</span>
+          <span>{{ isGenerating ? 'Membuat Kode...' : 'Buat Kode Aktivasi Toko' }}</span>
         </button>
       </div>
     </div>
@@ -161,23 +161,23 @@ async function copySignature() {
           <div class="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
             <ShieldCheck class="w-4 h-4" />
           </div>
-          <span class="font-bold text-sm text-white">Sertifikat Lisensi Berhasil Ditandatangani!</span>
+          <span class="font-bold text-sm text-white">Kode Aktivasi Berhasil Dibuat!</span>
         </div>
         <span class="text-[11px] font-mono text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded">
-          Ed25519 64-Byte Verified
+          Tanda Tangan Terverifikasi
         </span>
       </div>
 
       <!-- Output 1: License Token JSON -->
       <div>
         <div class="flex items-center justify-between mb-1.5">
-          <label class="text-xs font-semibold text-slate-300">1. License Token (JSON String)</label>
+          <label class="text-xs font-semibold text-slate-300">1. Kode Lisensi Toko</label>
           <button
             @click="copyToken"
             class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-brand-400 text-xs font-semibold flex items-center gap-1 transition-colors"
           >
             <component :is="copiedToken ? Check : Copy" class="w-3.5 h-3.5" />
-            <span>{{ copiedToken ? 'Tersalin!' : 'Salin Token' }}</span>
+            <span>{{ copiedToken ? 'Tersalin!' : 'Salin Kode' }}</span>
           </button>
         </div>
         <textarea
@@ -191,13 +191,13 @@ async function copySignature() {
       <!-- Output 2: Cryptographic Signature Hex -->
       <div>
         <div class="flex items-center justify-between mb-1.5">
-          <label class="text-xs font-semibold text-slate-300">2. Cryptographic Signature (Hex)</label>
+          <label class="text-xs font-semibold text-slate-300">2. Kode Tanda Tangan Lisensi</label>
           <button
             @click="copySignature"
             class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-brand-400 text-xs font-semibold flex items-center gap-1 transition-colors"
           >
             <component :is="copiedSignature ? Check : Copy" class="w-3.5 h-3.5" />
-            <span>{{ copiedSignature ? 'Tersalin!' : 'Salin Signature' }}</span>
+            <span>{{ copiedSignature ? 'Tersalin!' : 'Salin Tanda Tangan' }}</span>
           </button>
         </div>
         <input
@@ -209,11 +209,11 @@ async function copySignature() {
 
       <!-- Instruction Note -->
       <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 space-y-1">
-        <div class="font-semibold text-slate-200">Cara Aktivasi di Komputer Klien Kasir:</div>
+        <div class="font-semibold text-slate-200">Cara Aktivasi di Komputer Toko:</div>
         <ol class="list-decimal list-inside space-y-0.5 text-slate-400">
-          <li>Buka antarmuka kasir Notane POS, masuk ke menu <strong>Pengaturan & Lisensi</strong>.</li>
-          <li>Tempelkan (paste) <strong>License Token</strong> dan <strong>Signature</strong> di atas ke form aktivasi.</li>
-          <li>Klik <strong>Aktifkan Lisensi</strong>. Klien akan memverifikasi asimetris menggunakan Public Key lokal tanpa perlu internet!</li>
+          <li>Buka aplikasi Notane Server atau Notane POS, lalu buka menu <strong>Lisensi</strong>.</li>
+          <li>Pilih tab <strong>Aktivasi Manual</strong>, lalu tempelkan <strong>Kode Lisensi Toko</strong> dan <strong>Kode Tanda Tangan Lisensi</strong> di atas.</li>
+          <li>Klik <strong>Simpan Lisensi Toko</strong>. Aplikasi akan memverifikasi keamanan secara otomatis tanpa perlu internet.</li>
         </ol>
       </div>
     </div>

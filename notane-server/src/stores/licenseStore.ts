@@ -66,7 +66,7 @@ export interface ProviderConnectionTestResult {
 export const useLicenseStore = defineStore('license', {
   state: () => ({
     versionInfo: {
-      name: 'Notane Retail POS Enterprise',
+      name: 'Notane Retail Server',
       version: '1.1.0',
       build_date: '2026-09-26',
       target_os: 'unknown',

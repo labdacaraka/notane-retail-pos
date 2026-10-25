@@ -124,8 +124,8 @@ function openCreateModal(comp: 'server' | 'client' = 'server') {
   } else {
     form.value = {
       version: '1.2.0',
-      release_name: 'Notane Retail POS - Server Core & Host Update',
-      changelog: '1. Engine database PostgreSQL & auto-migrasi skema\n2. API Axum berkecepatan tinggi & proteksi token\n3. Dukungan penuh lisensi Ed25519 node-lock',
+      release_name: 'Pembaruan Notane Server v1.2.0',
+      changelog: '1. Peningkatan kecepatan simpan transaksi kasir\n2. Pembaruan struktur data laporan penjualan\n3. Peningkatan kestabilan sambungan jaringan toko',
       download_url: 'https://update.notane.id/releases/server/v1.2.0/notane-server-core.zip',
       checksum_sha256: 'a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890',
       is_mandatory: false,
@@ -219,7 +219,7 @@ async function confirmDelete(rel: AppRelease) {
       <Layers class="w-12 h-12 text-slate-600 mx-auto mb-3" />
       <div class="text-sm font-semibold text-slate-300">Belum Ada Rilis Pembaruan Terdaftar</div>
       <div class="text-xs text-slate-500 mt-1">
-        {{ searchQuery ? 'Tidak ada rilis yang cocok dengan pencarian Anda.' : 'Terbitkan paket rilis OTA pertama dengan tanda tangan kriptografi Ed25519.' }}
+        {{ searchQuery ? 'Tidak ada rilis yang cocok dengan pencarian Anda.' : 'Belum ada paket pembaruan yang diterbitkan untuk aplikasi toko.' }}
       </div>
       <div v-if="!searchQuery" class="mt-4 flex items-center justify-center gap-2">
         <button
@@ -345,9 +345,9 @@ async function confirmDelete(rel: AppRelease) {
               <div class="flex items-center justify-between text-[11px] text-slate-400">
                 <span class="flex items-center gap-1">
                   <ShieldCheck class="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Ed25519 Signature</span>
+                  <span>Tanda Tangan Keamanan</span>
                 </span>
-                <span class="text-brand-400 text-[10px] font-semibold">Tanda Tangan Master</span>
+                <span class="text-brand-400 text-[10px] font-semibold">Terverifikasi</span>
               </div>
               <div class="font-mono text-[11px] text-emerald-300/90 truncate select-all" :title="rel.signature_ed25519">
                 {{ rel.signature_ed25519 }}

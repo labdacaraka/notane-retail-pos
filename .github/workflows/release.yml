@@ -90,7 +90,13 @@ jobs:
             server_bin: notane-retail-server.exe
             use_zip_shell: windows
             installer_pattern: "*.msi,*.exe"
-          - os: macos-13
+          - os: windows-latest
+            platform: windows-x86
+            target: i686-pc-windows-msvc
+            server_bin: notane-retail-server.exe
+            use_zip_shell: windows
+            installer_pattern: "*.msi,*.exe"
+          - os: macos-14
             platform: macos-x64
             target: x86_64-apple-darwin
             server_bin: notane-retail-server
@@ -308,9 +314,12 @@ jobs:
           echo "| :--- | :--- | :--- | :--- |" >> RELEASE_NOTES.md
           
           for f in *; do
-            if [[ "$f" == *".msi" ]] || [[ "$f" == *"setup.exe" ]] || [[ "$f" == *".exe" && "$f" != *"notane-retail-server"* ]]; then
+            if [[ "$f" == *"x86"* && ( "$f" == *".msi" || "$f" == *".exe" ) ]] || [[ "$f" == *"i686"* ]]; then
               SZ=$(du -h "$f" | awk '{print $1}')
-              echo "| **Windows** | Setup Installer (.exe / .msi) | \`$f\` | $SZ |" >> RELEASE_NOTES.md
+              echo "| **Windows (32-bit / x86)** | Setup Installer (.exe / .msi) | \`$f\` | $SZ |" >> RELEASE_NOTES.md
+            elif [[ "$f" == *".msi" ]] || [[ "$f" == *"setup.exe" ]] || [[ "$f" == *".exe" && "$f" != *"notane-retail-server"* ]]; then
+              SZ=$(du -h "$f" | awk '{print $1}')
+              echo "| **Windows (64-bit / x64)** | Setup Installer (.exe / .msi) | \`$f\` | $SZ |" >> RELEASE_NOTES.md
             elif [[ "$f" == *".dmg" ]]; then
               SZ=$(du -h "$f" | awk '{print $1}')
               echo "| **macOS** | Disk Image (.dmg) | \`$f\` | $SZ |" >> RELEASE_NOTES.md
@@ -340,9 +349,12 @@ jobs:
               if [[ "$file" == *"client"* ]]; then
                 COMP="Client UI (OTA)"
                 PLATFORM="Universal (Semua OS)"
-              elif [[ "$file" == *"windows"* ]]; then
+              elif [[ "$file" == *"windows-x86"* ]]; then
                 COMP="Server Core"
-                PLATFORM="Windows (x64)"
+                PLATFORM="Windows (32-bit / x86)"
+              elif [[ "$file" == *"windows-x64"* ]] || [[ "$file" == *"windows"* ]]; then
+                COMP="Server Core"
+                PLATFORM="Windows (64-bit / x64)"
               elif [[ "$file" == *"linux"* ]]; then
                 COMP="Server Core"
                 PLATFORM="Linux (x64)"
@@ -351,7 +363,7 @@ jobs:
                 PLATFORM="macOS (Apple Silicon M-Series)"
               elif [[ "$file" == *"macos-x64"* ]]; then
                 COMP="Server Core"
-                PLATFORM="macOS (Intel)"
+                PLATFORM="macOS (Intel x64)"
               else
                 COMP="Server"
                 PLATFORM="Native"

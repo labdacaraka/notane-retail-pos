@@ -59,7 +59,7 @@ export const useLicenseStore = defineStore('license', {
     },
 
     versionInfo: {
-      name: 'Notane Retail POS Enterprise',
+      name: 'Notane Retail POS',
       version: '1.1.0',
       build_date: '2026-09-26',
       target_os: 'unknown',

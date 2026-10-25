@@ -153,10 +153,10 @@ const getRoleLabel = (type: string) => {
           type="button"
           @click="showLicenseModal = true"
           class="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-300 rounded-sm font-semibold transition-colors flex items-center gap-1.5 cursor-pointer text-xs"
-          title="Buka panel Lisensi Enterprise dan Pembaruan Sistem (OTA)"
+          title="Buka status lisensi dan pembaruan sistem"
         >
           <Icon icon="fluent-color:lock-shield-20" class="w-4 h-4" />
-          <span>Lisensi & Update</span>
+          <span>Lisensi & Pembaruan</span>
           <span
             v-if="licenseStore.updateInfo?.has_update"
             class="px-1.5 py-0.2 bg-emerald-500 text-white text-[9px] rounded-full font-black animate-pulse"

@@ -74,7 +74,7 @@ function handleSort(column: 'last_ping_at' | 'hardware_id' | 'device_name' | 'li
 async function confirmUnbind(dev: DeviceActivation) {
   if (
     confirm(
-      `Yakin ingin me-reset (unbind) terminal kasir '${dev.device_name || dev.hardware_id}'? Kuota mesin untuk lisensi ini akan bertambah 1 slot.`
+      `Yakin ingin melepaskan perangkat '${dev.device_name || dev.hardware_id}'? Kuota kasir untuk lisensi ini akan bertambah 1 slot.`
     )
   ) {
     await providerStore.unbindDevice(dev.id)
@@ -93,7 +93,7 @@ async function confirmUnbind(dev: DeviceActivation) {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Cari HWID, lisensi, atau perangkat..."
+            placeholder="Cari nomor lisensi, perangkat, atau nama kasir..."
             class="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-inner"
           />
         </div>
@@ -158,7 +158,7 @@ async function confirmUnbind(dev: DeviceActivation) {
                   class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
-                    <span>Terminal & Klien</span>
+                    <span>Perangkat & Pelanggan</span>
                     <ArrowUp v-if="sortBy === 'device_name' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
                     <ArrowDown v-else-if="sortBy === 'device_name' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
                     <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
@@ -170,7 +170,7 @@ async function confirmUnbind(dev: DeviceActivation) {
                   class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
-                    <span>Hardware ID (HWID)</span>
+                    <span>Kode Perangkat (ID Mesin)</span>
                     <ArrowUp v-if="sortBy === 'hardware_id' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
                     <ArrowDown v-else-if="sortBy === 'hardware_id' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
                     <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
@@ -182,21 +182,21 @@ async function confirmUnbind(dev: DeviceActivation) {
                   class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
-                    <span>Lisensi Terikat</span>
+                    <span>Nomor Lisensi</span>
                     <ArrowUp v-if="sortBy === 'license_key' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
                     <ArrowDown v-else-if="sortBy === 'license_key' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
                     <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
                   </div>
                 </th>
 
-                <th class="py-3 px-4 font-semibold text-slate-400">IP & OS Info</th>
+                <th class="py-3 px-4 font-semibold text-slate-400">Alamat IP & Sistem</th>
 
                 <th
                   @click="handleSort('last_ping_at')"
                   class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
-                    <span>Ping Terakhir</span>
+                    <span>Aktivitas Terakhir</span>
                     <ArrowUp v-if="sortBy === 'last_ping_at' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
                     <ArrowDown v-else-if="sortBy === 'last_ping_at' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
                     <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />

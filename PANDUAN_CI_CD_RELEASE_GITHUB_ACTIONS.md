@@ -13,8 +13,9 @@ File installer resmi (*wizard "Next > Next > Install > Finish"*) untuk dibagikan
 
 | Sistem Operasi | Ekstensi / Format | Nama File Installer |
 | :--- | :--- | :--- |
-| **Windows** | `.exe` (Setup) & `.msi` | `Notane-Retail-POS_x64-setup.exe` |
-| **macOS** | `.dmg` (Disk Image) | `Notane-Retail-POS.dmg` |
+| **Windows (64-bit)** | `.exe` (Setup) & `.msi` | `Notane-Retail-POS_x64-setup.exe` / `.msi` |
+| **Windows (32-bit / x86)** | `.exe` (Setup) & `.msi` | `Notane-Retail-POS_x86-setup.exe` / `.msi` (Untuk POS Jadul / Atom / Celeron) |
+| **macOS** | `.dmg` (Disk Image) | `Notane-Retail-POS.dmg` (Universal / Apple Silicon & Intel) |
 | **Linux (Debian/Ubuntu)** | `.deb` | `notane-retail-pos_amd64.deb` |
 | **Linux (Universal)** | `.AppImage` | `notane-retail-pos_amd64.AppImage` |
 
@@ -26,10 +27,11 @@ Paket pembaruan yang digunakan oleh toko yang sudah berjalan (kasir tinggal klik
 | Nama File Rilis | Komponen | Platform Target | Deskripsi |
 | :--- | :--- | :--- | :--- |
 | `notane-client-ui-vX.X.X.zip` | **Client** | **Universal (Semua OS)** | Bundle aset UI Frontend Kasir & Back-Office (HTML, JS, CSS). Berlaku langsung untuk Windows, Linux, & macOS. |
-| `notane-server-vX.X.X-windows-x64.zip` | **Server** | **Windows (x64)** | Biner backend `notane-retail-server.exe`, Host UI, dan migrasi skema SQL. |
+| `notane-server-vX.X.X-windows-x64.zip` | **Server** | **Windows (x64)** | Biner backend `notane-retail-server.exe` 64-bit, Host UI, dan migrasi skema SQL. |
+| `notane-server-vX.X.X-windows-x86.zip` | **Server** | **Windows (32-bit)** | Biner backend `notane-retail-server.exe` 32-bit, Host UI, dan migrasi skema SQL. |
 | `notane-server-vX.X.X-linux-x64.zip` | **Server** | **Linux (x64)** | Biner backend Linux ELF, Host UI, dan migrasi skema SQL. |
 | `notane-server-vX.X.X-macos-arm64.zip` | **Server** | **macOS (M1/M2/M3/M4)** | Biner backend macOS Apple Silicon ARM64, Host UI, dan migrasi skema SQL. |
-| `notane-server-vX.X.X-macos-x64.zip` | **Server** | **macOS (Intel)** | Biner backend macOS Intel x86_64, Host UI, dan migrasi skema SQL. |
+| `notane-server-vX.X.X-macos-x64.zip` | **Server** | **macOS (Intel x64)** | Biner backend macOS Intel x86_64, Host UI, dan migrasi skema SQL. |
 | `CHECKSUMS.txt` | **Checksum** | **Semua** | Daftar hash SHA-256 dari seluruh file yang siap disalin ke Notane Manager. |
 
 ---

@@ -21,14 +21,14 @@ const authStore = useAuthStore()
 const copiedKey = ref(false)
 
 const routeTitles: Record<string, { title: string; subtitle: string }> = {
-  dashboard: { title: 'Pusat Kontrol & Metrik', subtitle: 'Monitoring lisensi, terminal aktif, dan server provider' },
-  clients: { title: 'Manajemen Klien Bisnis', subtitle: 'Daftar perusahaan dan pemilik outlet ritel penyewa' },
-  licenses: { title: 'Penerbitan & Katalog Lisensi', subtitle: 'Penerbitan lisensi multi-tier, kuota kasir, dan masa berlaku' },
-  signer: { title: 'Generator Lisensi Offline', subtitle: 'Tanda tangani token sertifikat Ed25519 untuk aktivasi terminal tanpa internet' },
-  devices: { title: 'Hardware Node-Locking', subtitle: 'Identitas mesin kasir terikat (HWID anti-cracking)' },
-  releases: { title: 'Repositori Rilis OTA', subtitle: 'Publikasi update bundle aplikasi dan database migration' },
-  audit: { title: 'Audit Trail & Keamanan', subtitle: 'Riwayat percobaan aktivasi dan proteksi tampering' },
-  settings: { title: 'Pengaturan Provider', subtitle: 'Port server, konfigurasi private key master, dan preferensi' },
+  dashboard: { title: 'Pusat Kontrol Toko', subtitle: 'Ringkasan lisensi, kasir aktif, dan status layanan' },
+  clients: { title: 'Daftar Pelanggan / Toko', subtitle: 'Daftar toko dan outlet ritel pengguna aplikasi' },
+  licenses: { title: 'Pengelolaan Lisensi', subtitle: 'Penerbitan nomor lisensi, batas kasir, dan masa berlaku' },
+  signer: { title: 'Aktivasi Lisensi Manual', subtitle: 'Buat kode aktivasi lisensi untuk komputer toko tanpa internet' },
+  devices: { title: 'Perangkat Terdaftar', subtitle: 'Daftar komputer kasir dan server toko yang terhubung' },
+  releases: { title: 'Pembaruan Aplikasi', subtitle: 'Kelola dan terbitkan pembaruan untuk server dan kasir' },
+  audit: { title: 'Catatan Keamanan', subtitle: 'Riwayat pendaftaran lisensi dan pemeriksaan keamanan' },
+  settings: { title: 'Pengaturan Sistem', subtitle: 'Port layanan, kunci pengaman, dan konfigurasi sistem' },
 }
 
 async function copyPublicKey() {
@@ -67,7 +67,7 @@ async function handleLogout() {
       <!-- Master Public Key Info -->
       <button
         @click="copyPublicKey"
-        title="Salin Master Public Key Ed25519"
+        title="Salin Kunci Pengaman Publik"
         class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-xs font-mono text-slate-300 transition-colors"
       >
         <ShieldCheck class="w-3.5 h-3.5 text-emerald-400" />

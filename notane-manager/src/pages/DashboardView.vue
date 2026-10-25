@@ -38,17 +38,17 @@ onMounted(async () => {
             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
                   :class="providerStore.status.is_server_running ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'">
               <span class="w-2 h-2 rounded-full" :class="providerStore.status.is_server_running ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'"></span>
-              {{ providerStore.status.is_server_running ? 'PROVIDER API RUNNING' : 'PROVIDER API STOPPED' }}
+              {{ providerStore.status.is_server_running ? 'LAYANAN AKTIF' : 'LAYANAN BERHENTI' }}
             </span>
-            <span class="text-xs font-mono text-slate-400">Ed25519 Cryptographic Guard</span>
+            <span class="text-xs text-slate-400">Sistem Lisensi Toko</span>
           </div>
 
           <h2 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            Notane License Provider Engine
+            Notane Retail Manager
             <Sparkles class="w-4 h-4 text-brand-400" />
           </h2>
           <p class="text-xs text-slate-300 max-w-xl leading-relaxed">
-            Menyediakan API autentikasi lisensi asimetris militer, validasi node-locking HWID kasir, dan distribusi rilis pembaruan OTA untuk seluruh outlet POS.
+            Pusat pengelolaan lisensi resmi toko dan penerbitan pembaruan aplikasi Notane POS.
           </p>
         </div>
 

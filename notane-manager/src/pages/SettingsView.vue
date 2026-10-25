@@ -103,8 +103,8 @@ async function handleSaveCredentials() {
           <Settings class="w-5 h-5" />
         </div>
         <div>
-          <h2 class="text-sm font-bold text-white">Konfigurasi Engine Server Provider</h2>
-          <p class="text-xs text-slate-400">Pengaturan port daemon REST API dan kunci kriptografi asimetris master</p>
+          <h2 class="text-sm font-bold text-white">Konfigurasi Server Layanan</h2>
+          <p class="text-xs text-slate-400">Pengaturan port layanan dan kunci keamanan lisensi</p>
         </div>
       </div>
 
@@ -113,7 +113,7 @@ async function handleSaveCredentials() {
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
             <Server class="w-3.5 h-3.5 text-blue-400" />
-            <span>Port REST API Provider Server</span>
+            <span>Port Layanan Server</span>
           </label>
           <input
             v-model.number="form.server_port"
@@ -128,7 +128,7 @@ async function handleSaveCredentials() {
           <div class="flex items-center justify-between">
             <label class="block text-xs font-semibold text-rose-400 flex items-center gap-1.5">
               <KeyRound class="w-3.5 h-3.5 text-rose-400" />
-              <span>Master Private Key (Ed25519 - 32 Bytes Hex)</span>
+              <span>Kunci Rahasia Utama (Private Key)</span>
             </label>
             <button
               @click="copyPrivateKey"
@@ -149,7 +149,7 @@ async function handleSaveCredentials() {
           <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2">
             <AlertTriangle class="w-4 h-4 shrink-0 mt-0.5" />
             <span>
-              <strong>PERINGATAN KERAHASIAAN TINGKAT TINGGI:</strong> Jangan pernah membagikan Private Key ini ke publik atau ke binary klien. Private Key ini digunakan untuk menandatangani seluruh lisensi resmi.
+              <strong>PENTING:</strong> Jaga kerahasiaan kunci ini. Kunci ini digunakan untuk menandatangani seluruh lisensi toko.
             </span>
           </div>
         </div>
@@ -159,7 +159,7 @@ async function handleSaveCredentials() {
           <div class="flex items-center justify-between">
             <label class="block text-xs font-semibold text-slate-300 flex items-center gap-1.5">
               <ShieldCheck class="w-3.5 h-3.5 text-emerald-400" />
-              <span>Master Public Key Pasangan (Ed25519 - Tersimpan di Client)</span>
+              <span>Kunci Publik Pasangan (Tersimpan di Aplikasi Toko)</span>
             </label>
             <button
               @click="copyPublicKey"

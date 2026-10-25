@@ -302,8 +302,8 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
                 id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
                 has_db_migration, is_published, component, min_server_version, created_at
-            ) VALUES (?, '1.2.0', 'Notane Retail Server Enterprise Update',
-                      '1. Core Engine Axum Multi-threaded\n2. Optimasi streaming data jutaan baris\n3. Migrasi skema database terintegrasi',
+            ) VALUES (?, '1.2.0', 'Pembaruan Notane Server v1.2.0',
+                      '1. Peningkatan kecepatan simpan transaksi kasir\n2. Pembaruan struktur data laporan penjualan\n3. Peningkatan kestabilan sambungan jaringan toko',
                       '2026-10-01', 'https://update.notane.id/releases/v1.2.0/notane-server-bundle.zip',
                       'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
                       ?, 0, 'BASIC', 1, 1, 'server', NULL, ?);"
@@ -325,8 +325,8 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
                 id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
                 has_db_migration, is_published, component, min_server_version, created_at
-            ) VALUES (?, '1.2.0', 'Notane Retail Client (UI Kasir & Back-Office)',
-                      '1. Antarmuka Kasir POS modern & responsif\n2. Widget unduhan ekspor real-time\n3. Desain struk dinamis',
+            ) VALUES (?, '1.2.0', 'Pembaruan Aplikasi Kasir v1.2.0',
+                      '1. Tampilan antarmuka kasir lebih cepat dan responsif\n2. Peningkatan cetak struk penjualan\n3. Perbaikan tampilan pencarian barang',
                       '2026-10-01', 'https://update.notane.id/releases/v1.2.0/notane-client-bundle.zip',
                       'f4c0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b866',
                       ?, 0, 'BASIC', 0, 1, 'client', '1.1.0', ?);"

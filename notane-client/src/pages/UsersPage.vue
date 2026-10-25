@@ -626,11 +626,11 @@ onMounted(async () => {
               <h1 class="text-base font-extrabold text-slate-900 tracking-tight">Manajemen Pengguna & Hak Akses</h1>
               <span class="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
                 <Icon icon="fluent-color:shield-checkmark-24" class="w-3 h-3" />
-                RBAC Enterprise
+                Hak Akses Lengkap
               </span>
             </div>
             <p class="text-xs text-slate-500 mt-0.5">
-              Kelola pengguna sistem, peran (roles), dan matriks hak akses keamanan (RBAC).
+              Kelola data pengguna, peran staf, dan pembatasan hak akses kasir.
             </p>
           </div>
         </div>

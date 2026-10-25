@@ -136,7 +136,7 @@ async function handleApplyUpdate() {
               </span>
             </h3>
             <p class="text-xs text-slate-300">
-              Proteksi Asimetris Ed25519, Node-Locking, & Integrasi Server Provider
+              Pengaturan lisensi toko dan status pembaruan server
             </p>
           </div>
         </div>
@@ -368,21 +368,21 @@ async function handleApplyUpdate() {
               </p>
 
               <div>
-                <label class="block text-[10px] font-bold text-slate-600 mb-1">Payload Token Lisensi (JSON)</label>
+                <label class="block text-[10px] font-bold text-slate-600 mb-1">Kode Lisensi Toko</label>
                 <textarea
                   v-model="tokenInput"
                   rows="2"
-                  placeholder='{"license_key":"NOTANE-ENT-...","client_name":"...","hardware_id":"..."}'
+                  placeholder='Tempelkan teks lisensi toko Anda di sini...'
                   class="w-full text-xs font-mono p-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600"
                 />
               </div>
 
               <div>
-                <label class="block text-[10px] font-bold text-slate-600 mb-1">Signature Kriptografi (Ed25519 Hex)</label>
+                <label class="block text-[10px] font-bold text-slate-600 mb-1">Tanda Tangan Keamanan Lisensi</label>
                 <input
                   v-model="signatureInput"
                   type="text"
-                  placeholder="Contoh: 753f3b3350bca2a8c5ac8cfcb8005210160013fc3a389de3225411..."
+                  placeholder="Tempelkan kode tanda tangan keamanan di sini..."
                   class="w-full text-xs font-mono p-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600"
                 />
               </div>
@@ -396,7 +396,7 @@ async function handleApplyUpdate() {
                 >
                   <RefreshCw v-if="licenseStore.isLoading" class="w-3.5 h-3.5 animate-spin" />
                   <Key v-else class="w-3.5 h-3.5" />
-                  <span>{{ licenseStore.isLoading ? 'Memvalidasi...' : 'Verifikasi & Simpan Lisensi' }}</span>
+                  <span>{{ licenseStore.isLoading ? 'Memeriksa...' : 'Simpan Lisensi Toko' }}</span>
                 </button>
               </div>
             </div>
@@ -405,7 +405,7 @@ async function handleApplyUpdate() {
         </div>
 
         <!-- ============================================================= -->
-        <!-- TAB 2: SERVER PROVIDER (KONEKSI LOKAL / PRODUCTION) -->
+        <!-- TAB 2: SERVER PROVIDER -->
         <!-- ============================================================= -->
         <div v-else-if="activeTab === 'PROVIDER'" class="space-y-4">
           
@@ -416,9 +416,9 @@ async function handleApplyUpdate() {
                   <Server class="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 class="font-bold text-slate-900 text-sm">Server Provider Lisensi & OTA</h4>
+                  <h4 class="font-bold text-slate-900 text-sm">Pusat Layanan Notane</h4>
                   <p class="text-[11px] text-slate-500">
-                    Endpoint resmi untuk aktivasi online, verifikasi berkala, dan unduhan pembaruan
+                    Sambungan resmi untuk aktivasi dan pembaruan sistem toko
                   </p>
                 </div>
               </div>
@@ -429,7 +429,7 @@ async function handleApplyUpdate() {
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                   : 'bg-amber-50 text-amber-800 border-amber-300'"
               >
-                {{ licenseStore.providerConfig.is_production ? 'Mode: Production Binary' : 'Mode: Local Development' }}
+                {{ licenseStore.providerConfig.is_production ? 'Server Resmi' : 'Server Uji Coba' }}
               </span>
             </div>
 
@@ -438,31 +438,22 @@ async function handleApplyUpdate() {
               <div class="flex items-center justify-between">
                 <label class="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
                   <Globe class="w-3.5 h-3.5 text-indigo-600" />
-                  <span>URL Provider Terhubung</span>
+                  <span>Alamat Server Layanan</span>
                 </label>
-                <span
-                  class="text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold"
-                  :class="licenseStore.providerConfig.has_env_override
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                    : 'bg-slate-100 text-slate-700 border border-slate-200'"
-                >
-                  {{ licenseStore.providerConfig.has_env_override ? '⚡ Environment Variable Override' : '🔒 Binary Default' }}
-                </span>
               </div>
 
               <div class="p-2.5 bg-slate-900 text-emerald-400 font-mono text-xs rounded-lg select-all flex items-center justify-between">
-                <span class="truncate">{{ licenseStore.providerConfig.current_url || 'Memuat URL provider...' }}</span>
-                <span class="text-[10px] text-slate-400 ml-2 shrink-0 font-sans">PORT: 19090</span>
+                <span class="truncate">{{ licenseStore.providerConfig.current_url || 'Memuat alamat server...' }}</span>
               </div>
             </div>
 
-            <!-- Anti-Tamper Security Banner -->
+            <!-- Catatan Keamanan Sambungan -->
             <div class="p-3 rounded-lg border border-indigo-200 bg-indigo-50/60 text-indigo-950 flex items-start gap-2.5 text-xs">
               <Lock class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
               <div class="space-y-1">
-                <div class="font-bold text-indigo-900 text-[11px]">Proteksi Anti-Tampering (Zero-Database Exposure)</div>
+                <div class="font-bold text-indigo-900 text-[11px]">Keamanan Sambungan Lisensi</div>
                 <p class="text-[11px] leading-relaxed text-indigo-800/90">
-                  URL Lisensi Provider <strong>tidak disimpan di tabel database</strong> untuk mengantisipasi manipulasi jika pengguna mengakses database PostgreSQL via DB Client. URL ini terkunci secara aman di binary executable aplikasi atau dikonfigurasi melalui environment variable server (<code class="bg-indigo-100/80 px-1 py-0.5 rounded text-[10px] font-mono">PROVIDER_SERVER_URL</code>).
+                  Alamat server lisensi terlindungi dengan aman di dalam sistem aplikasi untuk menjaga keaslian data toko Anda.
                 </p>
               </div>
             </div>
@@ -476,7 +467,7 @@ async function handleApplyUpdate() {
                 class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
               >
                 <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': licenseStore.isTestingConnection }" />
-                <span>{{ licenseStore.isTestingConnection ? 'Menguji Sambungan...' : 'Uji Koneksi Provider' }}</span>
+                <span>{{ licenseStore.isTestingConnection ? 'Menguji Sambungan...' : 'Uji Sambungan Server' }}</span>
               </button>
             </div>
           </div>
@@ -522,10 +513,10 @@ async function handleApplyUpdate() {
                 POS
               </div>
               <div>
-                <h4 class="font-bold text-slate-900 text-sm">Notane Retail POS Enterprise</h4>
-                <div class="text-xs text-slate-500 font-mono">
+                <h4 class="font-bold text-slate-900 text-sm">Notane Retail Server</h4>
+                <div class="text-xs text-slate-500">
                   Versi Terpasang: <span class="font-bold text-emerald-700">v{{ licenseStore.versionInfo.version }}</span>
-                  | Build: {{ licenseStore.versionInfo.build_date }} ({{ licenseStore.versionInfo.target_os }}/{{ licenseStore.versionInfo.target_arch }})
+                  <span v-if="licenseStore.versionInfo.build_date"> | Rilis: {{ licenseStore.versionInfo.build_date }}</span>
                 </div>
               </div>
             </div>
@@ -537,7 +528,7 @@ async function handleApplyUpdate() {
               class="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
             >
               <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': licenseStore.isCheckingUpdate }" />
-              <span>{{ licenseStore.isCheckingUpdate ? 'Memeriksa...' : 'Periksa Update' }}</span>
+              <span>{{ licenseStore.isCheckingUpdate ? 'Memeriksa...' : 'Periksa Pembaruan' }}</span>
             </button>
           </div>
 
@@ -552,7 +543,7 @@ async function handleApplyUpdate() {
                   <span class="font-extrabold text-slate-900 text-sm">Pembaruan Tersedia: v{{ licenseStore.updateInfo.latest_version }}</span>
                 </div>
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  Rilis Resmi
+                  Versi Baru
                 </span>
               </div>
 
@@ -564,7 +555,7 @@ async function handleApplyUpdate() {
               <!-- Action Update Button -->
               <div class="flex items-center justify-between pt-1">
                 <div class="text-[11px] text-slate-500">
-                  Semua migrasi database & pembaruan frontend/backend akan diterapkan otomatis.
+                  Pembaruan sistem dan struktur data akan diterapkan secara aman dan otomatis.
                 </div>
                 <button
                   type="button"
@@ -573,7 +564,7 @@ async function handleApplyUpdate() {
                   class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   <DownloadCloud class="w-4 h-4" :class="{ 'animate-bounce': licenseStore.isApplyingUpdate }" />
-                  <span>{{ licenseStore.isApplyingUpdate ? 'Mengunduh & Memperbarui...' : 'Perbarui Sekarang (1-Click)' }}</span>
+                  <span>{{ licenseStore.isApplyingUpdate ? 'Mengunduh & Memperbarui...' : 'Perbarui Sekarang' }}</span>
                 </button>
               </div>
             </div>
@@ -581,7 +572,7 @@ async function handleApplyUpdate() {
             <!-- Up-to-date -->
             <div v-else class="p-6 rounded-xl border border-slate-200 bg-white text-center space-y-2">
               <CheckCircle2 class="w-8 h-8 text-emerald-500 mx-auto" />
-              <h4 class="font-bold text-slate-800 text-sm">Aplikasi Anda Sudah Menggunakan Versi Terbaru</h4>
+              <h4 class="font-bold text-slate-800 text-sm">Server Anda Sudah Menggunakan Versi Terbaru</h4>
               <p class="text-xs text-slate-500 max-w-md mx-auto">
                 {{ licenseStore.updateInfo.message }}
               </p>
@@ -589,7 +580,7 @@ async function handleApplyUpdate() {
           </div>
           
           <div v-else class="p-6 rounded-xl border border-dashed border-slate-300 text-center text-slate-500 text-xs">
-            Klik tombol <strong>"Periksa Update"</strong> untuk memeriksa apakah tersedia rilis versi terbaru dari Provider Notane.
+            Klik tombol <strong>"Periksa Pembaruan"</strong> untuk memeriksa apakah tersedia versi terbaru untuk server toko Anda.
           </div>
         </div>
 
@@ -597,9 +588,9 @@ async function handleApplyUpdate() {
 
       <!-- Modal Footer -->
       <div class="px-6 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-        <div class="flex items-center gap-1.5 font-mono text-[11px]">
+        <div class="flex items-center gap-1.5 text-[11px]">
           <Layers class="w-3.5 h-3.5 text-slate-400" />
-          <span>Notane Provider Licensing Core 2026</span>
+          <span>Sistem Kasir & Server Notane POS</span>
         </div>
         <button
           type="button"

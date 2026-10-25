@@ -17,7 +17,7 @@ onMounted(() => {
 const hubSections = computed(() => {
   const allSections = [
     {
-      category: 'MASTER DATA ENTERPRISE',
+      category: 'DATA MASTER TOKO',
       tiles: [
         {
           title: 'Master Outlet & Gerai',

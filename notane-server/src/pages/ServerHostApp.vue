@@ -732,29 +732,29 @@ const restartServer = async () => {
           </p>
         </div>
 
-        <!-- Card 3: Database PostgreSQL -->
+        <!-- Card 3: Database Data Toko -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 space-y-3 shadow-xs">
           <div class="flex items-center justify-between text-slate-500 text-xs">
             <span class="font-bold flex items-center gap-1.5 uppercase tracking-wider text-slate-700">
               <Database class="w-4 h-4 text-indigo-600" />
-              Mesin Database
+              Penyimpanan Data Toko
             </span>
-            <span class="text-[11px] font-mono text-emerald-700 font-bold">PORT 15432</span>
+            <span class="text-[11px] text-emerald-700 font-bold">Aktif</span>
           </div>
 
           <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between">
-            <span class="font-mono text-xs font-bold text-slate-800">
-              PostgreSQL Terisolasi
+            <span class="text-xs font-bold text-slate-800">
+              Pusat Data Siap
             </span>
             <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
           </div>
           <p class="text-[11px] text-slate-500 leading-relaxed">
-            Database terisolasi berjalan mandiri tanpa mengganggu software atau aplikasi lain di komputer ini.
+            Menyimpan seluruh data penjualan, produk, dan laporan toko Anda secara aman di komputer ini.
           </p>
         </div>
       </div>
 
-      <!-- 3. SISTEM LISENSI & HARDWARE ID HOST (Khusus Server Host) -->
+      <!-- 3. SISTEM LISENSI & PERANGKAT KOMPUTER -->
       <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
           <div class="flex items-center gap-3">
@@ -764,7 +764,7 @@ const restartServer = async () => {
             <div>
               <div class="flex items-center gap-2">
                 <h3 class="text-sm font-black text-slate-900 uppercase tracking-tight">
-                  Lisensi Server & Hardware ID Mesin
+                  Informasi Lisensi & Perangkat
                 </h3>
                 <span
                   class="font-black px-2 py-0.5 rounded-full text-[10px] border flex items-center gap-1 inline-flex"
@@ -777,11 +777,11 @@ const restartServer = async () => {
                   <CheckCircle2 v-if="isLicenseActive" class="w-3 h-3 text-emerald-600" />
                   <AlertTriangle v-else-if="isGracePeriod" class="w-3 h-3 text-amber-600" />
                   <XCircle v-else class="w-3 h-3 text-rose-600" />
-                  <span>{{ licenseStore.licenseInfo.status }}</span>
+                  <span>{{ isLicenseActive ? 'AKTIF' : isGracePeriod ? 'MASA TENGGANG' : 'BELUM DIAKTIVASI' }}</span>
                 </span>
               </div>
               <p class="text-xs text-slate-500">
-                Proteksi Asimetris Kriptografi Ed25519 & Node-Locking Server Notane Retail
+                Status lisensi resmi untuk komputer server toko ini
               </p>
             </div>
           </div>
@@ -804,7 +804,7 @@ const restartServer = async () => {
             <div class="flex items-center justify-between text-xs">
               <span class="font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
                 <Cpu class="w-4 h-4 text-indigo-600" />
-                Hardware ID (HWID Mesin Server)
+                Kode Perangkat Komputer (ID Mesin)
               </span>
               <button
                 type="button"
@@ -813,14 +813,14 @@ const restartServer = async () => {
               >
                 <Check v-if="copiedHwid" class="w-3 h-3 text-emerald-600" />
                 <Copy v-else class="w-3 h-3" />
-                <span>{{ copiedHwid ? 'Tersalin' : 'Salin HWID' }}</span>
+                <span>{{ copiedHwid ? 'Tersalin' : 'Salin Kode' }}</span>
               </button>
             </div>
             <div class="font-mono font-bold text-xs text-slate-900 bg-white p-2.5 rounded-lg border border-slate-200 break-all select-all">
-              {{ licenseStore.licenseInfo.current_hardware_id || 'Memuat HWID...' }}
+              {{ licenseStore.licenseInfo.current_hardware_id || 'Memuat kode...' }}
             </div>
             <p class="text-[11px] text-slate-500">
-              Salin kode HWID ini dan serahkan kepada Provider Notane untuk penerbitan token lisensi resmi.
+              Gunakan kode perangkat ini jika Anda perlu mendaftarkan atau memperbarui lisensi toko.
             </p>
           </div>
 
@@ -916,11 +916,11 @@ const restartServer = async () => {
     <!-- Footer Status Bar -->
     <footer class="bg-white border-t border-slate-200 px-6 py-2.5 text-[11px] text-slate-500 flex items-center justify-between">
       <div class="flex items-center gap-4">
-        <span>Versi Host: <strong class="text-slate-700">v{{ licenseStore.versionInfo.version }} Enterprise</strong></span>
-        <span>Uptime: <strong class="font-mono text-slate-700">{{ networkStore.hostStatus.uptime_seconds || 0 }} detik</strong></span>
+        <span>Versi Server: <strong class="text-slate-700">v{{ licenseStore.versionInfo.version }}</strong></span>
+        <span>Waktu Aktif: <strong class="font-mono text-slate-700">{{ networkStore.hostStatus.uptime_seconds || 0 }} detik</strong></span>
       </div>
       <div>
-        <span>Notane Retail &copy; 2026. Mode Host Server Aktif.</span>
+        <span>Notane Retail &copy; 2026. Server Toko Siap.</span>
       </div>
     </footer>
 

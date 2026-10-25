@@ -20,12 +20,12 @@ const providerStore = useProviderStore()
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'Klien Tenant', path: '/clients', icon: Users, badge: () => providerStore.status.total_clients },
+  { name: 'Pelanggan Toko', path: '/clients', icon: Users, badge: () => providerStore.status.total_clients },
   { name: 'Daftar Lisensi', path: '/licenses', icon: KeyRound, badge: () => providerStore.status.total_licenses },
-  { name: 'Offline Signer', path: '/signer', icon: FileSignature },
-  { name: 'Hardware Node-Lock', path: '/devices', icon: Cpu, badge: () => providerStore.status.total_devices },
-  { name: 'Rilis Pembaruan (OTA)', path: '/releases', icon: Layers },
-  { name: 'Audit & Keamanan', path: '/audit', icon: ShieldAlert },
+  { name: 'Aktivasi Manual', path: '/signer', icon: FileSignature },
+  { name: 'Perangkat Kasir', path: '/devices', icon: Cpu, badge: () => providerStore.status.total_devices },
+  { name: 'Pembaruan Aplikasi', path: '/releases', icon: Layers },
+  { name: 'Catatan Keamanan', path: '/audit', icon: ShieldAlert },
   { name: 'Pengaturan', path: '/settings', icon: Settings },
 ]
 
@@ -46,9 +46,9 @@ const serverStatusColor = computed(() => {
           <div>
             <div class="font-bold text-sm text-white tracking-wide flex items-center gap-1.5">
               <span>NOTANE</span>
-              <span class="text-[10px] bg-brand-500/20 text-brand-400 px-1.5 py-0.5 rounded font-mono font-semibold">PROVIDER</span>
+              <span class="text-[10px] bg-brand-500/20 text-brand-400 px-1.5 py-0.5 rounded font-semibold">MANAGER</span>
             </div>
-            <div class="text-[11px] text-slate-400">License & OTA Studio</div>
+            <div class="text-[11px] text-slate-400">Pengelolaan Lisensi Toko</div>
           </div>
         </div>
       </div>

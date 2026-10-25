@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Notane Retail POS - Enterprise Edition",
+        "title": "Notane Retail POS",
         "width": 1280,
         "height": 800,
         "resizable": true,

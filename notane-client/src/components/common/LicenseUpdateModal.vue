@@ -93,7 +93,7 @@ async function handleApplyUpdate() {
               </span>
             </h3>
             <p class="text-xs text-slate-300">
-              Proteksi Asimetris Ed25519, Node-Locking, & Auto-Updater Notane POS
+              Informasi lisensi toko dan status pembaruan
             </p>
           </div>
         </div>
@@ -280,10 +280,10 @@ async function handleApplyUpdate() {
                 POS
               </div>
               <div>
-                <h4 class="font-bold text-slate-900 text-sm">Notane Retail POS Enterprise</h4>
-                <div class="text-xs text-slate-500 font-mono">
+                <h4 class="font-bold text-slate-900 text-sm">Notane Retail POS</h4>
+                <div class="text-xs text-slate-500">
                   Versi Terpasang: <span class="font-bold text-emerald-700">v{{ licenseStore.versionInfo.version }}</span>
-                  | Build: {{ licenseStore.versionInfo.build_date }} ({{ licenseStore.versionInfo.target_os }}/{{ licenseStore.versionInfo.target_arch }})
+                  <span v-if="licenseStore.versionInfo.build_date"> | Rilis: {{ licenseStore.versionInfo.build_date }}</span>
                 </div>
               </div>
             </div>
@@ -295,7 +295,7 @@ async function handleApplyUpdate() {
               class="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
             >
               <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': licenseStore.isCheckingUpdate }" />
-              <span>{{ licenseStore.isCheckingUpdate ? 'Memeriksa...' : 'Periksa Update' }}</span>
+              <span>{{ licenseStore.isCheckingUpdate ? 'Memeriksa...' : 'Periksa Pembaruan' }}</span>
             </button>
           </div>
 
@@ -310,7 +310,7 @@ async function handleApplyUpdate() {
                   <span class="font-extrabold text-slate-900 text-sm">Pembaruan Tersedia: v{{ licenseStore.updateInfo.latest_version }}</span>
                 </div>
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  Rilis Resmi
+                  Versi Baru
                 </span>
               </div>
 
@@ -322,7 +322,7 @@ async function handleApplyUpdate() {
               <!-- Action Update Button -->
               <div class="flex items-center justify-between pt-1">
                 <div class="text-[11px] text-slate-500">
-                  Semua migrasi database & pembaruan frontend/backend akan diterapkan otomatis.
+                  Pembaruan aplikasi kasir akan diterapkan secara aman dan otomatis.
                 </div>
                 <button
                   type="button"
@@ -331,7 +331,7 @@ async function handleApplyUpdate() {
                   class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   <DownloadCloud class="w-4 h-4" :class="{ 'animate-bounce': licenseStore.isApplyingUpdate }" />
-                  <span>{{ licenseStore.isApplyingUpdate ? 'Mengunduh & Memperbarui...' : 'Perbarui Sekarang (1-Click)' }}</span>
+                  <span>{{ licenseStore.isApplyingUpdate ? 'Mengunduh & Memperbarui...' : 'Perbarui Sekarang' }}</span>
                 </button>
               </div>
             </div>
@@ -355,9 +355,9 @@ async function handleApplyUpdate() {
 
       <!-- Modal Footer -->
       <div class="px-6 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-        <div class="flex items-center gap-1.5 font-mono text-[11px]">
+        <div class="flex items-center gap-1.5 text-[11px]">
           <Layers class="w-3.5 h-3.5 text-slate-400" />
-          <span>Notane Provider Licensing Core 2026</span>
+          <span>Sistem Kasir Notane POS</span>
         </div>
         <button
           type="button"
