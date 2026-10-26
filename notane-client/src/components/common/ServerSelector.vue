@@ -28,7 +28,7 @@ const scanProgress = ref<{ current: number; total: number }>({ current: 0, total
 const discoveredServers = ref<DiscoveredServer[]>([])
 
 const manualHost = ref<string>(networkStore.targetHost || '127.0.0.1')
-const manualPort = ref<number>(networkStore.targetPort || 18080)
+const manualPort = ref<number | string | undefined>(networkStore.targetPort || '')
 const pairingCodeInput = ref<string>(networkStore.pairingCode || 'NOTANE-8899')
 
 const isConnecting = ref<boolean>(false)
@@ -39,7 +39,7 @@ const isConnected = computed(() => networkStore.connectionStatus === 'CONNECTED'
 
 onMounted(async () => {
   manualHost.value = networkStore.targetHost
-  manualPort.value = networkStore.targetPort
+  manualPort.value = networkStore.targetPort || ''
   pairingCodeInput.value = networkStore.pairingCode
 
   // Load cached discovered servers if available
@@ -78,14 +78,50 @@ async function handleConnect() {
   connectionSuccess.value = ''
 
   try {
+    let host = (manualHost.value || '').trim()
+    let port: number | undefined = undefined
+
+    if (manualPort.value !== undefined && manualPort.value !== '' && !isNaN(Number(manualPort.value))) {
+      const p = Number(manualPort.value)
+      if (p > 0) port = p
+    }
+
+    // Jika user memasukkan port di dalam input host (misal: domain.com:8080 atau http://domain.com:18080)
+    if (host.includes('://')) {
+      try {
+        const parsed = new URL(host)
+        if (parsed.port && !port) {
+          port = Number(parsed.port)
+        }
+      } catch (_) {}
+    } else if (host.includes(':')) {
+      const parts = host.split(':')
+      if (parts.length === 2 && !isNaN(Number(parts[1]))) {
+        host = parts[0]
+        if (!port) {
+          port = Number(parts[1])
+        }
+      }
+    }
+
+    // Jika berupa IP lokal numerik dan port tidak diisi, gunakan port default 18080
+    const isIpv4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(host)
+    if (isIpv4 && !port) {
+      port = 18080
+    }
+
     const ok = await networkStore.connect({
-      host: manualHost.value,
-      port: manualPort.value,
+      host,
+      port,
       pairingCode: pairingCodeInput.value,
+      deviceId: networkStore.deviceId,
+      deviceName: networkStore.deviceName,
+      deviceType: networkStore.deviceType,
     })
 
     if (ok) {
-      connectionSuccess.value = `Berhasil terhubung ke server ${manualHost.value}:${manualPort.value}`
+      const displayTarget = port ? `${host}:${port}` : host
+      connectionSuccess.value = `Berhasil terhubung ke server ${displayTarget}`
       emit('connected')
     } else {
       connectionError.value = networkStore.disconnectReason || 'Gagal terhubung ke host server'
@@ -261,24 +297,29 @@ async function handleConnect() {
     <div v-if="activeTab === 'MANUAL'" class="space-y-3">
       <div class="grid grid-cols-3 gap-2">
         <div class="col-span-2">
-          <label class="block text-[11px] font-bold text-slate-700 mb-1">Alamat IP Server Host (LAN / Cloud)</label>
+          <label class="block text-[11px] font-bold text-slate-700 mb-1">Alamat IP / Domain Server Host</label>
           <input
             v-model="manualHost"
             type="text"
-            placeholder="192.168.1.15 atau 127.0.0.1"
+            placeholder="192.168.1.15 atau pos.domain.com"
             class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
           />
         </div>
         <div>
-          <label class="block text-[11px] font-bold text-slate-700 mb-1">Port</label>
+          <label class="block text-[11px] font-bold text-slate-700 mb-1">
+            Port <span class="font-normal text-slate-400">(Opsional)</span>
+          </label>
           <input
-            v-model.number="manualPort"
+            v-model="manualPort"
             type="number"
-            placeholder="18080"
+            placeholder="Opsional (18080)"
             class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
           />
         </div>
       </div>
+      <p class="text-[10px] text-slate-500 leading-tight">
+        *Jika server berada di Cloud / VPS menggunakan domain (misal: <code>pos.domain.com</code>), kolom <strong>Port</strong> tidak perlu diisi.
+      </p>
 
       <!-- Pairing Code -->
       <div>

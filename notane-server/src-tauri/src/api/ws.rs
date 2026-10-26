@@ -40,6 +40,7 @@ pub struct ServerStatus {
     pub started_at: Option<DateTime<Utc>>,
     pub uptime_seconds: u64,
     pub host_ips: Vec<String>,
+    pub host_url: Option<String>,
     pub total_connected_devices: usize,
     pub pairing_code: String,
 }
@@ -104,6 +105,23 @@ impl AppState {
             loop {
                 interval.tick().await;
                 if *state.is_running.read().await {
+                    // Auto-cleanup perangkat client mati / zombie (> 25 detik tanpa respons)
+                    let stale_device_ids: Vec<String> = {
+                        let devs = state.devices.read().await;
+                        devs.values()
+                            .filter(|d| d.device_type != "HOST" && d.device_id != "HOST-SERVER")
+                            .filter(|d| (Utc::now() - d.last_heartbeat).num_seconds() > 25)
+                            .map(|d| d.device_id.clone())
+                            .collect()
+                    };
+                    for stale_id in stale_device_ids {
+                        warn!(
+                            "[HEARTBEAT SCHEDULER] Menghapus perangkat kasir tidak aktif/zombie '{}' dari daftar perangkat terhubung (Timeout > 25s)",
+                            stale_id
+                        );
+                        state.unregister_device(&stale_id).await;
+                    }
+
                     let total_devices = state
                         .devices
                         .read()
@@ -365,6 +383,27 @@ impl AppState {
             .ok()
             .and_then(|p| p.parse::<u16>().ok());
 
+        let host_url = std::env::var("HOST_URL")
+            .or_else(|_| std::env::var("SERVER_URL"))
+            .or_else(|_| std::env::var("PUBLIC_URL"))
+            .ok()
+            .map(|s| s.trim().trim_end_matches('/').to_string())
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                if let Ok(ip_or_domain) = std::env::var("HOST_IP") {
+                    let trimmed = ip_or_domain.trim();
+                    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+                        Some(trimmed.trim_end_matches('/').to_string())
+                    } else if trimmed.contains('.') && trimmed.chars().any(|c| c.is_alphabetic()) {
+                        Some(format!("https://{}", trimmed.trim_end_matches('/')))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            });
+
         ServerStatus {
             is_running: running,
             port: self.port,
@@ -373,6 +412,7 @@ impl AppState {
             started_at: started,
             uptime_seconds: uptime,
             host_ips: Self::get_local_ips(),
+            host_url,
             total_connected_devices: count,
             pairing_code: pairing,
         }
@@ -594,20 +634,24 @@ async fn handle_socket(
 
     let device_id = query
         .device_id
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
         .unwrap_or_else(|| {
             if is_host_connection {
                 "HOST-SERVER".to_string()
             } else {
-                format!("TERMINAL-{}", &uuid::Uuid::new_v4().to_string()[..6])
+                format!("TERMINAL-{}", &uuid::Uuid::new_v4().to_string()[..6].to_uppercase())
             }
         });
     let device_name = query
         .device_name
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
         .unwrap_or_else(|| {
             if is_host_connection {
                 "Host Server Manager".to_string()
             } else {
-                format!("Perangkat {}", &device_id)
+                device_id.clone()
             }
         });
     let device_type = query
@@ -620,6 +664,49 @@ async fn handle_socket(
             }
         });
     let user_name = query.user_name;
+
+    // 2. Verifikasi Batas Kuota Lisensi untuk Terminal Client Kasir
+    if !is_host_connection {
+        let pool_guard = state.pool.read().await;
+        if let Some(ref pool) = *pool_guard {
+            let lic = crate::services::license_service::LicenseService::check_current_license(pool).await;
+
+            let already_connected = {
+                let devs = state.devices.read().await;
+                devs.contains_key(&device_id)
+            };
+
+            if !already_connected {
+                let current_client_count = state
+                    .devices
+                    .read()
+                    .await
+                    .values()
+                    .filter(|d| d.device_type != "HOST" && d.device_id != "HOST-SERVER")
+                    .count();
+
+                let max_terminals = if lic.max_terminals > 0 { lic.max_terminals as usize } else { 1 };
+
+                if current_client_count >= max_terminals {
+                    warn!(
+                        "[LICENSE QUOTA EXCEEDED] Menolak koneksi terminal kasir '{}' ({}) dari IP {}. Kuota perangkat kasir penuh ({}/{} perangkat aktif). Status Lisensi: {:?}",
+                        device_id, device_name, client_addr, current_client_count, max_terminals, lic.status
+                    );
+                    let rejection = serde_json::json!({
+                        "type": "CONNECTION_REJECTED",
+                        "code": "LICENSE_QUOTA_EXCEEDED",
+                        "message": format!(
+                            "Batas kuota perangkat terminal kasir ({}) telah tercapai sesuai lisensi Anda. Komputer kasir baru tidak dapat terhubung. Silakan tingkatkan paket lisensi Anda untuk menambah kuota komputer kasir.",
+                            max_terminals
+                        )
+                    });
+                    let _ = sender.send(Message::Text(rejection.to_string().into())).await;
+                    let _ = sender.send(Message::Close(None)).await;
+                    return;
+                }
+            }
+        }
+    }
 
     let device_record = ConnectedDevice {
         device_id: device_id.clone(),

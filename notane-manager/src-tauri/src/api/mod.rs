@@ -33,25 +33,36 @@ pub struct ApiState {
 
 #[derive(Debug, Deserialize)]
 pub struct ActivateRequest {
+    #[serde(alias = "licenseKey")]
     pub license_key: String,
+    #[serde(alias = "hardwareId", alias = "hwid")]
     pub hardware_id: String,
+    #[serde(alias = "deviceName")]
     pub device_name: Option<String>,
+    #[serde(alias = "appVersion")]
     pub app_version: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct VerifyRequest {
+    #[serde(alias = "licenseKey")]
     pub license_key: String,
+    #[serde(alias = "hardwareId", alias = "hwid")]
     pub hardware_id: String,
+    #[serde(alias = "appVersion")]
     pub app_version: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateCheckRequest {
+    #[serde(alias = "currentVersion")]
     pub current_version: String,
     pub component: Option<String>,      // "server" | "client" (defaults to "server")
+    #[serde(alias = "serverVersion")]
     pub server_version: Option<String>, // sent by client to verify compatibility
+    #[serde(alias = "hardwareId", alias = "hwid")]
     pub hardware_id: Option<String>,
+    #[serde(alias = "licenseKey")]
     pub license_key: Option<String>,
 }
 

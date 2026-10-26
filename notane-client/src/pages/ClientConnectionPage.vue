@@ -17,7 +17,7 @@ import {
 const networkStore = useNetworkStore()
 
 const hostInput = ref(networkStore.targetHost)
-const portInput = ref(networkStore.targetPort)
+const portInput = ref<number | string | undefined>(networkStore.targetPort || '')
 const deviceIdInput = ref(networkStore.deviceId)
 const deviceNameInput = ref(networkStore.deviceName)
 const deviceTypeInput = ref(networkStore.deviceType)
@@ -40,7 +40,7 @@ const isConnected = computed(() => networkStore.connectionStatus === 'CONNECTED'
 
 onMounted(() => {
   hostInput.value = networkStore.targetHost
-  portInput.value = networkStore.targetPort
+  portInput.value = networkStore.targetPort || ''
   deviceIdInput.value = networkStore.deviceId
   deviceNameInput.value = networkStore.deviceName
   deviceTypeInput.value = networkStore.deviceType
@@ -72,7 +72,8 @@ const handleTestPing = async () => {
   isTestingPing.value = true
   pingResult.value = null
   try {
-    const res = await networkStore.pingServer(hostInput.value, portInput.value)
+    const port = portInput.value !== undefined && portInput.value !== '' && !isNaN(Number(portInput.value)) ? Number(portInput.value) : undefined
+    const res = await networkStore.pingServer(hostInput.value, port)
     pingResult.value = res
     if (res.success) {
       showNotice('success', `Server merespons dalam waktu ${res.latency} ms`)
@@ -87,9 +88,10 @@ const handleTestPing = async () => {
 const handleConnect = async () => {
   isConnecting.value = true
   try {
+    const port = portInput.value !== undefined && portInput.value !== '' && !isNaN(Number(portInput.value)) ? Number(portInput.value) : undefined
     networkStore.saveConnectionSettings(
       hostInput.value,
-      portInput.value,
+      port,
       deviceIdInput.value,
       deviceNameInput.value,
       deviceTypeInput.value,
@@ -247,14 +249,15 @@ function showNotice(type: 'success' | 'error', message: string) {
 
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">
-                  Port Server <span class="text-rose-500">*</span>
+                  Port Server <span class="font-normal text-slate-400">(Opsional)</span>
                 </label>
                 <input
                   v-model="portInput"
                   type="number"
-                  placeholder="18080"
+                  placeholder="Opsional (18080)"
                   class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                <p class="text-[11px] text-slate-400 mt-1">Kosongkan jika menggunakan domain server cloud.</p>
               </div>
             </div>
 

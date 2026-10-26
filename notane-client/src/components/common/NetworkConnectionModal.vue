@@ -15,7 +15,7 @@ const networkStore = useNetworkStore()
 import { discoveryService } from '@/services/discoveryService'
 
 const hostInput = ref(networkStore.targetHost)
-const portInput = ref(networkStore.targetPort)
+const portInput = ref<number | string | undefined>(networkStore.targetPort || '')
 const deviceIdInput = ref(networkStore.deviceId)
 const deviceNameInput = ref(networkStore.deviceName)
 const deviceTypeInput = ref(networkStore.deviceType)
@@ -32,7 +32,7 @@ const isConnected = computed(() => networkStore.connectionStatus === 'CONNECTED'
 
 onMounted(() => {
   hostInput.value = networkStore.targetHost
-  portInput.value = networkStore.targetPort
+  portInput.value = networkStore.targetPort || ''
   deviceIdInput.value = networkStore.deviceId
   deviceNameInput.value = networkStore.deviceName
   deviceTypeInput.value = networkStore.deviceType
@@ -68,7 +68,8 @@ const handleTestPing = async () => {
   pingResult.value = null
   connectionError.value = ''
   try {
-    const res = await networkStore.pingServer(hostInput.value, portInput.value)
+    const port = portInput.value !== undefined && portInput.value !== '' && !isNaN(Number(portInput.value)) ? Number(portInput.value) : undefined
+    const res = await networkStore.pingServer(hostInput.value, port)
     pingResult.value = res
   } finally {
     isTestingPing.value = false
@@ -79,9 +80,10 @@ const handleConnect = async () => {
   isConnecting.value = true
   connectionError.value = ''
   try {
+    const port = portInput.value !== undefined && portInput.value !== '' && !isNaN(Number(portInput.value)) ? Number(portInput.value) : undefined
     networkStore.saveConnectionSettings(
       hostInput.value,
-      portInput.value,
+      port,
       deviceIdInput.value,
       deviceNameInput.value,
       deviceTypeInput.value,
@@ -197,15 +199,20 @@ const handleDisconnect = () => {
               />
             </div>
             <div>
-              <label class="block font-semibold mb-1 text-slate-600">Port Server</label>
+              <label class="block font-semibold mb-1 text-slate-600">
+                Port Server <span class="font-normal text-slate-400">(Opsional)</span>
+              </label>
               <input
-                v-model.number="portInput"
+                v-model="portInput"
                 type="number"
-                placeholder="18080"
+                placeholder="Opsional (18080)"
                 class="w-full px-2.5 py-1.5 border border-slate-300 rounded-sm font-mono text-xs focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
               />
             </div>
           </div>
+          <p class="text-[10px] text-slate-500">
+            *Jika server berada di Cloud / VPS menggunakan domain, kolom <strong>Port</strong> dapat dikosongkan.
+          </p>
 
           <div class="flex items-center gap-2 pt-1">
             <button

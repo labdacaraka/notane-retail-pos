@@ -16,6 +16,7 @@ services:
       BRAND_NAME: ${BRAND_NAME:-Notane Retail}
       WEB_DIST: /app/dist
       PRODUCT_IMAGES_DIR: /app/uploads
+      HOST_URL: ${HOST_URL:-}
       HOST_IP: ${HOST_IP:-}
       HOST_IPS: ${HOST_IPS:-}
       PROVIDER_SERVER_URL: ${PROVIDER_SERVER_URL:-https://license.notaneretail.com}

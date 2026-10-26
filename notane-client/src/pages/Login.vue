@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Lock,
@@ -23,9 +23,18 @@ const networkStore = useNetworkStore()
 const storeBrandingStore = useStoreBrandingStore()
 
 // Form Login State (Mode Client Kasir & Back-Office)
-const username = ref<string>('admin')
-const password = ref<string>('admin123')
-const terminalId = ref<string>(authStore.terminalId || 'KASIR-01')
+const username = ref<string>('')
+const password = ref<string>('')
+
+// Muat nama terminal tersimpan (prioritaskan nama kustom yang pernah disimpan pengguna)
+const initialTerminal =
+  localStorage.getItem('notane_device_name') ||
+  localStorage.getItem('notane_terminal') ||
+  localStorage.getItem('notane_device_id') ||
+  authStore.terminalId ||
+  'KASIR-01'
+
+const terminalId = ref<string>(initialTerminal)
 const isLoggingIn = ref<boolean>(false)
 const errorMsg = ref<string>('')
 
@@ -38,9 +47,47 @@ const isCheckingServer = ref<boolean>(false)
 
 const isConnected = computed(() => networkStore.connectionStatus === 'CONNECTED')
 
+function syncTerminalIdentity(name: string) {
+  const clean = (name || 'KASIR-01').trim()
+  const upper = clean.toUpperCase()
+  networkStore.deviceId = upper
+  networkStore.deviceName = clean
+  authStore.terminalId = upper
+
+  let type: 'CASHIER' | 'BACKOFFICE' | 'TABLET' = 'CASHIER'
+  if (upper.includes('BACKOFFICE') || upper.includes('BO-')) {
+    type = 'BACKOFFICE'
+  } else if (upper.includes('TABLET')) {
+    type = 'TABLET'
+  }
+  networkStore.deviceType = type
+
+  localStorage.setItem('notane_terminal', upper)
+  localStorage.setItem('notane_device_id', upper)
+  localStorage.setItem('notane_device_name', clean)
+  localStorage.setItem('notane_device_type', type)
+}
+
+// Watcher agar ketika pengguna mengetik nama terminal kasir baru, identitas langsung terdaftar di server
+let reconnectDebounce: any = null
+watch(terminalId, (newVal) => {
+  syncTerminalIdentity(newVal)
+  if (reconnectDebounce) clearTimeout(reconnectDebounce)
+  reconnectDebounce = setTimeout(async () => {
+    if (networkStore.connectionStatus === 'CONNECTED' || networkStore.connectionIntent === 'CONNECTED') {
+      await networkStore.connect({
+        deviceId: networkStore.deviceId,
+        deviceName: networkStore.deviceName,
+        deviceType: networkStore.deviceType,
+      })
+    }
+  }, 500)
+})
+
 onMounted(async () => {
-  // Pastikan node role adalah client
+  // Pastikan node role adalah client dan sinkronkan identitas terminal
   networkStore.setNodeRole('CLIENT')
+  syncTerminalIdentity(terminalId.value)
   cachedProductsCount.value = offlineStorage.getCachedProductsCount()
   pendingQueueCount.value = offlineStorage.getPendingQueueCount()
   storeBrandingStore.fetchBranding().catch(() => {})
@@ -48,13 +95,18 @@ onMounted(async () => {
 })
 
 async function checkClientConnection() {
+  syncTerminalIdentity(terminalId.value)
   if (networkStore.connectionStatus === 'CONNECTED') {
     storeBrandingStore.fetchBranding().catch(() => {})
     return
   }
   isCheckingServer.value = true
   try {
-    await networkStore.connect()
+    await networkStore.connect({
+      deviceId: networkStore.deviceId,
+      deviceName: networkStore.deviceName,
+      deviceType: networkStore.deviceType,
+    })
     storeBrandingStore.fetchBranding().catch(() => {})
   } catch {
     // Handled by store
@@ -70,7 +122,7 @@ function handleServerConnected() {
 
 async function submitLogin(targetRoute: string = '/') {
   if (!isConnected.value) {
-    errorMsg.value = 'Terminal kasir belum terhubung ke Server Host. Silakan pilih dan sambungkan server terlebih dahulu.'
+    errorMsg.value = networkStore.disconnectReason || 'Terminal kasir belum terhubung ke Server Host. Silakan pilih dan sambungkan server terlebih dahulu.'
     return
   }
 
@@ -78,7 +130,19 @@ async function submitLogin(targetRoute: string = '/') {
   errorMsg.value = ''
 
   try {
-    await authStore.login(username.value, password.value, terminalId.value)
+    const chosenTerminal = (terminalId.value || 'KASIR-01').trim()
+    syncTerminalIdentity(chosenTerminal)
+
+    // Pastikan koneksi WebSocket aktif dengan nama terminal terkini
+    if (networkStore.connectionStatus === 'CONNECTED') {
+      await networkStore.connect({
+        deviceId: networkStore.deviceId,
+        deviceName: networkStore.deviceName,
+        deviceType: networkStore.deviceType,
+      })
+    }
+
+    await authStore.login(username.value, password.value, chosenTerminal)
     router.push(targetRoute)
   } catch (err: any) {
     if (err.message === 'Network Error' || !err.response) {
@@ -194,22 +258,48 @@ function handleLogin() {
             </div>
 
             <form @submit.prevent="handleLogin" class="space-y-3">
-              <!-- Terminal Selection -->
+              <!-- Terminal / Client Computer Name Selection & Custom Input -->
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Nomor Terminal</label>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-xs font-bold text-slate-700">Nama / Nomor Terminal Komputer</label>
+                  <span class="text-[10px] text-slate-500 font-medium">Bisa ketik nama bebas atau pilih preset</span>
+                </div>
                 <div class="relative">
                   <Terminal class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <select
+                  <input
                     v-model="terminalId"
-                    class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-xs font-mono text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
-                  >
-                    <option value="KASIR-01">KASIR-01 (Terminal Kasir 1)</option>
-                    <option value="KASIR-02">KASIR-02 (Terminal Kasir 2)</option>
-                    <option value="KASIR-03">KASIR-03 (Terminal Kasir 3)</option>
-                    <option value="BACKOFFICE-01">BACKOFFICE-01 (Admin & Laporan)</option>
-                    <option value="TABLET-01">TABLET-01 (Tablet Pramusaji)</option>
-                  </select>
+                    type="text"
+                    required
+                    list="terminal-presets"
+                    placeholder="Contoh: KASIR-01, Kasir Depan, Backoffice..."
+                    class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-24 py-2 text-xs font-mono font-bold text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
+                  />
+                  <!-- Preset dropdown shortcut inside input -->
+                  <div class="absolute right-1.5 top-1/2 -translate-y-1/2">
+                    <select
+                      @change="(e) => { const val = (e.target as HTMLSelectElement).value; if (val) terminalId = val; (e.target as HTMLSelectElement).value = ''; }"
+                      class="text-[10px] bg-slate-200/80 hover:bg-slate-300 text-slate-700 font-sans font-semibold rounded px-1.5 py-1 border border-slate-300 cursor-pointer focus:outline-none"
+                      title="Pilih nama preset terminal"
+                    >
+                      <option value="" disabled selected>Pilih Preset ▾</option>
+                      <option value="KASIR-01">KASIR-01 (Kasir 1)</option>
+                      <option value="KASIR-02">KASIR-02 (Kasir 2)</option>
+                      <option value="KASIR-03">KASIR-03 (Kasir 3)</option>
+                      <option value="BACKOFFICE-01">BACKOFFICE-01 (Admin)</option>
+                      <option value="TABLET-01">TABLET-01 (Tablet)</option>
+                    </select>
+                  </div>
+                  <datalist id="terminal-presets">
+                    <option value="KASIR-01">Terminal Kasir 1</option>
+                    <option value="KASIR-02">Terminal Kasir 2</option>
+                    <option value="KASIR-03">Terminal Kasir 3</option>
+                    <option value="BACKOFFICE-01">Admin & Laporan</option>
+                    <option value="TABLET-01">Tablet Pramusaji</option>
+                  </datalist>
                 </div>
+                <p class="text-[10px] text-slate-400 mt-1">
+                  Nama ini akan dicatat pada nota transaksi kasir dan identitas perangkat yang terhubung ke Server Host.
+                </p>
               </div>
 
               <!-- Username -->

@@ -11,7 +11,6 @@ import {
   EyeOff,
   Radio,
   AlertCircle,
-  Sparkles,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -19,7 +18,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const activeTab = ref<'password' | 'pin'>('password')
-const username = ref('admin')
+const username = ref('')
 const password = ref('')
 const pin = ref('')
 const showPassword = ref(false)
@@ -238,20 +237,6 @@ function handlePinClear() {
             <span>{{ isLoading ? 'Membuka Akses...' : 'Buka Kunci PIN' }}</span>
           </button>
         </form>
-
-        <!-- Default Credentials Hint -->
-        <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 space-y-1">
-          <div class="flex items-center gap-1.5 text-slate-300 font-semibold">
-            <Sparkles class="w-3.5 h-3.5 text-brand-400" />
-            <span>Kredensial Bawaan Pertama Kali:</span>
-          </div>
-          <div class="font-mono text-slate-400">
-            Username: <span class="text-brand-300 font-bold">admin</span> &bull; Password: <span class="text-brand-300 font-bold">admin</span>
-          </div>
-          <div class="font-mono text-slate-400">
-            Quick PIN: <span class="text-brand-300 font-bold">123456</span>
-          </div>
-        </div>
       </div>
 
       <div class="text-center text-[11px] text-slate-600 font-mono">

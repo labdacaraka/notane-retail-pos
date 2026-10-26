@@ -33,14 +33,21 @@ export const useNetworkStore = defineStore('network', {
     targetHost: localStorage.getItem('notane_target_host') || '127.0.0.1',
     targetPort: (() => {
       const stored = localStorage.getItem('notane_target_port')
-      if (stored === '8080' || !stored) {
+      if (stored === '' || stored === 'null' || stored === 'undefined') {
+        return null
+      }
+      if (stored === '8080') {
         localStorage.setItem('notane_target_port', '18080')
         return 18080
       }
-      return Number(stored) || 18080
-    })(),
-    deviceId: localStorage.getItem('notane_device_id') || `KASIR-01`,
-    deviceName: localStorage.getItem('notane_device_name') || `Terminal Utama`,
+      if (stored) {
+        const num = Number(stored)
+        return isNaN(num) || num <= 0 ? null : num
+      }
+      return 18080
+    })() as number | null,
+    deviceId: localStorage.getItem('notane_device_id') || localStorage.getItem('notane_terminal') || `KASIR-01`,
+    deviceName: localStorage.getItem('notane_device_name') || localStorage.getItem('notane_terminal') || `Terminal Utama`,
     deviceType: (localStorage.getItem('notane_device_type') || 'CASHIER') as ConnectedDevice['device_type'],
     pairingCode: localStorage.getItem('notane_pairing_code') || 'NOTANE-8899',
 
@@ -152,17 +159,23 @@ export const useNetworkStore = defineStore('network', {
     // -------------------------------------------------------------
     saveConnectionSettings(
       host: string,
-      port: number,
-      deviceId: string,
-      deviceName: string,
-      deviceType: string,
+      port?: number | null,
+      deviceId: string = 'KASIR-01',
+      deviceName: string = 'Terminal Utama',
+      deviceType: string = 'CASHIER',
       pairingCode?: string
     ) {
       this.targetHost = host.trim()
-      this.targetPort = port
+      if (port !== undefined && port !== null && !isNaN(Number(port)) && Number(port) > 0) {
+        this.targetPort = Number(port)
+        localStorage.setItem('notane_target_port', this.targetPort.toString())
+      } else {
+        this.targetPort = null
+        localStorage.removeItem('notane_target_port')
+      }
       this.deviceId = deviceId.trim().toUpperCase()
       this.deviceName = deviceName.trim()
-      this.deviceType = deviceType
+      this.deviceType = deviceType as ConnectedDevice['device_type']
 
       if (pairingCode !== undefined) {
         this.pairingCode = pairingCode.trim()
@@ -170,20 +183,22 @@ export const useNetworkStore = defineStore('network', {
       }
 
       localStorage.setItem('notane_target_host', this.targetHost)
-      localStorage.setItem('notane_target_port', this.targetPort.toString())
       localStorage.setItem('notane_device_id', this.deviceId)
       localStorage.setItem('notane_device_name', this.deviceName)
       localStorage.setItem('notane_device_type', this.deviceType)
     },
 
-    async pingServer(host?: string, port?: number): Promise<{ success: boolean; latency: number; error?: string }> {
-      const targetHost = host ?? this.targetHost
-      const targetPort = port ?? this.targetPort
+    async pingServer(host?: string, port?: number | null): Promise<{ success: boolean; latency: number; error?: string }> {
+      const targetHost = (host ?? this.targetHost).trim()
+      const targetPort = port !== undefined ? port : this.targetPort
       const startTime = performance.now()
 
-      let url = `http://${targetHost}:${targetPort}/api/v1/system/health`
+      let url = ''
       if (targetHost.startsWith('http://') || targetHost.startsWith('https://')) {
         url = `${targetHost.replace(/\/$/, '')}/api/v1/system/health`
+      } else {
+        const portStr = targetPort ? `:${targetPort}` : ''
+        url = `http://${targetHost}${portStr}/api/v1/system/health`
       }
 
       try {
@@ -215,7 +230,7 @@ export const useNetworkStore = defineStore('network', {
 
     async connect(options?: {
       host?: string
-      port?: number
+      port?: number | null
       deviceId?: string
       deviceName?: string
       deviceType?: string
@@ -224,7 +239,7 @@ export const useNetworkStore = defineStore('network', {
       if (options) {
         this.saveConnectionSettings(
           options.host ?? this.targetHost,
-          options.port ?? this.targetPort,
+          options.port !== undefined ? options.port : this.targetPort,
           options.deviceId ?? this.deviceId,
           options.deviceName ?? this.deviceName,
           options.deviceType ?? this.deviceType,

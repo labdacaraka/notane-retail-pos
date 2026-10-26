@@ -17,9 +17,15 @@ export const useStoreBrandingStore = defineStore('storeBranding', () => {
       urls.push(window.location.origin)
     }
     const targetHost = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
-    const targetPort = localStorage.getItem('notane_target_port') || '15438'
-    const serverUrl = `http://${targetHost}:${targetPort}`
-    if (!urls.includes(serverUrl)) {
+    const targetPort = localStorage.getItem('notane_target_port')
+    let serverUrl = ''
+    if (targetHost.startsWith('http://') || targetHost.startsWith('https://')) {
+      serverUrl = targetHost.replace(/\/$/, '')
+    } else {
+      const portStr = targetPort ? `:${targetPort}` : ''
+      serverUrl = `http://${targetHost}${portStr}`
+    }
+    if (serverUrl && !urls.includes(serverUrl)) {
       urls.push(serverUrl)
     }
     if (!urls.includes('http://127.0.0.1:15438')) {

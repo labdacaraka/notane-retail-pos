@@ -17,9 +17,11 @@ export interface ServerStatus {
   is_running: boolean
   port: number
   control_port?: number
+  external_port?: number
   started_at: string | null
   uptime_seconds: number
   host_ips: string[]
+  host_url?: string | null
   total_connected_devices: number
   pairing_code?: string
 }
@@ -62,6 +64,7 @@ export const useNetworkStore = defineStore('network', {
       started_at: null,
       uptime_seconds: 0,
       host_ips: ['127.0.0.1'],
+      host_url: null,
       total_connected_devices: 0,
       pairing_code: 'NOTANE-8899',
     } as ServerStatus,
@@ -808,6 +811,13 @@ export const useNetworkStore = defineStore('network', {
       // Pastikan subscriber event real-time aktif (Zero Interval Polling)
       if (!this._ws || this._ws.readyState !== WebSocket.OPEN) {
         this.initWebSocket()
+      }
+      // Interval berkala cadangan untuk sinkronisasi daftar perangkat dan kuota aktif
+      if (!this._statusPollTimer) {
+        this._statusPollTimer = setInterval(() => {
+          this.fetchConnectedDevices()
+          this.fetchHostStatus()
+        }, 3000)
       }
     },
 

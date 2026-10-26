@@ -27,6 +27,8 @@ import {
   Building2,
   Sparkles,
   DownloadCloud,
+  Globe,
+  ExternalLink,
 } from 'lucide-vue-next'
 import { useNetworkStore } from '@/stores/networkStore'
 import { useLicenseStore } from '@/stores/licenseStore'
@@ -145,11 +147,91 @@ const displayPort = computed(() => {
   return (networkStore.hostStatus as any).external_port || networkStore.hostStatus.port || 18080
 })
 
+function isDomainOrPublicHost(host?: string | null): boolean {
+  if (!host) return false
+  const clean = host.replace(/^https?:\/\//i, '').split(':')[0].split('/')[0].trim()
+  if (!clean || clean === 'localhost' || clean === '127.0.0.1' || clean === 'tauri.localhost') return false
+
+  // Check if it's a domain name (contains dot and alphabet letters, e.g. pos.riangmarket.com)
+  const isAlphaDomain = clean.includes('.') && /[a-zA-Z]/.test(clean) && !clean.endsWith('.local')
+  if (isAlphaDomain) return true
+
+  // Check if it's a public IPv4 (not private 10.x, 192.168.x, 172.16-31.x, 127.x, 169.254.x)
+  const isIpv4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(clean)
+  if (isIpv4) {
+    if (clean.startsWith('10.') || clean.startsWith('192.168.') || clean.startsWith('169.254.') || clean.startsWith('127.')) {
+      return false
+    }
+    if (clean.startsWith('172.')) {
+      const parts = clean.split('.')
+      const second = parseInt(parts[1], 10)
+      if (second >= 16 && second <= 31) return false
+    }
+    return true
+  }
+
+  return false
+}
+
+const isServerDeployment = computed(() => {
+  // 1. Jika host_url diset di backend (misal via HOST_URL di .env)
+  if (networkStore.hostStatus.host_url) {
+    return true
+  }
+  // 2. Jika diakses lewat browser dan hostname adalah domain atau public host (bukan localhost / IP LAN)
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    if (isDomainOrPublicHost(window.location.hostname)) {
+      return true
+    }
+  }
+  // 3. Jika diset HOST_IP berupa domain atau public IP di env
+  if (networkStore.hostStatus.host_ips?.some((ip) => isDomainOrPublicHost(ip))) {
+    return true
+  }
+  return false
+})
+
+const hostDisplayUrl = computed(() => {
+  // 1. Dari host_url yang dikonfigurasi di backend
+  if (networkStore.hostStatus.host_url) {
+    return networkStore.hostStatus.host_url
+  }
+
+  // 2. Dari browser window.location jika diakses melalui domain / cloud server
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const h = window.location.hostname
+    if (isDomainOrPublicHost(h)) {
+      const proto = window.location.protocol || 'http:'
+      const port = window.location.port
+      if (!port || port === '80' || port === '443') {
+        return `${proto}//${h}`
+      }
+      return `${proto}//${h}:${port}`
+    }
+  }
+
+  // 3. Dari host_ips jika diset domain atau public IP
+  const customHost = networkStore.hostStatus.host_ips?.find((ip) => isDomainOrPublicHost(ip))
+  if (customHost) {
+    if (customHost.startsWith('http://') || customHost.startsWith('https://')) {
+      return customHost.replace(/\/$/, '')
+    }
+    const isDomain = customHost.includes('.') && /[a-zA-Z]/.test(customHost)
+    if (isDomain) {
+      return `https://${customHost}`
+    }
+    return `http://${customHost}:${displayPort.value}`
+  }
+
+  // Fallback ke LAN IP
+  return `http://${primaryIp.value}:${displayPort.value}`
+})
+
 const detectedLanIps = computed(() => {
   const ips = [...(networkStore.hostStatus.host_ips || [])]
   if (typeof window !== 'undefined' && window.location?.hostname) {
     const h = window.location.hostname
-    if (h && h !== '127.0.0.1' && h !== 'localhost' && !ips.includes(h)) {
+    if (h && h !== '127.0.0.1' && h !== 'localhost' && !isDomainOrPublicHost(h) && !ips.includes(h)) {
       ips.unshift(h)
     }
   }
@@ -157,13 +239,14 @@ const detectedLanIps = computed(() => {
     ip !== '127.0.0.1' && 
     !ip.startsWith('169.254.') && 
     !ip.startsWith('10.88.') && 
-    !ip.startsWith('10.89.') &&
-    !ip.startsWith('172.')
+    !ip.startsWith('10.89.') && 
+    !ip.startsWith('172.') &&
+    !isDomainOrPublicHost(ip)
   )
   if (nonContainerIps.length > 0) {
     return nonContainerIps
   }
-  return ips.filter((ip) => ip !== '127.0.0.1' && !ip.startsWith('169.254.'))
+  return ips.filter((ip) => ip !== '127.0.0.1' && !ip.startsWith('169.254.') && !isDomainOrPublicHost(ip))
 })
 
 const primaryIp = computed(() => {
@@ -172,7 +255,7 @@ const primaryIp = computed(() => {
   }
   if (typeof window !== 'undefined' && window.location?.hostname) {
     const h = window.location.hostname
-    if (h && h !== '127.0.0.1' && h !== 'localhost') {
+    if (h && h !== '127.0.0.1' && h !== 'localhost' && !isDomainOrPublicHost(h)) {
       return h
     }
   }
@@ -184,7 +267,8 @@ const isGracePeriod = computed(() => licenseStore.licenseInfo.status === 'GRACE_
 const isLicenseValid = computed(() => isLicenseActive.value || isGracePeriod.value || licenseStore.licenseInfo.is_valid)
 
 const copyHostIp = () => {
-  navigator.clipboard.writeText(`http://${primaryIp.value}:${displayPort.value}`)
+  const textToCopy = isServerDeployment.value ? hostDisplayUrl.value : `http://${primaryIp.value}:${displayPort.value}`
+  navigator.clipboard.writeText(textToCopy)
   copiedIp.value = true
   setTimeout(() => (copiedIp.value = false), 2000)
 }
@@ -651,17 +735,53 @@ const restartServer = async () => {
 
       <!-- 2. NETWORK & CONNECTION INFO GRID (3 Cards) -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <!-- Card 1: IP Jaringan LAN -->
+        <!-- Card 1: IP Jaringan LAN / Host Server Domain -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 space-y-3 shadow-xs">
           <div class="flex items-center justify-between text-slate-500 text-xs">
             <span class="font-bold flex items-center gap-1.5 uppercase tracking-wider text-slate-700">
-              <Wifi class="w-4 h-4 text-sky-600" />
-              Alamat IP Host LAN
+              <Globe v-if="isServerDeployment" class="w-4 h-4 text-emerald-600" />
+              <Wifi v-else class="w-4 h-4 text-sky-600" />
+              {{ isServerDeployment ? 'Alamat Server (Domain Cloud)' : 'Alamat IP Host LAN' }}
             </span>
-            <span class="text-[11px] font-mono text-slate-400">Port {{ displayPort }}</span>
+            <span
+              v-if="isServerDeployment"
+              class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200"
+            >
+              Domain Aktif
+            </span>
+            <span v-else class="text-[11px] font-mono text-slate-400">Port {{ displayPort }}</span>
           </div>
 
-          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between">
+          <!-- Jika diinstall di Server (Tampilkan Link ke Domain) -->
+          <div
+            v-if="isServerDeployment"
+            class="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 flex items-center justify-between"
+          >
+            <a
+              :href="hostDisplayUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="font-mono font-extrabold text-sm text-emerald-800 hover:text-emerald-950 hover:underline truncate flex items-center gap-1.5 cursor-pointer"
+              title="Buka alamat server domain di tab baru"
+            >
+              <span class="truncate">{{ hostDisplayUrl }}</span>
+              <ExternalLink class="w-3.5 h-3.5 shrink-0 opacity-70" />
+            </a>
+            <button
+              @click="copyHostIp"
+              class="p-1.5 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-900 rounded-lg transition cursor-pointer shrink-0 ml-2"
+              title="Salin Alamat Server Domain"
+            >
+              <Check v-if="copiedIp" class="w-4 h-4 text-emerald-600" />
+              <Copy v-else class="w-4 h-4" />
+            </button>
+          </div>
+
+          <!-- Jika diinstall di Local Area Network (LAN) (Tampilkan IP Jaringan Lokal) -->
+          <div
+            v-else
+            class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between"
+          >
             <span class="font-mono font-extrabold text-sm text-sky-700 truncate">
               http://{{ primaryIp }}:{{ displayPort }}
             </span>
@@ -675,8 +795,8 @@ const restartServer = async () => {
             </button>
           </div>
 
-          <!-- Multiple Adapters Selector jika ada lebih dari 1 IP -->
-          <div v-if="detectedLanIps.length > 1" class="pt-1">
+          <!-- Multiple Adapters Selector jika mode LAN dan ada lebih dari 1 IP -->
+          <div v-if="!isServerDeployment && detectedLanIps.length > 1" class="pt-1">
             <label class="block text-[10px] font-bold text-slate-500 mb-1">Pilih Adapter Jaringan:</label>
             <select
               v-model="selectedIp"
@@ -688,8 +808,20 @@ const restartServer = async () => {
             </select>
           </div>
 
+          <!-- Cadangan Info LAN jika di server tetapi adapter LAN lokal juga terdeteksi -->
+          <div v-if="isServerDeployment && detectedLanIps.length > 0" class="pt-1">
+            <span class="text-[10px] text-slate-500 font-medium">Cadangan Akses Jaringan Lokal (LAN):</span>
+            <div class="mt-0.5 text-[11px] font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center justify-between">
+              <span>http://{{ primaryIp }}:{{ displayPort }}</span>
+              <span class="text-[9px] uppercase px-1 py-0.5 bg-slate-200 rounded text-slate-600 font-sans font-medium">LAN Offline</span>
+            </div>
+          </div>
+
           <p class="text-[11px] text-slate-500 leading-relaxed">
-            <template v-if="detectedLanIps.length > 0">
+            <template v-if="isServerDeployment">
+              Ketikkan atau salin alamat link <strong>domain</strong> di atas pada menu koneksi aplikasi <strong>Notane POS Client</strong> di komputer meja kasir.
+            </template>
+            <template v-else-if="detectedLanIps.length > 0">
               Ketikkan alamat ini pada aplikasi <strong>Notane POS Client</strong> di komputer meja kasir.
             </template>
             <template v-else>
@@ -870,9 +1002,22 @@ const restartServer = async () => {
               Terminal Kasir yang Terhubung (Online Clients)
             </h3>
           </div>
-          <span class="text-xs font-bold font-mono px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-            {{ networkStore.connectedDevices.length }} Perangkat Aktif
-          </span>
+          <div class="flex items-center gap-2">
+            <span
+              class="text-xs font-bold font-mono px-2.5 py-0.5 rounded-full border"
+              :class="networkStore.connectedDevices.length >= licenseStore.licenseInfo.max_terminals
+                ? 'bg-rose-50 text-rose-700 border-rose-300'
+                : 'bg-slate-100 text-slate-700 border-slate-200'"
+            >
+              {{ networkStore.connectedDevices.length }} / {{ licenseStore.licenseInfo.max_terminals }} Kasir Terhubung
+            </span>
+            <span
+              v-if="networkStore.connectedDevices.length >= licenseStore.licenseInfo.max_terminals"
+              class="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200"
+            >
+              Kuota Penuh
+            </span>
+          </div>
         </div>
 
         <!-- Empty State -->
@@ -880,7 +1025,13 @@ const restartServer = async () => {
           <Laptop class="w-12 h-12 mx-auto mb-3 text-slate-300" />
           <h4 class="text-sm font-bold text-slate-700">Belum Ada Terminal Kasir yang Terhubung</h4>
           <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-            Buka aplikasi Notane POS Client di komputer meja kasir, lalu sambungkan ke IP <strong>{{ primaryIp }}</strong> (Port <strong>{{ displayPort }}</strong>).
+            Buka aplikasi Notane POS Client di komputer meja kasir, lalu sambungkan ke
+            <template v-if="isServerDeployment">
+              alamat domain <strong>{{ hostDisplayUrl }}</strong>.
+            </template>
+            <template v-else>
+              IP <strong>{{ primaryIp }}</strong> (Port <strong>{{ displayPort }}</strong>).
+            </template>
           </p>
         </div>
 
@@ -889,7 +1040,7 @@ const restartServer = async () => {
           <table class="w-full text-left text-xs border-collapse">
             <thead class="bg-slate-50 text-slate-600 font-mono uppercase text-[11px] border-b border-slate-200">
               <tr>
-                <th class="py-3 px-4">Nama Terminal</th>
+                <th class="py-3 px-4">Nama Terminal Kasir</th>
                 <th class="py-3 px-4">Tipe Perangkat</th>
                 <th class="py-3 px-4">Alamat IP Client</th>
                 <th class="py-3 px-4">Waktu Terhubung</th>
@@ -899,8 +1050,13 @@ const restartServer = async () => {
             <tbody class="divide-y divide-slate-100 font-medium">
               <tr v-for="cl in networkStore.connectedDevices" :key="cl.device_id" class="hover:bg-slate-50/70">
                 <td class="py-3 px-4 font-bold text-slate-900 flex items-center gap-2">
-                  <Laptop class="w-3.5 h-3.5 text-indigo-600" />
-                  <span>{{ cl.device_name }}</span>
+                  <Laptop class="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <div class="flex flex-col">
+                    <span class="font-extrabold">{{ cl.device_name }}</span>
+                    <span v-if="cl.device_id && cl.device_id !== cl.device_name" class="text-[10px] text-slate-400 font-mono font-normal">
+                      ID: {{ cl.device_id }}
+                    </span>
+                  </div>
                 </td>
                 <td class="py-3 px-4 text-slate-600 font-mono">{{ cl.device_type }}</td>
                 <td class="py-3 px-4 text-sky-700 font-mono font-bold">{{ cl.client_ip }}</td>
