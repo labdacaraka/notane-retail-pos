@@ -88,19 +88,20 @@ export const useNetworkStore = defineStore('network', {
       if (raw.startsWith('http://') || raw.startsWith('https://')) {
         return raw.replace(/\/$/, '')
       }
+      const isDomain = /[a-zA-Z]/.test(raw) && raw.includes('.') && !raw.endsWith('.local')
+      const scheme = isDomain && !state.targetPort ? 'https' : 'http'
       const port = state.targetPort ? `:${state.targetPort}` : ''
-      return `http://${raw}${port}`
+      return `${scheme}://${raw}${port}`
     },
     controlUrl(state): string {
-      if (typeof window !== 'undefined' && window.location?.origin) {
-        return window.location.origin
-      }
       const raw = (state.targetHost || '127.0.0.1').trim()
       if (raw.startsWith('http://') || raw.startsWith('https://')) {
         return raw.replace(/\/$/, '')
       }
+      const isDomain = /[a-zA-Z]/.test(raw) && raw.includes('.') && !raw.endsWith('.local')
+      const scheme = isDomain && !state.targetPort ? 'https' : 'http'
       const port = state.targetPort ? `:${state.targetPort}` : ''
-      return `http://${raw}${port}`
+      return `${scheme}://${raw}${port}`
     },
     wsUrl(state): string {
       const raw = (state.targetHost || '127.0.0.1').trim()
@@ -114,7 +115,8 @@ export const useNetworkStore = defineStore('network', {
         isHttps = false
         hostWithoutProto = raw.replace(/^http:\/\//, '').replace(/\/$/, '')
       } else {
-        isHttps = window.location.protocol === 'https:'
+        const isDomain = /[a-zA-Z]/.test(raw) && raw.includes('.') && !raw.endsWith('.local')
+        isHttps = isDomain && !state.targetPort ? true : (typeof window !== 'undefined' && window.location?.protocol === 'https:')
         const port = state.targetPort ? `:${state.targetPort}` : ''
         hostWithoutProto = `${raw}${port}`
       }

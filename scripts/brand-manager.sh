@@ -127,6 +127,8 @@ case "${cmd}" in
         db_pass=$(head /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | head -c 16)
         detected_lan=$(detect_host_lan_ip)
 
+        slug_db=$(echo "${slug}" | tr '-' '_')
+
         cat <<EOF > "${env_file}"
 # Konfigurasi Brand Toko: ${name}
 COMPOSE_PROJECT_NAME=notane-${slug}
@@ -134,8 +136,8 @@ BRAND_NAME=${name}
 SERVER_PORT=${port}
 CONTROL_PORT=${control_port}
 POSTGRES_PORT=${db_port}
-POSTGRES_DB=notane_${slug}
-POSTGRES_USER=admin_${slug}
+POSTGRES_DB=notane_${slug_db}
+POSTGRES_USER=admin_${slug_db}
 POSTGRES_PASSWORD=${db_pass}
 PAIRING_CODE=${pairing_code}
 HOST_IP=${detected_lan}

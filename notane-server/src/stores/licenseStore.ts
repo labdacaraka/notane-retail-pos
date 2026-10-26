@@ -113,21 +113,24 @@ export const useLicenseStore = defineStore('license', {
   actions: {
     getCandidateUrls(): string[] {
       const urls: string[] = []
+
+      // 1. PRIORITAS UTAMA: Jika diakses via Web Browser, gunakan origin browser saat ini!
+      if (typeof window !== 'undefined' && window.location?.origin) {
+        const orig = window.location.origin
+        if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
+          urls.push(orig)
+        }
+      }
+
       const targetHost = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
       const targetPort = localStorage.getItem('notane_target_port') || '18080'
       const controlPort = String(Number(targetPort) + 1)
 
-      urls.push(`http://${targetHost}:${targetPort}`)
-      urls.push(`http://${targetHost}:${controlPort}`)
+      if (!urls.includes(`http://${targetHost}:${targetPort}`)) urls.push(`http://${targetHost}:${targetPort}`)
+      if (!urls.includes(`http://${targetHost}:${controlPort}`)) urls.push(`http://${targetHost}:${controlPort}`)
       if (!urls.includes('http://127.0.0.1:18080')) urls.push('http://127.0.0.1:18080')
       if (!urls.includes('http://127.0.0.1:18081')) urls.push('http://127.0.0.1:18081')
 
-      if (typeof window !== 'undefined' && window.location?.origin) {
-        const orig = window.location.origin
-        if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
-          if (!urls.includes(orig)) urls.push(orig)
-        }
-      }
       return urls
     },
 

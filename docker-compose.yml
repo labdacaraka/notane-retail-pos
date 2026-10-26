@@ -10,6 +10,8 @@ services:
       PORT: 18080
       SERVER_PORT: 18080
       CONTROL_PORT: 18081
+      EXTERNAL_PORT: ${SERVER_PORT:-18080}
+      EXTERNAL_CONTROL_PORT: ${CONTROL_PORT:-18081}
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-notane_pos}
       PAIRING_CODE: ${PAIRING_CODE:-NOTANE-9729}
       JWT_SECRET: ${JWT_SECRET:-notane-enterprise-secret-key-2026}

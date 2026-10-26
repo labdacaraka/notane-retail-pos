@@ -378,8 +378,8 @@ impl AppState {
         let count = self.devices.read().await.len();
         let pairing = self.pairing_code.read().await.clone();
 
-        let ext_port = std::env::var("SERVER_PORT")
-            .or_else(|_| std::env::var("EXTERNAL_PORT"))
+        let ext_port = std::env::var("EXTERNAL_PORT")
+            .or_else(|_| std::env::var("SERVER_PORT"))
             .ok()
             .and_then(|p| p.parse::<u16>().ok());
 
