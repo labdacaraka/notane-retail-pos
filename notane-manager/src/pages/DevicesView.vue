@@ -74,7 +74,7 @@ function handleSort(column: 'last_ping_at' | 'hardware_id' | 'device_name' | 'li
 async function confirmUnbind(dev: DeviceActivation) {
   if (
     confirm(
-      `Yakin ingin melepaskan perangkat '${dev.device_name || dev.hardware_id}'? Kuota kasir untuk lisensi ini akan bertambah 1 slot.`
+      `Yakin ingin melepaskan ikatan server '${dev.device_name || dev.hardware_id}'? Lisensi akan di-reset sehingga dapat diaktivasi pada perangkat server baru.`
     )
   ) {
     await providerStore.unbindDevice(dev.id)
@@ -133,9 +133,9 @@ async function confirmUnbind(dev: DeviceActivation) {
       class="py-16 text-center rounded-2xl glass-panel border border-slate-800"
     >
       <Cpu class="w-12 h-12 text-slate-600 mx-auto mb-3" />
-      <div class="text-sm font-semibold text-slate-300">Belum Ada Terminal Kasir Terikat</div>
+      <div class="text-sm font-semibold text-slate-300">Belum Ada Node Server Terikat</div>
       <div class="text-xs text-slate-500 mt-1">
-        {{ searchQuery || selectedStatus !== 'ALL' ? 'Tidak ada data perangkat yang cocok dengan pencarian.' : 'Saat mesin kasir pertama kali mengaktivasi lisensi, HWID akan otomatis terdaftar di sini.' }}
+        {{ searchQuery || selectedStatus !== 'ALL' ? 'Tidak ada data perangkat server yang cocok dengan pencarian.' : 'Saat aplikasi Notane Server toko pertama kali mengaktivasi lisensi, Hardware ID server akan otomatis terdaftar di sini.' }}
       </div>
       <button
         v-if="searchQuery || selectedStatus !== 'ALL'"

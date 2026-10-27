@@ -135,6 +135,10 @@ async fn audit_logs_handler(
     State(pool): State<PgPool>,
     Query(query): Query<AuditQuery>,
 ) -> impl IntoResponse {
+    if let Err(resp) = crate::utils::jwt::require_license_feature(&pool, "audit_log", "Audit Trail & Log Keamanan").await {
+        return resp.into_response();
+    }
+
     let filter = crate::services::audit_service::AuditLogFilter {
         page: query.page.unwrap_or(1),
         limit: query.limit.unwrap_or(20),
@@ -154,23 +158,30 @@ async fn audit_logs_handler(
                 "limit": res.limit,
                 "retention_days": res.retention_days
             })),
-        ),
+        )
+            .into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "success": false, "message": err })),
-        ),
+        )
+            .into_response(),
     }
 }
 
 async fn get_audit_settings_handler(
     State(pool): State<PgPool>,
 ) -> impl IntoResponse {
+    if let Err(resp) = crate::utils::jwt::require_license_feature(&pool, "audit_log", "Audit Trail & Log Keamanan").await {
+        return resp.into_response();
+    }
+
     match crate::services::audit_service::get_audit_settings(&pool).await {
-        Ok(data) => (StatusCode::OK, Json(json!({ "success": true, "data": data }))),
+        Ok(data) => (StatusCode::OK, Json(json!({ "success": true, "data": data }))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "success": false, "message": err })),
-        ),
+        )
+            .into_response(),
     }
 }
 
@@ -178,12 +189,17 @@ async fn update_audit_settings_handler(
     State(pool): State<PgPool>,
     Json(payload): Json<crate::models::audit::UpdateAuditLogSettingsRequest>,
 ) -> impl IntoResponse {
+    if let Err(resp) = crate::utils::jwt::require_license_feature(&pool, "audit_log", "Audit Trail & Log Keamanan").await {
+        return resp.into_response();
+    }
+
     match crate::services::audit_service::update_audit_settings(&pool, payload.retention_days).await {
-        Ok(_) => (StatusCode::OK, Json(json!({ "success": true, "message": "Pengaturan retensi log audit berhasil disimpan" }))),
+        Ok(_) => (StatusCode::OK, Json(json!({ "success": true, "message": "Pengaturan retensi log audit berhasil disimpan" }))).into_response(),
         Err(err) => (
             StatusCode::BAD_REQUEST,
             Json(json!({ "success": false, "message": err })),
-        ),
+        )
+            .into_response(),
     }
 }
 
@@ -196,6 +212,10 @@ async fn cleanup_audit_logs_handler(
     State(pool): State<PgPool>,
     Query(query): Query<CleanupQuery>,
 ) -> impl IntoResponse {
+    if let Err(resp) = crate::utils::jwt::require_license_feature(&pool, "audit_log", "Audit Trail & Log Keamanan").await {
+        return resp.into_response();
+    }
+
     match crate::services::audit_service::cleanup_expired_audit_logs(&pool, query.days).await {
         Ok(deleted_count) => {
             let message = if deleted_count > 0 {
@@ -210,19 +230,18 @@ async fn cleanup_audit_logs_handler(
             };
             (
                 StatusCode::OK,
-                Json(json!({
-                    "success": true,
-                    "deleted_count": deleted_count,
-                    "message": message
-                })),
+                Json(json!({ "success": true, "message": message, "deleted_count": deleted_count })),
             )
+                .into_response()
         }
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "success": false, "message": err })),
-        ),
+        )
+            .into_response(),
     }
 }
+
 
 #[derive(Debug, Deserialize)]
 pub struct ListSupervisorsQuery {

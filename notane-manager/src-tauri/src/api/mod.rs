@@ -301,7 +301,16 @@ async fn handle_activate(
         }
     }
 
-    // 4. Periksa Kuota Mesin (Node-Locking HWID)
+    // 4. Periksa Node-Locking Server HWID (1 Lisensi = 1 Notane Server)
+    let bound_active_server = sqlx::query_as::<_, DeviceCheckRow>(
+        "SELECT id, is_active FROM provider_device_activations
+         WHERE license_id = $1 AND is_active = 1"
+    )
+    .bind(&license.id)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
+
     let existing_dev = sqlx::query_as::<_, DeviceCheckRow>(
         "SELECT id, is_active FROM provider_device_activations
          WHERE license_id = $1 AND hardware_id = $2"
@@ -315,7 +324,7 @@ async fn handle_activate(
     let now_str = Utc::now().to_rfc3339();
 
     if let Some(dev) = existing_dev {
-        // Sudah terdaftar, re-aktifkan jika suspend & perbarui last_ping
+        // Server ini sudah terdaftar: perbarui ping & status aktif
         let _ = sqlx::query(
             "UPDATE provider_device_activations
              SET is_active = 1, last_ping_at = $1, ip_address = $2, device_name = COALESCE($3, device_name), app_version = $4
@@ -328,40 +337,27 @@ async fn handle_activate(
         .bind(&dev.id)
         .execute(&state.pool)
         .await;
+    } else if bound_active_server.is_some() {
+        // Lisensi ini sudah terikat aktif ke mesin server lain (Node-Locking)
+        log_audit(
+            &state.pool,
+            Some(clean_key),
+            Some(clean_hwid),
+            "ACTIVATE",
+            Some(&client_ip),
+            "REJECTED",
+            "Lisensi sudah terikat pada mesin server lain (Node-Locking)",
+        ).await;
+
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "success": false,
+                "message": "Lisensi ini telah terikat secara permanen ke mesin Notane Server lain (Node-Locked). Setiap lisensi hanya dapat diaktivasi pada 1 mesin server. Hubungi Provider untuk melepaskan ikatan server lama."
+            })),
+        );
     } else {
-        // Mesin baru: periksa kuota terminal
-        let count_active: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM provider_device_activations WHERE license_id = $1 AND is_active = 1"
-        )
-        .bind(&license.id)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap_or((0,));
-
-        if count_active.0 >= license.max_terminals {
-            log_audit(
-                &state.pool,
-                Some(clean_key),
-                Some(clean_hwid),
-                "ACTIVATE",
-                Some(&client_ip),
-                "REJECTED",
-                &format!("Kuota terminal penuh ({}/{})", count_active.0, license.max_terminals),
-            ).await;
-
-            return (
-                StatusCode::FORBIDDEN,
-                Json(json!({
-                    "success": false,
-                    "message": format!(
-                        "Kuota aktivasi terminal untuk lisensi ini sudah penuh (Maksimal {} terminal). Hubungi Provider untuk menambah kuota kasir.",
-                        license.max_terminals
-                    )
-                })),
-            );
-        }
-
-        // Simpan aktivasi mesin baru
+        // Mesin server baru: catat aktivasi host node
         let new_dev_id = uuid::Uuid::new_v4().to_string();
         let _ = sqlx::query(
             "INSERT INTO provider_device_activations (

@@ -38,6 +38,20 @@ async fn master_write_middleware(
         return Ok(next.run(req).await);
     }
 
+    // License Module Guards (Non-Core Features)
+    if path.contains("/customers") || path.contains("/customer-groups") {
+        crate::utils::jwt::require_license_feature(&pool, "membership", "Pelanggan & Membership").await?;
+    } else if path.contains("/price-labels") || path.contains("/print-labels") {
+        crate::utils::jwt::require_license_feature(&pool, "label_printing", "Cetak Label Harga").await?;
+    } else if path.contains("/vouchers") {
+        crate::utils::jwt::require_license_feature(&pool, "promotions", "Voucher & Promosi").await?;
+    } else if path.contains("/outlets") && method == Method::POST {
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM outlets").fetch_one(&pool).await.unwrap_or(0);
+        if count >= 1 {
+            crate::utils::jwt::require_license_feature(&pool, "multi_outlet", "Multi-Outlet Cabang").await?;
+        }
+    }
+
     if method == Method::GET {
         return Ok(next.run(req).await);
     }

@@ -42,6 +42,10 @@ async fn reports_auth_middleware(
     let path = req.uri().path();
     let is_write = method == Method::POST || method == Method::PUT || method == Method::DELETE;
 
+    if path.contains("/accounting") {
+        crate::utils::jwt::require_license_feature(&pool, "accounting", "Akuntansi & Pembukuan").await?;
+    }
+
     if path.contains("/accounting/periods") {
         if path.contains("/reopen") {
             require_any_permission(&pool, req.headers(), &["accounting:periods:reopen", "accounting:write"]).await?;

@@ -604,5 +604,14 @@ impl LicenseService {
         info!("Aktivasi lisensi berhasil: {} ({})", payload.license_key, payload.client_name);
         Ok(Self::check_current_license(pool).await)
     }
+
+    /// Memeriksa apakah suatu fitur modul aktif pada lisensi server ini
+    pub async fn has_feature(pool: &PgPool, feature_name: &str) -> bool {
+        let lic = Self::check_current_license(pool).await;
+        if !lic.is_valid {
+            return false;
+        }
+        lic.features.iter().any(|f| f.eq_ignore_ascii_case(feature_name))
+    }
 }
 

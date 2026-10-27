@@ -93,6 +93,14 @@ export const useLicenseStore = defineStore('license', {
   }),
 
   actions: {
+    hasFeature(featureId: string): boolean {
+      if (!this.licenseInfo?.is_valid) {
+        return false
+      }
+      const feats = this.licenseInfo.features || []
+      return feats.some((f) => f.toLowerCase() === featureId.toLowerCase())
+    },
+
     getBaseUrl(): string {
       const netStore = useNetworkStore()
       return netStore.serverUrl

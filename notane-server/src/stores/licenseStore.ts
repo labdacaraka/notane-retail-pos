@@ -112,6 +112,14 @@ export const useLicenseStore = defineStore('license', {
   }),
 
   actions: {
+    hasFeature(featureId: string): boolean {
+      if (!this.licenseInfo?.is_valid) {
+        return false
+      }
+      const feats = this.licenseInfo.features || []
+      return feats.some((f) => f.toLowerCase() === featureId.toLowerCase())
+    },
+
     getCandidateUrls(): string[] {
       // 1. PRIORITAS UTAMA: Jika diakses via Web Browser (VPS, domain publik, atau IP host),
       // HANYA gunakan origin browser saat ini (tidak boleh probing ke 127.0.0.1 lokal user!)

@@ -252,4 +252,28 @@ pub async fn resolve_effective_outlet_id(
     .unwrap_or(None)
 }
 
+/// Memvalidasi bahwa fitur non-core aktif pada lisensi server saat ini
+pub async fn require_license_feature(
+    pool: &sqlx::PgPool,
+    feature_id: &str,
+    feature_label: &str,
+) -> Result<(), (axum::http::StatusCode, axum::Json<serde_json::Value>)> {
+    let has = crate::services::license_service::LicenseService::has_feature(pool, feature_id).await;
+    if !has {
+        return Err((
+            axum::http::StatusCode::FORBIDDEN,
+            axum::Json(serde_json::json!({
+                "success": false,
+                "code": "FEATURE_NOT_LICENSED",
+                "message": format!(
+                    "Fitur '{}' ({}) tidak aktif pada lisensi server ini. Hubungi Provider Notane untuk mengaktifkan modul ini.",
+                    feature_label, feature_id
+                )
+            })),
+        ));
+    }
+    Ok(())
+}
+
+
 

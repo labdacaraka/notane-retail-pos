@@ -209,7 +209,7 @@ onMounted(async () => {
                 {{ lic.status }}
               </span>
               <div class="text-[10px] text-slate-500 mt-1 font-mono">
-                Maks: {{ lic.max_terminals }} Kasir
+                Maks. {{ lic.max_terminals }} Klien Kasir/Server
               </div>
             </div>
           </div>

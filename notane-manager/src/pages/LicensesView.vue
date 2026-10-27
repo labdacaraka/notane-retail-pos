@@ -59,13 +59,15 @@ const licenseSchema = z.object({
 })
 
 const availableFeatures = [
-  { id: 'multi_outlet', name: 'Multi-Outlet Cabang' },
-  { id: 'inventory_batch', name: 'Manajemen Batch & FEFO' },
-  { id: 'api_sync', name: 'Sinkronisasi Cloud / VPS' },
-  { id: 'offline_first', name: 'Mode Kasir Offline' },
-  { id: 'auto_update', name: 'One-Click Auto Update OTA' },
-  { id: 'promotions_engine', name: 'Promo & Diskon Otomatis' },
-  { id: 'remove_branding', name: 'White-Label (Remove Branding)' },
+  { id: 'membership', name: 'Pelanggan & Membership', desc: 'Loyalty point, kartu member, & diskon tier member' },
+  { id: 'accounting', name: 'Akuntansi & Pembukuan', desc: 'Bagan akun (COA), jurnal umum, neraca & laba rugi' },
+  { id: 'multi_outlet', name: 'Multi-Outlet Cabang', desc: 'Manajemen banyak cabang dan transfer stok antar-outlet' },
+  { id: 'inventory_batch', name: 'Manajemen Batch & FEFO', desc: 'Nomor batch & rotasi produk berdasarkan kadaluarsa' },
+  { id: 'promotions', name: 'Promosi Retail, Voucher & Flash Sale', desc: 'Promo diskon otomatis, voucher belanja & flash sale' },
+  { id: 'expenses', name: 'Biaya Operasional Toko', desc: 'Pencatatan pengeluaran kas / petty cash operasional' },
+  { id: 'audit_log', name: 'Audit Trail & Log Keamanan', desc: 'Rekaman riwayat aktivitas kasir & supervisor' },
+  { id: 'label_printing', name: 'Cetak Label Harga & Barcode Rak', desc: 'Desain dan cetak label barcode produk & rak display' },
+  { id: 'remove_branding', name: 'White-Label (Remove Branding)', desc: 'Hilangkan logo dan atribusi Notane pada struk & antarmuka' },
 ]
 
 function parseFeatures(featuresStr: string | string[]): string[] {
@@ -83,7 +85,7 @@ const form = ref({
   max_terminals: 5,
   expires_in_days: 365,
   grace_period_days: 7,
-  features: ['multi_outlet', 'inventory_batch', 'offline_first', 'auto_update'],
+  features: ['membership', 'promotions', 'expenses', 'label_printing'],
   notes: '',
   custom_key: '',
 })
@@ -142,7 +144,7 @@ function openCreateModal() {
     max_terminals: 5,
     expires_in_days: 365,
     grace_period_days: 7,
-    features: ['multi_outlet', 'inventory_batch', 'offline_first', 'auto_update'],
+    features: ['membership', 'promotions', 'expenses', 'label_printing'],
     notes: '',
     custom_key: '',
   }
@@ -356,7 +358,7 @@ async function confirmDelete(lic: License) {
                   </div>
                 </th>
 
-                <th class="py-3 px-4 font-semibold text-slate-400">Terminal Kasir</th>
+                <th class="py-3 px-4 font-semibold text-slate-400">Kapasitas Kasir (Per Server)</th>
 
                 <th
                   @click="handleSort('status')"
@@ -433,10 +435,10 @@ async function confirmDelete(lic: License) {
                   </div>
                 </td>
 
-                <!-- Terminals -->
+                <!-- Terminals Capacity -->
                 <td class="py-3.5 px-4 font-mono text-slate-300">
-                  <span class="font-bold text-white">{{ lic.active_terminals || 0 }}</span>
-                  <span class="text-slate-500"> / {{ lic.max_terminals }} Kasir</span>
+                  <span class="font-bold text-white">Maks. {{ lic.max_terminals }}</span>
+                  <span class="text-slate-500"> Kasir / Server</span>
                 </td>
 
                 <!-- Status -->
@@ -574,8 +576,8 @@ async function confirmDelete(lic: License) {
             <!-- Metadata Info -->
             <div class="grid grid-cols-2 gap-2 p-3 rounded-xl bg-slate-950/60 text-xs">
               <div>
-                <span class="text-slate-500 block text-[10px]">Kuota Terminal</span>
-                <span class="font-bold text-slate-200 font-mono">{{ lic.active_terminals || 0 }} / {{ lic.max_terminals }} Kasir</span>
+                <span class="text-slate-500 block text-[10px]">Kapasitas Klien Kasir</span>
+                <span class="font-bold text-slate-200 font-mono">Maks. {{ lic.max_terminals }} Kasir / Server</span>
               </div>
               <div>
                 <span class="text-slate-500 block text-[10px]">Masa Berlaku s/d</span>
@@ -678,7 +680,7 @@ async function confirmDelete(lic: License) {
           <!-- Kuota Terminal & Masa Berlaku -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Maksimal Terminal (Mesin POS)</label>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Kapasitas Terminal Kasir Klien (notane-client) *</label>
               <input
                 v-model.number="form.max_terminals"
                 type="number"
@@ -686,6 +688,7 @@ async function confirmDelete(lic: License) {
                 max="1000"
                 class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500 font-mono"
               />
+              <span class="text-[10px] text-slate-400 mt-1 block">Batas maksimal komputer kasir client (notane-client) yang dapat terhubung bersamaan ke 1 notane-server.</span>
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-300 mb-1">Masa Berlaku (Hari)</label>
@@ -712,15 +715,21 @@ async function confirmDelete(lic: License) {
 
           <!-- Fitur Diaktifkan -->
           <div>
-            <div class="flex items-center justify-between mb-2">
-              <label class="block text-xs font-semibold text-slate-300">Paket Fitur Yang Diaktifkan</label>
-              <span class="text-[10px] text-slate-500 font-mono">{{ form.features.length }} Fitur Dipilih</span>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-semibold text-slate-300">Modul Fitur Opsi (Add-ons)</label>
+              <span class="text-[10px] text-slate-500 font-mono">{{ form.features.length }} Modul Dipilih</span>
             </div>
-            <div class="grid grid-cols-2 gap-2">
+            <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 mb-2.5 flex items-start gap-2">
+              <ShieldCheck class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>
+                <strong class="text-slate-200">Fitur Inti / Core POS:</strong> POS Kasir & Struk, Master Produk, Pembelian Dasar, Shift Kasir, Pengguna & Mode Offline selalu aktif permanen secara default.
+              </span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
               <label
                 v-for="feat in availableFeatures"
                 :key="feat.id"
-                class="flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors"
+                class="flex items-start gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors"
                 :class="form.features.includes(feat.id)
                   ? feat.id === 'remove_branding'
                     ? 'bg-purple-500/15 border-purple-500/50 text-purple-300 font-semibold'
@@ -731,12 +740,15 @@ async function confirmDelete(lic: License) {
                   type="checkbox"
                   :checked="form.features.includes(feat.id)"
                   @change="toggleFeature(feat.id)"
-                  class="rounded border-slate-700 bg-slate-900 text-brand-600 focus:ring-0"
+                  class="rounded border-slate-700 bg-slate-900 text-brand-600 focus:ring-0 mt-0.5"
                 />
-                <span class="flex items-center gap-1.5">
-                  <Sparkles v-if="feat.id === 'remove_branding'" class="w-3.5 h-3.5 text-purple-400" />
-                  <span>{{ feat.name }}</span>
-                </span>
+                <div class="space-y-0.5">
+                  <div class="flex items-center gap-1.5 font-medium">
+                    <Sparkles v-if="feat.id === 'remove_branding'" class="w-3.5 h-3.5 text-purple-400" />
+                    <span>{{ feat.name }}</span>
+                  </div>
+                  <div class="text-[10px] text-slate-500 leading-tight">{{ feat.desc }}</div>
+                </div>
               </label>
             </div>
             <p v-if="form.features.includes('remove_branding')" class="mt-2 text-[11px] text-purple-300/90 bg-purple-950/40 border border-purple-500/30 p-2.5 rounded-xl flex items-start gap-2">

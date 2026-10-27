@@ -142,7 +142,7 @@ function handlePinClear() {
                 v-model="username"
                 type="text"
                 autocomplete="username"
-                placeholder="admin"
+                placeholder="Masukkan username..."
                 class="w-full pl-9 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 font-mono"
               />
             </div>

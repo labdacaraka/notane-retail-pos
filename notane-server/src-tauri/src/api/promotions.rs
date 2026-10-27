@@ -12,7 +12,7 @@ use serde_json::json;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use crate::utils::jwt::{require_any_permission, verify_jwt};
+use crate::utils::jwt::{require_any_permission, require_license_feature, verify_jwt};
 
 pub fn promotion_routes() -> Router<PgPool> {
     Router::new()
@@ -181,6 +181,7 @@ pub async fn list_promotions_handler(
     headers: HeaderMap,
     Query(filter): Query<PromotionFilter>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    require_license_feature(&pool, "promotions", "Promosi Retail").await?;
     require_any_permission(&pool, &headers, &["promotions:read", "super_admin"]).await?;
 
     // Proaktif auto-expire promosi yang telah melewati tanggal end_date
@@ -300,6 +301,10 @@ pub async fn get_active_promotions_handler(
     headers: HeaderMap,
     Query(filter): Query<PromotionFilter>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    if !crate::services::license_service::LicenseService::has_feature(&pool, "promotions").await {
+        return Ok(Json(json!({ "success": true, "data": [] })));
+    }
+
     let effective_outlet_id = crate::utils::jwt::resolve_effective_outlet_id(&pool, &headers, filter.outlet_id).await;
     let now = Utc::now();
     let query_str = r#"
@@ -370,6 +375,7 @@ pub async fn get_promotion_detail_handler(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    require_license_feature(&pool, "promotions", "Promosi Retail").await?;
     require_any_permission(&pool, &headers, &["promotions:read", "super_admin"]).await?;
 
     let row: Option<PromotionItemRow> = sqlx::query_as(
@@ -438,6 +444,7 @@ pub async fn create_promotion_handler(
     headers: HeaderMap,
     Json(payload): Json<CreatePromotionPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    require_license_feature(&pool, "promotions", "Promosi Retail").await?;
     let user_id = get_user_id(&headers)?;
     require_any_permission(&pool, &headers, &["promotions:create", "promotions:write", "master:write", "super_admin"]).await?;
 
@@ -550,6 +557,7 @@ pub async fn update_promotion_handler(
     Path(id): Path<Uuid>,
     Json(payload): Json<CreatePromotionPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    require_license_feature(&pool, "promotions", "Promosi Retail").await?;
     let user_id = get_user_id(&headers)?;
     require_any_permission(&pool, &headers, &["promotions:update", "promotions:write", "master:write", "super_admin"]).await?;
 
@@ -652,6 +660,7 @@ pub async fn delete_promotion_handler(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    require_license_feature(&pool, "promotions", "Promosi Retail").await?;
     require_any_permission(&pool, &headers, &["promotions:delete", "promotions:write", "master:write", "super_admin"]).await?;
 
     sqlx::query("DELETE FROM promotions WHERE id = $1")
@@ -949,6 +958,13 @@ pub async fn evaluate_promotions_handler(
     Json(payload): Json<EvaluatePromotionsRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     require_any_permission(&pool, &headers, &["pos:checkout", "promotions:read", "master:read"]).await?;
+
+    if !crate::services::license_service::LicenseService::has_feature(&pool, "promotions").await {
+        return Ok(Json(json!({
+            "success": true,
+            "data": PromotionEvaluationResult::default()
+        })));
+    }
 
     let result = evaluate_promotions_logic(&pool, &payload).await.map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e })))

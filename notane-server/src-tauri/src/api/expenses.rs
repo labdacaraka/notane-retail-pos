@@ -18,7 +18,7 @@ use crate::services::expense_service::{
     cancel_expense, create_expense, create_expense_category, get_expense_by_id,
     get_expense_summary, list_expense_categories, list_expenses, update_expense_category,
 };
-use crate::utils::jwt::require_any_permission;
+use crate::utils::jwt::{require_any_permission, require_license_feature};
 
 pub fn router() -> Router<PgPool> {
     Router::new()
@@ -36,6 +36,10 @@ async fn list_expenses_handler(
     headers: HeaderMap,
     Query(query): Query<ExpenseFilterQuery>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "expenses", "Biaya & Pengeluaran").await {
+        return resp.into_response();
+    }
+
     let claims = match require_any_permission(&pool, &headers, &["expenses:read", "accounting:read", "master:read"]).await {
         Ok(c) => c,
         Err(resp) => return resp.into_response(),
@@ -76,6 +80,10 @@ async fn get_expense_handler(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "expenses", "Biaya & Pengeluaran").await {
+        return resp.into_response();
+    }
+
     let claims = match require_any_permission(&pool, &headers, &["expenses:read", "accounting:read", "master:read"]).await {
         Ok(c) => c,
         Err(resp) => return resp.into_response(),
@@ -110,6 +118,10 @@ async fn create_expense_handler(
     headers: HeaderMap,
     Json(payload): Json<CreateExpenseRequest>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "expenses", "Biaya & Pengeluaran").await {
+        return resp.into_response();
+    }
+
     let claims = match require_any_permission(&pool, &headers, &["expenses:create", "pos:checkout", "accounting:write"]).await {
         Ok(c) => c,
         Err(resp) => return resp.into_response(),
@@ -149,6 +161,10 @@ async fn cancel_expense_handler(
     Path(id): Path<Uuid>,
     Json(payload): Json<CancelExpenseRequest>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "expenses", "Biaya & Pengeluaran").await {
+        return resp.into_response();
+    }
+
     let claims = match require_any_permission(&pool, &headers, &["expenses:delete", "accounting:write"]).await {
         Ok(c) => c,
         Err(resp) => return resp.into_response(),
@@ -194,6 +210,10 @@ async fn get_expense_summary_handler(
     headers: HeaderMap,
     Query(query): Query<SummaryQuery>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "expenses", "Biaya & Pengeluaran").await {
+        return resp.into_response();
+    }
+
     let claims = match require_any_permission(&pool, &headers, &["expenses:read", "accounting:read", "report:view"]).await {
         Ok(c) => c,
         Err(resp) => return resp.into_response(),
@@ -226,6 +246,10 @@ async fn list_expense_categories_handler(
     headers: HeaderMap,
     Query(query): Query<ActiveOnlyQuery>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "expenses", "Biaya & Pengeluaran").await {
+        return resp.into_response();
+    }
+
     if let Err(resp) = require_any_permission(&pool, &headers, &["expenses:read", "master:read", "pos:checkout"]).await {
         return resp.into_response();
     }
@@ -251,6 +275,10 @@ async fn create_expense_category_handler(
     headers: HeaderMap,
     Json(payload): Json<CreateExpenseCategoryRequest>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "expenses", "Biaya & Pengeluaran").await {
+        return resp.into_response();
+    }
+
     if let Err(resp) = require_any_permission(&pool, &headers, &["expenses:categories", "master:write"]).await {
         return resp.into_response();
     }
@@ -283,6 +311,10 @@ async fn update_expense_category_handler(
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateExpenseCategoryRequest>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "expenses", "Biaya & Pengeluaran").await {
+        return resp.into_response();
+    }
+
     if let Err(resp) = require_any_permission(&pool, &headers, &["expenses:categories", "master:write"]).await {
         return resp.into_response();
     }
@@ -319,6 +351,10 @@ async fn get_expense_accounts_handler(
     headers: HeaderMap,
     Query(_query): Query<AccountOptionQuery>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "expenses", "Biaya & Pengeluaran").await {
+        return resp.into_response();
+    }
+
     if let Err(resp) = require_any_permission(&pool, &headers, &["expenses:read", "expenses:create", "accounting:read"]).await {
         return resp.into_response();
     }

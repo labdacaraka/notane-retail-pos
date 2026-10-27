@@ -11,7 +11,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::models::flash_sales::CreateFlashSaleRequest;
-use crate::utils::jwt::{require_any_permission, verify_jwt};
+use crate::utils::jwt::{require_any_permission, require_license_feature, verify_jwt};
 use crate::services::flash_sale_service::{
     create_flash_sale, delete_flash_sale, get_active_promos_for_outlet, get_flash_sale_detail,
     list_flash_sales, update_flash_sale,
@@ -65,6 +65,10 @@ async fn list_flash_sales_handler(
     headers: HeaderMap,
     Query(query): Query<FlashSaleQueryFilter>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "promotions", "Promosi & Flash Sale").await {
+        return resp.into_response();
+    }
+
     if let Err(resp) = require_any_permission(&pool, &headers, &["promotions:read", "promo:read", "master:read", "pos:checkout"]).await {
         return resp.into_response();
     }
@@ -113,6 +117,10 @@ async fn get_flash_sale_detail_handler(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "promotions", "Promosi & Flash Sale").await {
+        return resp.into_response();
+    }
+
     if let Err(resp) = require_any_permission(&pool, &headers, &["promotions:read", "promo:read", "master:read", "pos:checkout"]).await {
         return resp.into_response();
     }
@@ -136,6 +144,10 @@ async fn create_flash_sale_handler(
     headers: HeaderMap,
     Json(payload): Json<CreateFlashSaleRequest>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "promotions", "Promosi & Flash Sale").await {
+        return resp.into_response();
+    }
+
     // 1. Pengecekan Permission di Backend (Fail-Closed)
     let claims = match require_any_permission(&pool, &headers, &["promotions:create", "promotions:write", "promo:write", "master:write"]).await {
         Ok(c) => c,
@@ -192,6 +204,10 @@ async fn update_flash_sale_handler(
     Path(id): Path<Uuid>,
     Json(payload): Json<CreateFlashSaleRequest>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "promotions", "Promosi & Flash Sale").await {
+        return resp.into_response();
+    }
+
     // 1. Pengecekan Permission di Backend (Fail-Closed)
     let claims = match require_any_permission(&pool, &headers, &["promotions:update", "promotions:write", "promo:write", "master:write"]).await {
         Ok(c) => c,
@@ -239,6 +255,10 @@ async fn delete_flash_sale_handler(
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> impl IntoResponse {
+    if let Err(resp) = require_license_feature(&pool, "promotions", "Promosi & Flash Sale").await {
+        return resp.into_response();
+    }
+
     // 1. Pengecekan Permission di Backend (Fail-Closed)
     if let Err(resp) = require_any_permission(&pool, &headers, &["promotions:delete", "promotions:write", "promo:write", "master:write"]).await {
         return resp.into_response();
@@ -271,6 +291,14 @@ async fn active_promos_handler(
     headers: HeaderMap,
     Query(query): Query<ActivePromoQuery>,
 ) -> impl IntoResponse {
+    if !crate::services::license_service::LicenseService::has_feature(&pool, "promotions").await {
+        return (
+            StatusCode::OK,
+            Json(json!({ "success": true, "data": [] })),
+        )
+            .into_response();
+    }
+
     let effective_outlet_id = crate::utils::jwt::resolve_effective_outlet_id(&pool, &headers, query.outlet_id).await;
     match get_active_promos_for_outlet(&pool, effective_outlet_id).await {
         Ok(promos) => (

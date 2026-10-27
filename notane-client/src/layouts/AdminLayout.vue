@@ -33,22 +33,26 @@ const isConnectionConfigPage = computed(() => route.path === '/admin/client-conn
 // 1. Grup Menu Operasional & Master Data Bisnis
 const rawOperationalMenus = [
   { path: '/admin', name: 'Dashboard Hub', icon: 'fluent-color:apps-24' },
-  { path: '/admin/outlets', name: 'Master Outlet', icon: 'fluent-color:building-store-24', permission: ['outlets:read', 'outlets:manage', 'master:read'] },
+  { path: '/admin/outlets', name: 'Master Outlet', icon: 'fluent-color:building-store-24', permission: ['outlets:read', 'outlets:manage', 'master:read'], requiredFeature: 'multi_outlet' },
   { path: '/admin/sales', name: 'Penjualan', icon: 'fluent-color:receipt-24', permission: ['sales:read', 'report:view'] },
   { path: '/admin/purchases', name: 'Pembelian', icon: 'streamline-ultimate-color:delivery-truck-cargo', permission: ['purchasing:read', 'purchasing:write'] },
   { path: '/admin/products', name: 'Master Produk', icon: 'streamline-ultimate-color:warehouse-cart-packages-2', permission: ['products:read', 'master:read'] },
-  { path: '/admin/price-labels', name: 'Cetak Label Harga', icon: 'streamline-ultimate-color:tags-1', permission: ['products:read', 'master:read'] },
-  { path: '/admin/customers', name: 'Pelanggan & Member', icon: 'fluent-color:people-team-24', permission: ['customers:read', 'customers:manage', 'master:read'] },
-  { path: '/admin/vouchers', name: 'Voucher & Promo', icon: 'fluent-color:gift-card-24', permission: ['vouchers:read', 'vouchers:manage', 'master:read'] },
-  { path: '/admin/flash-sales', name: 'Flash Sale', icon: 'flat-color-icons:flash-on', permission: ['promotions:read', 'master:read'] },
-  { path: '/admin/promotions', name: 'Promosi Retail', icon: 'streamline-ultimate-color:discount', permission: ['promotions:read', 'master:read'] },
+  { path: '/admin/price-labels', name: 'Cetak Label Harga', icon: 'streamline-ultimate-color:tags-1', permission: ['products:read', 'master:read'], requiredFeature: 'label_printing' },
+  { path: '/admin/customers', name: 'Pelanggan & Member', icon: 'fluent-color:people-team-24', permission: ['customers:read', 'customers:manage', 'master:read'], requiredFeature: 'membership' },
+  { path: '/admin/vouchers', name: 'Voucher & Promo', icon: 'fluent-color:gift-card-24', permission: ['vouchers:read', 'vouchers:manage', 'master:read'], requiredFeature: 'promotions' },
+  { path: '/admin/flash-sales', name: 'Flash Sale', icon: 'flat-color-icons:flash-on', permission: ['promotions:read', 'master:read'], requiredFeature: 'promotions' },
+  { path: '/admin/promotions', name: 'Promosi Retail', icon: 'streamline-ultimate-color:discount', permission: ['promotions:read', 'master:read'], requiredFeature: 'promotions' },
   { path: '/admin/inventory', name: 'Stok & Opname', icon: 'streamline-ultimate-color:warehouse-storage-2', permission: ['inventory:read', 'inventory:write'] },
-  { path: '/admin/accounting', name: 'Jurnal & Laba Rugi', icon: 'streamline-ultimate-color:accounting-calculator-1', permission: ['accounting:read', 'accounting:write'] },
-  { path: '/admin/expenses', name: 'Biaya & Pengeluaran', icon: 'streamline-ultimate-color:money-bag-dollar', permission: ['expenses:read', 'expenses:categories', 'accounting:read'] },
+  { path: '/admin/accounting', name: 'Jurnal & Laba Rugi', icon: 'streamline-ultimate-color:accounting-calculator-1', permission: ['accounting:read', 'accounting:write'], requiredFeature: 'accounting' },
+  { path: '/admin/expenses', name: 'Biaya & Pengeluaran', icon: 'streamline-ultimate-color:money-bag-dollar', permission: ['expenses:read', 'expenses:categories', 'accounting:read'], requiredFeature: 'expenses' },
 ]
 
 const operationalMenus = computed(() => {
-  return rawOperationalMenus.filter(m => !m.permission || authStore.hasPermission(m.permission))
+  return rawOperationalMenus.filter(m => {
+    const passPerm = !m.permission || authStore.hasPermission(m.permission)
+    const passFeat = !m.requiredFeature || licenseStore.hasFeature(m.requiredFeature)
+    return passPerm && passFeat
+  })
 })
 
 // 2. Grup Menu Pengaturan & Keamanan
@@ -56,11 +60,15 @@ const rawConfigMenus = [
   { path: '/admin/users', name: 'Pengguna & Hak Akses', icon: 'fluent-color:lock-shield-24', permission: ['users:read', 'users:manage'] },
   { path: '/admin/receipt-settings', name: 'Desain Struk', icon: 'fluent-color:document-text-24', permission: ['settings:read', 'settings:update', 'settings:manage'] },
   { path: '/admin/parameters', name: 'Parameter Retail', icon: 'fluent-color:settings-24', permission: ['settings:manage', 'settings:update', 'master:write'] },
-  { path: '/admin/audit-logs', name: 'Jejak Audit', icon: 'fluent-color:shield-checkmark-24', permission: ['audit:read', 'report:view'] },
+  { path: '/admin/audit-logs', name: 'Jejak Audit', icon: 'fluent-color:shield-checkmark-24', permission: ['audit:read', 'report:view'], requiredFeature: 'audit_log' },
 ]
 
 const configMenus = computed(() => {
-  return rawConfigMenus.filter(m => !m.permission || authStore.hasPermission(m.permission))
+  return rawConfigMenus.filter(m => {
+    const passPerm = !m.permission || authStore.hasPermission(m.permission)
+    const passFeat = !m.requiredFeature || licenseStore.hasFeature(m.requiredFeature)
+    return passPerm && passFeat
+  })
 })
 
 // 3. Menu Jaringan LAN Terminal Client
@@ -75,6 +83,7 @@ onMounted(async () => {
   authStore.fetchCurrentUser()
   locationStore.fetchAccessibleOutlets()
   storeBrandingStore.fetchBranding()
+  licenseStore.fetchLicenseInfo()
 })
 
 function handleLogout() {

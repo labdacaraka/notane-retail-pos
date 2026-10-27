@@ -71,7 +71,7 @@ const routes = [
     path: '/admin/outlets',
     name: 'admin-outlets',
     component: OutletsPage,
-    meta: { requiresAuth: true, permission: ['outlets:read', 'outlets:manage', 'master:read'] },
+    meta: { requiresAuth: true, permission: ['outlets:read', 'outlets:manage', 'master:read'], requiredFeature: 'multi_outlet' },
   },
   {
     path: '/admin/products',
@@ -83,31 +83,31 @@ const routes = [
     path: '/admin/price-labels',
     name: 'admin-price-labels',
     component: PrintLabelsPage,
-    meta: { requiresAuth: true, permission: ['products:read', 'master:read'] },
+    meta: { requiresAuth: true, permission: ['products:read', 'master:read'], requiredFeature: 'label_printing' },
   },
   {
     path: '/admin/customers',
     name: 'admin-customers',
     component: CustomersPage,
-    meta: { requiresAuth: true, permission: ['customers:read', 'customers:manage', 'master:read'] },
+    meta: { requiresAuth: true, permission: ['customers:read', 'customers:manage', 'master:read'], requiredFeature: 'membership' },
   },
   {
     path: '/admin/vouchers',
     name: 'admin-vouchers',
     component: VouchersPage,
-    meta: { requiresAuth: true, permission: ['vouchers:read', 'vouchers:manage', 'master:read'] },
+    meta: { requiresAuth: true, permission: ['vouchers:read', 'vouchers:manage', 'master:read'], requiredFeature: 'promotions' },
   },
   {
     path: '/admin/flash-sales',
     name: 'admin-flash-sales',
     component: FlashSalesPage,
-    meta: { requiresAuth: true, permission: ['promotions:read', 'master:read'] },
+    meta: { requiresAuth: true, permission: ['promotions:read', 'master:read'], requiredFeature: 'promotions' },
   },
   {
     path: '/admin/promotions',
     name: 'admin-promotions',
     component: PromotionsPage,
-    meta: { requiresAuth: true, permission: ['promotions:read', 'master:read'] },
+    meta: { requiresAuth: true, permission: ['promotions:read', 'master:read'], requiredFeature: 'promotions' },
   },
   {
     path: '/admin/parameters',
@@ -125,19 +125,19 @@ const routes = [
     path: '/admin/accounting',
     name: 'admin-accounting',
     component: AccountingPage,
-    meta: { requiresAuth: true, permission: ['accounting:read', 'accounting:write'] },
+    meta: { requiresAuth: true, permission: ['accounting:read', 'accounting:write'], requiredFeature: 'accounting' },
   },
   {
     path: '/admin/expenses',
     name: 'admin-expenses',
     component: ExpensesPage,
-    meta: { requiresAuth: true, permission: ['expenses:read', 'expenses:categories'] },
+    meta: { requiresAuth: true, permission: ['expenses:read', 'expenses:categories'], requiredFeature: 'expenses' },
   },
   {
     path: '/admin/audit-logs',
     name: 'admin-audit-logs',
     component: AuditLogPage,
-    meta: { requiresAuth: true, permission: ['audit:read', 'report:view'] },
+    meta: { requiresAuth: true, permission: ['audit:read', 'report:view'], requiredFeature: 'audit_log' },
   },
   {
     path: '/admin/receipt-settings',
@@ -164,10 +164,24 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const token = localStorage.getItem('notane_token')
   if (to.meta.requiresAuth && !token) {
     return next({ name: 'login' })
+  }
+
+  // Feature License Verification (Zero Trust Frontend Guard)
+  const reqFeature = to.meta.requiredFeature as string | undefined
+  if (reqFeature) {
+    const { useLicenseStore } = await import('@/stores/licenseStore')
+    const licStore = useLicenseStore()
+    if (!licStore.licenseInfo.is_valid && licStore.licenseInfo.status === 'UNLICENSED') {
+      await licStore.fetchLicenseInfo()
+    }
+    if (!licStore.hasFeature(reqFeature)) {
+      console.warn(`[LicenseGuard] Akses ditolak: Modul '${reqFeature}' tidak diaktifkan pada lisensi server.`)
+      return next({ path: '/admin' })
+    }
   }
 
   // Permission Verification

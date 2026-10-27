@@ -12,6 +12,7 @@ import { useCartStore } from '@/stores/cartStore'
 import { useShiftStore } from '@/stores/shiftStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocationStore } from '@/stores/locationStore'
+import { useLicenseStore } from '@/stores/licenseStore'
 import { useDialog } from '@/composables/useDialog'
 import { api } from '@/services/api'
 import { Tag, User, ShoppingCart } from 'lucide-vue-next'
@@ -21,6 +22,7 @@ const cartStore = useCartStore()
 const shiftStore = useShiftStore()
 const authStore = useAuthStore()
 const locationStore = useLocationStore()
+const licenseStore = useLicenseStore()
 const dialog = useDialog()
 
 onMounted(async () => {
@@ -192,6 +194,22 @@ async function handleClaimGift(gift: any) {
     dialog.toast(e.message || 'Gagal menambahkan hadiah', 'danger')
   }
 }
+
+function handleOpenCustomerModal() {
+  if (!licenseStore.hasFeature('membership')) {
+    dialog.toast('Modul Pelanggan & Membership tidak aktif pada lisensi server ini.', 'warning')
+    return
+  }
+  showCustomerModal.value = true
+}
+
+function handleOpenVoucherModal() {
+  if (!licenseStore.hasFeature('promotions')) {
+    dialog.toast('Modul Voucher & Promosi tidak aktif pada lisensi server ini.', 'warning')
+    return
+  }
+  showVoucherModal.value = true
+}
 </script>
 
 <template>
@@ -200,8 +218,8 @@ async function handleClaimGift(gift: any) {
     <BarcodeBar
       ref="barcodeBarRef"
       @search="handleOpenProductSearch"
-      @customer="showCustomerModal = true"
-      @voucher="showVoucherModal = true"
+      @customer="handleOpenCustomerModal"
+      @voucher="handleOpenVoucherModal"
       @open-drawer="handleOpenDrawer"
       @hold="handleHoldOrder"
       @recall="handleRecallOrder"

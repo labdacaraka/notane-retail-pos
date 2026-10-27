@@ -40,7 +40,7 @@ async function handleGenerate() {
     return
   }
   if (!hardwareId.value.trim()) {
-    validationError.value = 'Hardware ID mesin klien kasir wajib diisi'
+    validationError.value = 'Hardware ID mesin server (notane-server) wajib diisi'
     return
   }
 
@@ -123,7 +123,7 @@ async function copySignature() {
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
             <Cpu class="w-3.5 h-3.5 text-blue-400" />
-            <span>Kode Perangkat Komputer (ID Mesin) *</span>
+            <span>Hardware ID Mesin Server (notane-server) *</span>
           </label>
           <input
             v-model="hardwareId"
@@ -132,7 +132,7 @@ async function copySignature() {
             class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-brand-500"
           />
           <span class="text-[11px] text-slate-500 mt-1 block">
-            Salin ID Mesin dari menu Lisensi pada aplikasi server toko atau kasir Notane POS.
+            Salin Hardware ID dari menu Lisensi pada aplikasi Notane Server toko (Bukan komputer kasir client).
           </span>
         </div>
       </div>
