@@ -83,7 +83,8 @@ export const useNetworkStore = defineStore('network', {
     serverUrl(state): string {
       if (typeof window !== 'undefined' && window.location?.origin) {
         const orig = window.location.origin
-        if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
+        const proto = window.location.protocol || ''
+        if ((proto === 'http:' || proto === 'https:') && (orig.startsWith('http://') || orig.startsWith('https://')) && !orig.includes('tauri') && !orig.includes(':517')) {
           return orig
         }
       }
@@ -97,7 +98,8 @@ export const useNetworkStore = defineStore('network', {
     controlUrl(state): string {
       if (typeof window !== 'undefined' && window.location?.origin) {
         const orig = window.location.origin
-        if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
+        const proto = window.location.protocol || ''
+        if ((proto === 'http:' || proto === 'https:') && (orig.startsWith('http://') || orig.startsWith('https://')) && !orig.includes('tauri') && !orig.includes(':517')) {
           return orig
         }
       }
@@ -539,15 +541,21 @@ export const useNetworkStore = defineStore('network', {
     getControlUrls(): string[] {
       const urls: string[] = []
 
-      // 1. PRIORITAS UTAMA: Jika diakses lewat Web Browser, utamakan origin browser saat ini!
+      // 1. PRIORITAS UTAMA: Jika diakses lewat Web Browser (bukan Tauri Desktop), utamakan origin browser saat ini!
       if (typeof window !== 'undefined' && window.location?.origin) {
         const orig = window.location.origin
-        if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
+        const proto = window.location.protocol || ''
+        if ((proto === 'http:' || proto === 'https:') && (orig.startsWith('http://') || orig.startsWith('https://')) && !orig.includes('tauri') && !orig.includes(':517')) {
           urls.push(orig)
         }
       }
 
-      const raw = (this.targetHost || '127.0.0.1').trim()
+      let raw = (this.targetHost || '127.0.0.1').trim()
+      if (raw.includes('tauri') || raw.startsWith('tauri:')) {
+        raw = '127.0.0.1'
+        this.targetHost = '127.0.0.1'
+        localStorage.setItem('notane_target_host', '127.0.0.1')
+      }
       const host = raw.startsWith('http://') || raw.startsWith('https://') ? raw.replace(/\/$/, '') : `http://${raw}`
       const port = this.targetPort || 18080
       const controlPort = this.hostStatus.control_port || (port + 1)

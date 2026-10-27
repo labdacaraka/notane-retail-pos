@@ -144,7 +144,10 @@ const isServerRunning = computed(() => networkStore.hostStatus.is_running)
 
 const displayPort = computed(() => {
   if (typeof window !== 'undefined' && window.location?.port) {
-    return Number(window.location.port)
+    const proto = window.location.protocol || ''
+    if (proto === 'http:' || proto === 'https:') {
+      return Number(window.location.port)
+    }
   }
   return (networkStore.hostStatus as any).external_port || networkStore.hostStatus.port || 18080
 })
@@ -233,7 +236,7 @@ const detectedLanIps = computed(() => {
   const ips = [...(networkStore.hostStatus.host_ips || [])]
   if (typeof window !== 'undefined' && window.location?.hostname) {
     const h = window.location.hostname
-    if (h && h !== '127.0.0.1' && h !== 'localhost' && !isDomainOrPublicHost(h) && !ips.includes(h)) {
+    if (h && h !== '127.0.0.1' && h !== 'localhost' && !h.includes('tauri') && !isDomainOrPublicHost(h) && !ips.includes(h)) {
       ips.unshift(h)
     }
   }
@@ -257,7 +260,7 @@ const primaryIp = computed(() => {
   }
   if (typeof window !== 'undefined' && window.location?.hostname) {
     const h = window.location.hostname
-    if (h && h !== '127.0.0.1' && h !== 'localhost' && !isDomainOrPublicHost(h)) {
+    if (h && h !== '127.0.0.1' && h !== 'localhost' && !h.includes('tauri') && !isDomainOrPublicHost(h)) {
       return h
     }
   }

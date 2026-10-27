@@ -132,13 +132,16 @@ pub async fn get_system_printers() -> Result<Vec<SystemPrinterInfo>, String> {
 
     #[cfg(target_os = "windows")]
     {
+        #[allow(unused_imports)]
+        use std::os::windows::process::CommandExt;
         let script = r#"
             $def = (Get-CimInstance Win32_Printer | Where-Object { $_.Default -eq $true } | Select-Object -ExpandProperty Name -ErrorAction SilentlyContinue)
             Get-CimInstance Win32_Printer | Select-Object Name, @{Name='IsDefault'; Expression={ $_.Name -eq $def }} | ConvertTo-Json
         "#;
-        if let Ok(output) = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-Command", script])
-            .output()
+        let mut cmd = std::process::Command::new("powershell");
+        cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        if let Ok(output) = cmd.output()
         {
             let stdout = String::from_utf8_lossy(&output.stdout);
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&stdout) {
@@ -212,8 +215,12 @@ pub async fn silent_print_raw(printer_name: Option<String>, raw_data: String) ->
             format!("Get-Content -Path '{}' -Raw | Out-Printer -Name '{}'", file_path.to_string_lossy(), target_printer)
         };
 
-        let output = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-Command", &script])
+        #[allow(unused_imports)]
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("powershell");
+        cmd.args(["-NoProfile", "-NonInteractive", "-Command", &script]);
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        let output = cmd
             .output()
             .map_err(|e| format!("Gagal mencetak ke spooler Windows: {}", e))?;
 
@@ -278,8 +285,12 @@ pub async fn print_html_document(
             format!("Start-Process -FilePath '{}' -Verb PrintTo -ArgumentList '{}' -WindowStyle Hidden", file_path.to_string_lossy(), target_printer)
         };
 
-        let output = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-Command", &script])
+        #[allow(unused_imports)]
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("powershell");
+        cmd.args(["-NoProfile", "-NonInteractive", "-Command", &script]);
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        let output = cmd
             .output()
             .map_err(|e| format!("Gagal mencetak dokumen: {}", e))?;
 

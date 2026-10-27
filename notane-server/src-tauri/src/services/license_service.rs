@@ -64,27 +64,30 @@ impl LicenseService {
     /// Menghasilkan Hardware ID unik dan terenkripsi untuk mesin ini (Node-Locking)
     /// Berasal dari kombinasi identitas CPU, OS Machine GUID / UUID, dan Hostname + Salt
     pub fn get_hardware_id() -> String {
-        let os_family = env::consts::OS;
-        let arch = env::consts::ARCH;
+        static CACHED_HWID: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        CACHED_HWID.get_or_init(|| {
+            let os_family = env::consts::OS;
+            let arch = env::consts::ARCH;
 
-        // Ambil machine id lokal
-        let machine_guid = Self::read_os_machine_guid();
+            // Ambil machine id lokal
+            let machine_guid = Self::read_os_machine_guid();
 
-        let mut hasher = Sha256::new();
-        hasher.update(b"NOTANE_RETAIL_ENTERPRISE_NODE_SALT_2026::");
-        hasher.update(os_family.as_bytes());
-        hasher.update(b"::");
-        hasher.update(arch.as_bytes());
-        hasher.update(b"::");
-        hasher.update(machine_guid.as_bytes());
+            let mut hasher = Sha256::new();
+            hasher.update(b"NOTANE_RETAIL_ENTERPRISE_NODE_SALT_2026::");
+            hasher.update(os_family.as_bytes());
+            hasher.update(b"::");
+            hasher.update(arch.as_bytes());
+            hasher.update(b"::");
+            hasher.update(machine_guid.as_bytes());
 
-        let hash_result = hex::encode(hasher.finalize());
-        let chunk1 = &hash_result[0..4];
-        let chunk2 = &hash_result[4..8];
-        let chunk3 = &hash_result[8..12];
-        let chunk4 = &hash_result[12..16];
+            let hash_result = hex::encode(hasher.finalize());
+            let chunk1 = &hash_result[0..4];
+            let chunk2 = &hash_result[4..8];
+            let chunk3 = &hash_result[8..12];
+            let chunk4 = &hash_result[12..16];
 
-        format!("NOTANE-HWID-{}-{}-{}-{}", chunk1, chunk2, chunk3, chunk4).to_uppercase()
+            format!("NOTANE-HWID-{}-{}-{}-{}", chunk1, chunk2, chunk3, chunk4).to_uppercase()
+        }).clone()
     }
 
     fn read_os_machine_guid() -> String {
@@ -121,10 +124,12 @@ impl LicenseService {
         // Windows: MachineGuid Registry (via fallback PowerShell / env)
         #[cfg(target_os = "windows")]
         {
-            if let Ok(output) = std::process::Command::new("powershell")
-                .args(["-Command", "(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid"])
-                .output()
-            {
+            #[allow(unused_imports)]
+            use std::os::windows::process::CommandExt;
+            let mut cmd = std::process::Command::new("powershell");
+            cmd.args(["-NoProfile", "-NonInteractive", "-Command", "(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid"]);
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+            if let Ok(output) = cmd.output() {
                 let id = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 if !id.is_empty() {
                     return id;

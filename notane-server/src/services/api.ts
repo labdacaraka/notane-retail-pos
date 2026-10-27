@@ -1,7 +1,11 @@
 import axios from 'axios'
 
 export function getApiBaseUrl(): string {
-  const raw = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
+  let raw = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
+  if (raw.includes('tauri') || raw.startsWith('tauri:')) {
+    raw = '127.0.0.1'
+    localStorage.setItem('notane_target_host', '127.0.0.1')
+  }
   const port = localStorage.getItem('notane_target_port') || '18080'
   if (raw.startsWith('http://') || raw.startsWith('https://')) {
     return `${raw.replace(/\/$/, '')}/api/v1`

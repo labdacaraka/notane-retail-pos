@@ -30,7 +30,7 @@ export const discoveryService = {
     }
 
     // 3. Current window hostname if running in browser
-    if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+    if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost' && !window.location.hostname.includes('tauri') && !window.location.protocol.startsWith('tauri')) {
       candidates.push({ host: window.location.hostname, port: 18080, isLocal: false, name: `Gateway (${window.location.hostname})` })
     }
 

@@ -52,12 +52,17 @@ export const useInitialSetupStore = defineStore('initialSetup', () => {
     // 1. PRIORITAS UTAMA: Jika diakses melalui browser web, gunakan window.location.origin
     if (typeof window !== 'undefined' && window.location?.origin) {
       const orig = window.location.origin
-      if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
+      const proto = window.location.protocol || ''
+      if ((proto === 'http:' || proto === 'https:') && (orig.startsWith('http://') || orig.startsWith('https://')) && !orig.includes('tauri') && !orig.includes(':517')) {
         urls.push(orig)
       }
     }
 
-    const targetHost = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
+    let targetHost = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
+    if (targetHost.includes('tauri') || targetHost.startsWith('tauri:')) {
+      targetHost = '127.0.0.1'
+      localStorage.setItem('notane_target_host', '127.0.0.1')
+    }
     const targetPort = localStorage.getItem('notane_target_port') || '18080'
     const controlPort = String(Number(targetPort) + 1)
 

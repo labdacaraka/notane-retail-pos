@@ -117,13 +117,18 @@ export const useLicenseStore = defineStore('license', {
       // HANYA gunakan origin browser saat ini (tidak boleh probing ke 127.0.0.1 lokal user!)
       if (typeof window !== 'undefined' && window.location?.origin) {
         const orig = window.location.origin
-        if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
+        const proto = window.location.protocol || ''
+        if ((proto === 'http:' || proto === 'https:') && (orig.startsWith('http://') || orig.startsWith('https://')) && !orig.includes('tauri') && !orig.includes(':517')) {
           return [orig]
         }
       }
 
       const urls: string[] = []
-      const targetHost = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
+      let targetHost = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
+      if (targetHost.includes('tauri') || targetHost.startsWith('tauri:')) {
+        targetHost = '127.0.0.1'
+        localStorage.setItem('notane_target_host', '127.0.0.1')
+      }
       const targetPort = localStorage.getItem('notane_target_port') || '18080'
       const controlPort = String(Number(targetPort) + 1)
 
