@@ -31,6 +31,24 @@ pub struct ApiState {
     pub active_sessions: Arc<RwLock<HashSet<String>>>,
 }
 
+impl ApiState {
+    pub async fn get_master_private_key(&self) -> String {
+        let guard = self.master_private_key.read().await;
+        if guard.trim().len() == 64 {
+            return guard.trim().to_string();
+        }
+        let db_key: Option<(String,)> = sqlx::query_as("SELECT value FROM provider_settings WHERE key = 'master_private_key'")
+            .fetch_optional(&self.pool)
+            .await
+            .unwrap_or(None);
+
+        db_key
+            .map(|(k,)| k.trim().to_string())
+            .filter(|k| k.len() == 64)
+            .unwrap_or_else(|| crate::crypto::ed25519::DEFAULT_MASTER_PRIVATE_KEY_HEX.to_string())
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ActivateRequest {
     #[serde(alias = "licenseKey")]
@@ -392,7 +410,7 @@ async fn handle_activate(
         }
     };
 
-    let priv_key = state.master_private_key.read().await;
+    let priv_key = state.get_master_private_key().await;
     let signature = match sign_message(&priv_key, &token_json) {
         Ok(s) => s,
         Err(e) => {

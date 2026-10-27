@@ -316,7 +316,7 @@ async fn admin_get_status(
     let total_releases: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM provider_app_releases")
         .fetch_one(pool).await.unwrap_or((0,));
 
-    let priv_key = state.master_private_key.read().await;
+    let priv_key = state.get_master_private_key().await;
     let public_key = derive_public_key(&priv_key).unwrap_or_else(|_| DEFAULT_MASTER_PUBLIC_KEY_HEX.to_string());
 
     Ok(Json(ProviderStatus {
@@ -349,7 +349,7 @@ async fn admin_toggle_server(
 async fn admin_get_settings(
     State(state): State<ApiState>,
 ) -> Json<ProviderSettings> {
-    let priv_key = state.master_private_key.read().await.clone();
+    let priv_key = state.get_master_private_key().await;
     let pub_key = derive_public_key(&priv_key).unwrap_or_else(|_| DEFAULT_MASTER_PUBLIC_KEY_HEX.to_string());
 
     Json(ProviderSettings {
@@ -962,7 +962,7 @@ async fn admin_create_release(
     let release_date = now.format("%Y-%m-%d").to_string();
     let component = payload.component.clone().unwrap_or_else(|| "server".to_string());
 
-    let priv_key = state.master_private_key.read().await;
+    let priv_key = state.get_master_private_key().await;
     let sign_target = format!("{}:{}", payload.version.trim(), payload.checksum_sha256.trim());
     let signature = sign_message(&priv_key, &sign_target)
         .map_err(|e| err_response(AppError::Crypto(e)))?;
@@ -1172,7 +1172,7 @@ async fn admin_sign_token_manual(
     let token_json = serde_json::to_string(&token_payload)
         .map_err(|e| err_response(AppError::Internal(format!("Gagal encode JSON token: {}", e))))?;
 
-    let priv_key = state.master_private_key.read().await;
+    let priv_key = state.get_master_private_key().await;
     let signature = sign_message(&priv_key, &token_json)
         .map_err(|e| err_response(AppError::Crypto(e)))?;
 

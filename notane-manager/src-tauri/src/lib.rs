@@ -29,8 +29,24 @@ pub async fn build_app_state() -> Result<AppState, Box<dyn std::error::Error>> {
         .and_then(|p| p.parse().ok())
         .unwrap_or(19090);
 
-    let master_private_key = env::var("PROVIDER_PRIVATE_KEY")
-        .unwrap_or_else(|_| DEFAULT_MASTER_PRIVATE_KEY_HEX.to_string());
+    let env_priv_key = env::var("PROVIDER_PRIVATE_KEY")
+        .ok()
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty() && k.len() == 64);
+
+    let master_private_key = if let Some(key) = env_priv_key {
+        key
+    } else {
+        let db_key: Option<(String,)> = sqlx::query_as("SELECT value FROM provider_settings WHERE key = 'master_private_key'")
+            .fetch_optional(&pool)
+            .await
+            .unwrap_or(None);
+
+        db_key
+            .map(|(k,)| k.trim().to_string())
+            .filter(|k| !k.is_empty() && k.len() == 64)
+            .unwrap_or_else(|| DEFAULT_MASTER_PRIVATE_KEY_HEX.to_string())
+    };
 
     let active_sessions = Arc::new(RwLock::new(std::collections::HashSet::new()));
 
