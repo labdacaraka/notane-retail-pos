@@ -36,6 +36,7 @@ import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
 import { useInitialSetupStore } from '@/stores/initialSetupStore'
 import LicenseUpdateModal from '@/components/common/LicenseUpdateModal.vue'
 import InitialSetupWizardModal from '@/components/common/InitialSetupWizardModal.vue'
+import DatabaseBackupModal from '@/components/common/DatabaseBackupModal.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 const networkStore = useNetworkStore()
@@ -50,8 +51,18 @@ const isActionLoading = ref(false)
 const showLicenseModal = ref(false)
 const licenseModalTab = ref<'LICENSE' | 'PROVIDER' | 'UPDATE'>('LICENSE')
 const showInitialSetupModal = ref(false)
+const showBackupModal = ref(false)
 
 const selectedIp = ref<string>('')
+
+async function handleRestoreSuccess() {
+  showBackupModal.value = false
+  await networkStore.fetchHostStatus()
+  await networkStore.fetchConnectedDevices()
+  await licenseStore.fetchVersionInfo()
+  await storeBrandingStore.fetchBranding()
+  alert('Database toko berhasil dipulihkan secara penuh dari berkas cadangan!')
+}
 
 // Store Branding State
 const brandingForm = ref({
@@ -417,6 +428,17 @@ const restartServer = async () => {
         >
           <Sparkles class="w-3.5 h-3.5 text-indigo-600" />
           <span>Panduan Awal Toko</span>
+        </button>
+
+        <!-- Tombol Cadangan & Pemulihan Database -->
+        <button
+          type="button"
+          @click="showBackupModal = true"
+          class="px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:opacity-90 active:scale-95"
+          title="Ekspor berkas cadangan database SQL (.zip) atau pulihkan data"
+        >
+          <Database class="w-3.5 h-3.5 text-sky-600" />
+          <span>Cadangan & Pemulihan</span>
         </button>
 
         <!-- Tombol Cek & Pembaruan Server -->
@@ -892,6 +914,17 @@ const restartServer = async () => {
           <p class="text-[11px] text-slate-500 leading-relaxed">
             Menyimpan seluruh data penjualan, produk, dan laporan toko Anda secara aman di komputer ini.
           </p>
+
+          <div class="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              @click="showBackupModal = true"
+              class="w-full py-1.5 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
+            >
+              <Database class="w-3.5 h-3.5 text-indigo-600" />
+              <span>Kelola Cadangan & Impor SQL</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1202,6 +1235,12 @@ const restartServer = async () => {
     <InitialSetupWizardModal
       v-model="showInitialSetupModal"
       @completed="handleWizardCompleted"
+    />
+
+    <!-- Database Backup & Restore Modal -->
+    <DatabaseBackupModal
+      v-model="showBackupModal"
+      @restore-success="handleRestoreSuccess"
     />
   </div>
 </template>

@@ -1,7 +1,7 @@
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::IntoResponse,
+    extract::{Path, Query, State},
+    http::{header, HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
@@ -47,6 +47,9 @@ pub fn system_routes(state: AppState) -> Router {
         .route("/branding/upload-logo", post(upload_store_logo))
         .route("/setup-status", get(get_setup_status))
         .route("/initial-setup", post(perform_initial_setup))
+        .route("/database/backup", post(export_database_backup_handler).get(export_database_backup_handler))
+        .route("/database/inspect", post(inspect_database_backup_handler))
+        .route("/database/restore", post(restore_database_backup_handler))
         .with_state(state)
 }
 
@@ -1652,4 +1655,171 @@ async fn perform_initial_setup(
         })),
     )
 }
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ExportBackupPayload {
+    pub notes: Option<String>,
+}
+
+async fn export_database_backup_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(payload): Query<ExportBackupPayload>,
+) -> Response {
+    let pool_guard = state.pool.read().await;
+    let pool = match pool_guard.as_ref() {
+        Some(p) => p.clone(),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "success": false, "message": "Database server belum terhubung." })),
+            )
+                .into_response();
+        }
+    };
+    drop(pool_guard);
+
+    if headers.contains_key("Authorization") {
+        if let Err(resp) = crate::utils::jwt::require_any_permission(&pool, &headers, &["database:backup", "super_admin", "admin"]).await {
+            return resp.into_response();
+        }
+    }
+
+    match crate::services::backup_service::export_database_to_zip(&pool, payload.notes).await {
+        Ok((zip_bytes, manifest)) => {
+            let filename = format!(
+                "notane_backup_{}.zip",
+                manifest.exported_at.format("%Y%m%d_%H%M%S")
+            );
+            let mut res_headers = HeaderMap::new();
+            res_headers.insert(header::CONTENT_TYPE, "application/zip".parse().unwrap());
+            res_headers.insert(
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{}\"", filename).parse().unwrap(),
+            );
+            res_headers.insert(
+                header::HeaderName::from_static("x-notane-checksum-sha256"),
+                manifest.checksum_sha256.parse().unwrap(),
+            );
+            res_headers.insert(
+                header::HeaderName::from_static("x-notane-schema-version"),
+                manifest.schema_version.to_string().parse().unwrap(),
+            );
+            res_headers.insert(
+                header::HeaderName::from_static("x-notane-min-server-version"),
+                manifest.min_server_version.parse().unwrap(),
+            );
+            (StatusCode::OK, res_headers, zip_bytes).into_response()
+        }
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "message": err })),
+        )
+            .into_response(),
+    }
+}
+
+async fn inspect_database_backup_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    let pool_guard = state.pool.read().await;
+    let pool = match pool_guard.as_ref() {
+        Some(p) => p.clone(),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "success": false, "message": "Database server belum terhubung." })),
+            )
+                .into_response();
+        }
+    };
+    drop(pool_guard);
+
+    if headers.contains_key("Authorization") {
+        if let Err(resp) = crate::utils::jwt::require_any_permission(&pool, &headers, &["database:restore", "database:backup", "super_admin", "admin"]).await {
+            return resp.into_response();
+        }
+    }
+
+    if body.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "message": "Berkas cadangan kosong (0 bytes)." })),
+        )
+            .into_response();
+    }
+
+    match crate::services::backup_service::inspect_backup_zip(&body) {
+        Ok(compat) => (
+            StatusCode::OK,
+            Json(json!({
+                "success": true,
+                "data": compat
+            })),
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "message": err })),
+        )
+            .into_response(),
+    }
+}
+
+async fn restore_database_backup_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    let pool_guard = state.pool.read().await;
+    let pool = match pool_guard.as_ref() {
+        Some(p) => p.clone(),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "success": false, "message": "Database server belum terhubung." })),
+            )
+                .into_response();
+        }
+    };
+    drop(pool_guard);
+
+    let mut user_id = None;
+    if headers.contains_key("Authorization") {
+        let claims = match crate::utils::jwt::require_any_permission(&pool, &headers, &["database:restore", "super_admin", "admin"]).await {
+            Ok(c) => c,
+            Err(resp) => return resp.into_response(),
+        };
+        user_id = Some(claims.sub);
+    }
+
+    if body.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "message": "Berkas cadangan kosong (0 bytes)." })),
+        )
+            .into_response();
+    }
+
+    match crate::services::backup_service::import_database_from_zip(pool, body.to_vec(), user_id).await {
+        Ok(summary) => (
+            StatusCode::OK,
+            Json(json!({
+                "success": true,
+                "message": summary.message,
+                "data": summary
+            })),
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "message": err })),
+        )
+            .into_response(),
+    }
+}
+
+
 

@@ -91,6 +91,7 @@ pub async fn run_embedded_migrations(pool: &PgPool) -> Result<(), Box<dyn std::e
         ("060_export_excel_permissions", include_str!("../../migrations/060_export_excel_permissions.sql")),
         ("061_export_jobs_queue", include_str!("../../migrations/061_export_jobs_queue.sql")),
         ("062_drop_app_licenses_table", include_str!("../../migrations/062_drop_app_licenses_table.sql")),
+        ("063_database_backup_and_restore_permissions", include_str!("../../migrations/063_database_backup_and_restore_permissions.sql")),
     ];
 
     // 2. Ambil daftar migrasi yang sudah pernah dieksekusi
