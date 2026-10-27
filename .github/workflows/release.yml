@@ -190,7 +190,22 @@ jobs:
           NOTANE_RELEASE_PROVIDER_URL: ${{ steps.vars.outputs.provider_url }}
         run: |
           cd "$GITHUB_WORKSPACE"
-          npm --prefix notane-server run tauri build -- --target ${{ matrix.target }}
+          for attempt in {1..3}; do
+            echo "==> Building Notane Server Desktop App (Attempt $attempt of 3)..."
+            if npm --prefix notane-server run tauri build -- --target ${{ matrix.target }}; then
+              echo "==> Server build succeeded on attempt $attempt."
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "==> Server build failed after 3 attempts."
+              exit 1
+            fi
+            echo "==> Build attempt $attempt failed. Cleaning up stale helpers and retrying in 5s..."
+            if [ "$RUNNER_OS" = "macOS" ]; then
+              killall diskimages-helper 2>/dev/null || true
+            fi
+            sleep 5
+          done
 
       - name: Package Server Bundle (Linux / macOS)
         if: matrix.use_zip_shell == 'unix'
@@ -253,7 +268,22 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE"
           npm --prefix notane-client run build
-          npm --prefix notane-client run tauri build -- --target ${{ matrix.target }}
+          for attempt in {1..3}; do
+            echo "==> Building Notane Client Desktop App (Attempt $attempt of 3)..."
+            if npm --prefix notane-client run tauri build -- --target ${{ matrix.target }}; then
+              echo "==> Client build succeeded on attempt $attempt."
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "==> Client build failed after 3 attempts."
+              exit 1
+            fi
+            echo "==> Build attempt $attempt failed. Cleaning up stale helpers and retrying in 5s..."
+            if [ "$RUNNER_OS" = "macOS" ]; then
+              killall diskimages-helper 2>/dev/null || true
+            fi
+            sleep 5
+          done
 
       - name: Collect Desktop Installers (Linux / macOS)
         if: matrix.use_zip_shell == 'unix'
