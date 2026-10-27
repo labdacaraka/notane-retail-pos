@@ -211,7 +211,18 @@ async function handleSubmitSetup() {
 }
 
 function finishWizard() {
+  localStorage.setItem('notane_initial_setup_prompted', 'true')
   emit('update:modelValue', false)
+}
+
+function handleDismiss() {
+  localStorage.setItem('notane_initial_setup_prompted', 'true')
+  emit('update:modelValue', false)
+}
+
+async function handleSkipWithDefaults() {
+  initFormData()
+  await handleSubmitSetup()
 }
 </script>
 
@@ -247,10 +258,9 @@ function finishWizard() {
         </div>
 
         <button
-          v-if="!isFirstRun"
           type="button"
-          @click="emit('update:modelValue', false)"
-          class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+          @click="handleDismiss"
+          class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
           title="Tutup Wizard"
         >
           <X class="w-5 h-5" />
@@ -996,19 +1006,38 @@ function finishWizard() {
           v-if="currentStep > 1"
           type="button"
           @click="prevStep"
-          class="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
+          class="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
         >
           <ArrowLeft class="w-4 h-4" />
           Sebelumnya
         </button>
-        <div v-else></div>
+        <button
+          v-else
+          type="button"
+          @click="handleDismiss"
+          class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+        >
+          Nanti Saja
+        </button>
 
         <div class="flex items-center gap-3">
+          <button
+            v-if="currentStep === 1 && isFirstRun"
+            type="button"
+            @click="handleSkipWithDefaults"
+            :disabled="isSubmitting"
+            class="px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Gunakan pengaturan toko bawaan tanpa mengisi wizard"
+          >
+            <Sparkles class="w-3.5 h-3.5 text-indigo-600" />
+            Lewati (Pakai Bawaan)
+          </button>
+
           <button
             v-if="currentStep < totalSteps"
             type="button"
             @click="nextStep"
-            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5"
+            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5 cursor-pointer"
           >
             Lanjutkan
             <ArrowRight class="w-4 h-4" />

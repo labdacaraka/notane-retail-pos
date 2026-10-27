@@ -127,10 +127,12 @@ onMounted(async () => {
   await licenseStore.fetchLicenseInfo()
   await storeBrandingStore.fetchBranding()
   
-  // Periksa apakah setup awal sudah selesai
+  // Periksa apakah setup awal sudah selesai (hanya muncul otomatis sekali pada instalasi pertama)
   const isCompleted = await initialSetupStore.fetchSetupStatus()
-  if (!isCompleted) {
+  const hasPrompted = localStorage.getItem('notane_initial_setup_prompted') === 'true'
+  if (!isCompleted && !hasPrompted) {
     showInitialSetupModal.value = true
+    localStorage.setItem('notane_initial_setup_prompted', 'true')
   }
 })
 
