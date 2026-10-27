@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useNetworkStore } from './networkStore'
+import { useInitialSetupStore } from './initialSetupStore'
 
 export type LicenseStatus = 'ACTIVE' | 'GRACE_PERIOD' | 'EXPIRED' | 'HARDWARE_MISMATCH' | 'CLOCK_TAMPERED' | 'UNLICENSED'
 
@@ -241,6 +242,8 @@ export const useLicenseStore = defineStore('license', {
             this.successMessage = res.data.message || 'Lisensi berhasil diaktivasi secara online!'
             await this.fetchLicenseInfo()
             useNetworkStore().fetchHostStatus()
+            localStorage.setItem('notane_initial_setup_prompted', 'true')
+            await useInitialSetupStore().fetchSetupStatus()
             this.isActivatingOnline = false
             return true
           } else {
@@ -292,6 +295,8 @@ export const useLicenseStore = defineStore('license', {
             this.successMessage = res.data.message || 'Lisensi berhasil diaktivasi!'
             await this.fetchLicenseInfo()
             useNetworkStore().fetchHostStatus()
+            localStorage.setItem('notane_initial_setup_prompted', 'true')
+            await useInitialSetupStore().fetchSetupStatus()
             this.isLoading = false
             return true
           } else {

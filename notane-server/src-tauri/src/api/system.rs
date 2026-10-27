@@ -1248,13 +1248,34 @@ async fn get_setup_status(State(state): State<AppState>) -> impl IntoResponse {
         .ok()
         .flatten();
 
-    let is_completed = setting_row
+    let mut is_completed = setting_row
         .as_ref()
         .and_then(|r| r.try_get::<bool, _>("is_initial_setup_completed").ok())
         .unwrap_or(false);
-    let completed_at: Option<chrono::DateTime<Utc>> = setting_row
+    let mut completed_at: Option<chrono::DateTime<Utc>> = setting_row
         .as_ref()
         .and_then(|r| r.try_get("initial_setup_completed_at").ok());
+
+    // Jika lisensi sudah aktif namun flag receipt_settings belum terupdate, tandai selesai otomatis
+    let has_active_license: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM app_licenses WHERE status = 'ACTIVE' LIMIT 1)")
+        .fetch_one(&pool)
+        .await
+        .unwrap_or(false);
+
+    if !is_completed && has_active_license {
+        is_completed = true;
+        let now = Utc::now();
+        completed_at = Some(now);
+        let _ = sqlx::query(
+            "UPDATE receipt_settings 
+             SET is_initial_setup_completed = TRUE, 
+                 initial_setup_completed_at = COALESCE(initial_setup_completed_at, $1),
+                 updated_at = $1"
+        )
+        .bind(now)
+        .execute(&pool)
+        .await;
+    }
 
     let current_pairing = state.pairing_code.read().await.clone();
 

@@ -456,6 +456,16 @@ impl LicenseService {
         .await
         .map_err(|e| format!("Gagal menyimpan aktivasi lisensi ke database: {}", e))?;
 
+        // Otomatis tandai setup awal selesai di receipt_settings saat lisensi berhasil diaktivasi
+        let _ = sqlx::query(
+            r#"UPDATE receipt_settings
+               SET is_initial_setup_completed = TRUE,
+                   initial_setup_completed_at = COALESCE(initial_setup_completed_at, CURRENT_TIMESTAMP),
+                   updated_at = CURRENT_TIMESTAMP"#
+        )
+        .execute(pool)
+        .await;
+
         info!("Aktivasi lisensi berhasil: {} ({})", payload.license_key, payload.client_name);
         Ok(Self::check_current_license(pool).await)
     }
