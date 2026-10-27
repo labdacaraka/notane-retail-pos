@@ -16,7 +16,7 @@ on:
         required: false
         default: '1. Pembaruan stabilitas, performa, dan installer multi-platform'
       provider_url:
-        description: 'URL Server Lisensi Notane Provider (Kosongkan jika default https://license.notaneretail.com)'
+        description: 'URL Server Lisensi Notane Provider (Kosongkan jika default https://lisensi.notane.id)'
         required: false
         default: ''
 
@@ -133,7 +133,7 @@ jobs:
             elif [ -n "${{ vars.NOTANE_PROVIDER_URL }}" ]; then
               echo "provider_url=${{ vars.NOTANE_PROVIDER_URL }}" >> $GITHUB_OUTPUT
             else
-              echo "provider_url=https://license.notaneretail.com" >> $GITHUB_OUTPUT
+              echo "provider_url=https://lisensi.notane.id" >> $GITHUB_OUTPUT
             fi
           else
             RAW_REF="${GITHUB_REF#refs/tags/}"
@@ -145,7 +145,7 @@ jobs:
             elif [ -n "${{ vars.NOTANE_PROVIDER_URL }}" ]; then
               echo "provider_url=${{ vars.NOTANE_PROVIDER_URL }}" >> $GITHUB_OUTPUT
             else
-              echo "provider_url=https://license.notaneretail.com" >> $GITHUB_OUTPUT
+              echo "provider_url=https://lisensi.notane.id" >> $GITHUB_OUTPUT
             fi
           fi
 

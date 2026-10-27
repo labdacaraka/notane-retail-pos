@@ -141,7 +141,7 @@ POSTGRES_USER=admin_${slug_db}
 POSTGRES_PASSWORD=${db_pass}
 PAIRING_CODE=${pairing_code}
 HOST_IP=${detected_lan}
-PROVIDER_SERVER_URL=http://host.containers.internal:19090
+PROVIDER_SERVER_URL=${PROVIDER_SERVER_URL:-https://lisensi.notane.id}
 JWT_SECRET=${jwt_secret}
 RUST_LOG=notane_retail_server=info,tower_http=info
 EOF

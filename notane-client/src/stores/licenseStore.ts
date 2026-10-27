@@ -81,7 +81,7 @@ export const useLicenseStore = defineStore('license', {
       grace_days_remaining: null,
       features: [],
       message: 'Memuat status lisensi...',
-      provider_server_url: 'https://license.notaneretail.com',
+      provider_server_url: 'https://lisensi.notane.id',
     } as LicenseInfo,
 
     updateInfo: null as UpdateInfo | null,

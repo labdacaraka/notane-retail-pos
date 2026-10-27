@@ -88,14 +88,14 @@ export const useLicenseStore = defineStore('license', {
       grace_days_remaining: null,
       features: [],
       message: 'Memuat status lisensi...',
-      provider_server_url: 'https://license.notaneretail.com',
+      provider_server_url: 'https://lisensi.notane.id',
     } as LicenseInfo,
 
     providerConfig: {
       current_url: 'http://127.0.0.1:19090',
       has_env_override: false,
       default_local_url: 'http://127.0.0.1:19090',
-      default_production_url: 'https://license.notaneretail.com',
+      default_production_url: 'https://lisensi.notane.id',
       is_production: false,
     } as ProviderConfig,
 

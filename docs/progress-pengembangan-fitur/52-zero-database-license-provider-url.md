@@ -11,7 +11,7 @@ Diterapkan pendekatan **Zero-Database Exposure & Binary Hardening**:
    - Tabel `system_provider_configs` dihapus total dari database PostgreSQL (`DROP TABLE IF EXISTS system_provider_configs`).
    - File migrasi `040_provider_server_config.sql` diperbarui agar memastikan tabel tersebut tidak dibuat/disimpan di database.
 2. **Hardcoded Official URL di Binary Rust:**
-   - URL produksi resmi (`https://license.notaneretail.com`) dikunci di level kompilasi binary Rust (`OFFICIAL_PRODUCTION_PROVIDER_URL`).
+   - URL produksi resmi (`https://lisensi.notane.id`) dikunci di level kompilasi binary Rust (`OFFICIAL_PRODUCTION_PROVIDER_URL`).
    - Mode debug menggunakan `http://127.0.0.1:19090` (`DEFAULT_LOCAL_PROVIDER_URL`).
 3. **Environment Variable Override untuk Development / Container:**
    - Menggunakan `PROVIDER_SERVER_URL` atau `NOTANE_PROVIDER_SERVER_URL` jika didefinisikan di lingkungan sistem / container Docker/Podman (misal: `http://host.containers.internal:19090`).

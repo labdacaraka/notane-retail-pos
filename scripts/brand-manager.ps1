@@ -107,7 +107,7 @@ POSTGRES_DB=notane_$Slug
 POSTGRES_USER=admin_$Slug
 POSTGRES_PASSWORD=$dbPass
 PAIRING_CODE=$pairingCode
-PROVIDER_SERVER_URL=http://host.docker.internal:19090
+PROVIDER_SERVER_URL=https://lisensi.notane.id
 JWT_SECRET=$jwtSecret
 RUST_LOG=notane_retail_server=info,tower_http=info
 "@
