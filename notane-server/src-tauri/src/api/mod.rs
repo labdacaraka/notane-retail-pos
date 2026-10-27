@@ -186,9 +186,20 @@ pub fn create_control_router(ws_state: AppState) -> Router {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    let product_images_dir = std::env::var("PRODUCT_IMAGES_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            dirs::home_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join(".notane")
+                .join("product_images")
+        });
+    let _ = std::fs::create_dir_all(&product_images_dir);
+
     let mut router = Router::new()
         .nest("/api/v1/system", system::system_routes(ws_state.clone()))
-        .nest("/ws/v1", ws_routes(ws_state));
+        .nest("/ws/v1", ws_routes(ws_state))
+        .nest_service("/uploads/product_images", ServeDir::new(product_images_dir));
 
     let web_dist_dir = std::env::var("WEB_DIST").unwrap_or_else(|_| "./dist".to_string());
     let dist_path = std::path::Path::new(&web_dist_dir);

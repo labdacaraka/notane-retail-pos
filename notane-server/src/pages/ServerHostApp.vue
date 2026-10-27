@@ -617,7 +617,7 @@ const restartServer = async () => {
             <div class="w-28 h-28 rounded-2xl bg-white border-2 border-slate-200 shadow-xs p-2 flex items-center justify-center overflow-hidden relative group">
               <img
                 v-if="brandingForm.storeLogoUrl"
-                :src="brandingForm.storeLogoUrl"
+                :src="storeBrandingStore.formatLogoUrl(brandingForm.storeLogoUrl) || ''"
                 alt="Logo Toko"
                 class="w-full h-full object-contain"
               />

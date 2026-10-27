@@ -90,10 +90,11 @@ pub async fn run_embedded_migrations(pool: &PgPool) -> Result<(), Box<dyn std::e
         ("059_additional_expense_categories_and_equity_support", include_str!("../../migrations/059_additional_expense_categories_and_equity_support.sql")),
         ("060_export_excel_permissions", include_str!("../../migrations/060_export_excel_permissions.sql")),
         ("061_export_jobs_queue", include_str!("../../migrations/061_export_jobs_queue.sql")),
+        ("062_drop_app_licenses_table", include_str!("../../migrations/062_drop_app_licenses_table.sql")),
     ];
 
     // 2. Ambil daftar migrasi yang sudah pernah dieksekusi
-    let executed_migrations: Vec<String> = sqlx::query_scalar::<_, String>(
+    let mut executed_migrations: Vec<String> = sqlx::query_scalar::<_, String>(
         "SELECT migration FROM _migrations ORDER BY id ASC"
     )
     .fetch_all(pool)
@@ -101,7 +102,7 @@ pub async fn run_embedded_migrations(pool: &PgPool) -> Result<(), Box<dyn std::e
     .unwrap_or_default();
 
     // Jika tabel _migrations masih kosong, periksa apakah database sudah memiliki tabel skema awal (misal: tabel `products`)
-    // Ini menangani database yang sudah berisi data agar skema dan seed data tidak dieksekusi ulang / ter-reset.
+    // Ini menangani database yang sudah berisi data agar skema awal tidak dieksekusi ulang / ter-reset.
     if executed_migrations.is_empty() {
         let has_products_table: bool = sqlx::query_scalar::<_, bool>(
             "SELECT EXISTS (
@@ -114,15 +115,29 @@ pub async fn run_embedded_migrations(pool: &PgPool) -> Result<(), Box<dyn std::e
         .unwrap_or(false);
 
         if has_products_table {
-            info!("Mendeteksi database yang sudah berisi skema. Menandai migrasi 001 s/d 011 sebagai terpasang (Batch 1)...");
-            for (name, _) in migrations {
-                let _ = sqlx::query("INSERT INTO _migrations (migration, batch) VALUES ($1, 1) ON CONFLICT DO NOTHING")
-                    .bind(name)
+            info!("Mendeteksi database yang sudah berisi skema awal. Menandai migrasi baseline 001 dan 002 sebagai terpasang...");
+            let _ = sqlx::query("INSERT INTO _migrations (migration, batch) VALUES ('001_initial_schema', 1), ('002_seed_data', 1) ON CONFLICT DO NOTHING")
+                .execute(pool)
+                .await;
+            executed_migrations.push("001_initial_schema".to_string());
+            executed_migrations.push("002_seed_data".to_string());
+
+            let has_receipt_settings: bool = sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_name = 'receipt_settings'
+                )"
+            )
+            .fetch_one(pool)
+            .await
+            .unwrap_or(false);
+
+            if has_receipt_settings {
+                let _ = sqlx::query("INSERT INTO _migrations (migration, batch) VALUES ('003_receipt_settings', 1) ON CONFLICT DO NOTHING")
                     .execute(pool)
                     .await;
+                executed_migrations.push("003_receipt_settings".to_string());
             }
-            info!("Tabel _migrations berhasil diinisialisasi untuk database yang sudah ada.");
-            return Ok(());
         }
     }
 

@@ -1248,34 +1248,13 @@ async fn get_setup_status(State(state): State<AppState>) -> impl IntoResponse {
         .ok()
         .flatten();
 
-    let mut is_completed = setting_row
+    let is_completed = setting_row
         .as_ref()
         .and_then(|r| r.try_get::<bool, _>("is_initial_setup_completed").ok())
         .unwrap_or(false);
-    let mut completed_at: Option<chrono::DateTime<Utc>> = setting_row
+    let completed_at: Option<chrono::DateTime<Utc>> = setting_row
         .as_ref()
         .and_then(|r| r.try_get("initial_setup_completed_at").ok());
-
-    // Jika lisensi sudah aktif namun flag receipt_settings belum terupdate, tandai selesai otomatis
-    let has_active_license: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM app_licenses WHERE status = 'ACTIVE' LIMIT 1)")
-        .fetch_one(&pool)
-        .await
-        .unwrap_or(false);
-
-    if !is_completed && has_active_license {
-        is_completed = true;
-        let now = Utc::now();
-        completed_at = Some(now);
-        let _ = sqlx::query(
-            "UPDATE receipt_settings 
-             SET is_initial_setup_completed = TRUE, 
-                 initial_setup_completed_at = COALESCE(initial_setup_completed_at, $1),
-                 updated_at = $1"
-        )
-        .bind(now)
-        .execute(&pool)
-        .await;
-    }
 
     let current_pairing = state.pairing_code.read().await.clone();
 
@@ -1359,6 +1338,24 @@ async fn perform_initial_setup(
         );
     }
 
+    // Pastikan tabel receipt_settings ada di database sebelum memulai
+    let has_receipt_table: bool = sqlx::query_scalar(
+        "SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name = 'receipt_settings'
+        )"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_receipt_table {
+        tracing::warn!("[SETUP AWAL] Tabel receipt_settings belum ditemukan. Menjalankan migrasi database otomatis...");
+        if let Err(e) = crate::db::run_embedded_migrations(&pool).await {
+            tracing::error!("[SETUP AWAL] Peringatan migrasi database: {}", e);
+        }
+    }
+
     let mut tx = match pool.begin().await {
         Ok(t) => t,
         Err(e) => {
@@ -1369,7 +1366,7 @@ async fn perform_initial_setup(
         }
     };
 
-    // 1. Update receipt_settings
+    // 1. Update atau Insert receipt_settings
     let store_address = payload.store_address.trim();
     let store_phone = payload.store_phone.trim();
     let store_tagline = payload.store_tagline.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
@@ -1399,11 +1396,40 @@ async fn perform_initial_setup(
     .execute(&mut *tx)
     .await;
 
-    if let Err(e) = res_settings {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "success": false, "message": format!("Gagal menyimpan pengaturan toko: {}", e) })),
-        );
+    match res_settings {
+        Ok(res) if res.rows_affected() == 0 => {
+            // Jika belum ada baris receipt_settings, lakukan INSERT
+            let insert_res = sqlx::query(
+                "INSERT INTO receipt_settings (
+                    store_name, store_tagline, store_logo_url, store_address,
+                    store_phone, pairing_code, cash_rounding_mode,
+                    is_initial_setup_completed, initial_setup_completed_at, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            )
+            .bind(clean_store_name)
+            .bind(store_tagline)
+            .bind(store_logo)
+            .bind(store_address)
+            .bind(store_phone)
+            .bind(&clean_pairing_code)
+            .bind(rounding_mode)
+            .execute(&mut *tx)
+            .await;
+
+            if let Err(e) = insert_res {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "success": false, "message": format!("Gagal menyimpan pengaturan toko: {}", e) })),
+                );
+            }
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "message": format!("Gagal menyimpan pengaturan toko: {}", e) })),
+            );
+        }
+        _ => {}
     }
 
     // 2. Update Cabang Utama

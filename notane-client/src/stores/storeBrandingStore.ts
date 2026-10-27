@@ -6,10 +6,21 @@ import { api } from '@/services/api'
 export const useStoreBrandingStore = defineStore('storeBranding', () => {
   const storeName = ref<string>(localStorage.getItem('notane_store_branding_name') || 'NOTANE RETAIL STORE')
   const storeTagline = ref<string>(localStorage.getItem('notane_store_branding_tagline') || 'Pusat Belanja Retail Modern & Terpercaya')
-  const storeLogoUrl = ref<string | null>(localStorage.getItem('notane_store_branding_logo') || null)
+  const rawLogo = localStorage.getItem('notane_store_branding_logo')
+  const storeLogoUrl = ref<string | null>(rawLogo ? formatLogoUrl(rawLogo) : null)
   const removeBranding = ref<boolean>(localStorage.getItem('notane_store_remove_branding') === 'true')
   const isLoading = ref<boolean>(false)
   const isFetched = ref<boolean>(false)
+
+  function formatLogoUrl(url: string | null | undefined): string | null {
+    if (!url) return null
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+      return url
+    }
+    const clean = url.startsWith('/') ? url : `/${url}`
+    const base = getBaseUrls().find(u => !u.includes('tauri') && !u.includes(':517')) || 'http://127.0.0.1:18080'
+    return `${base}${clean}`
+  }
 
   function getBaseUrls(): string[] {
     const urls: string[] = []
@@ -56,8 +67,9 @@ export const useStoreBrandingStore = defineStore('storeBranding', () => {
               localStorage.setItem('notane_store_branding_tagline', d.store_tagline)
             }
             if (d.store_logo_url) {
-              storeLogoUrl.value = d.store_logo_url
-              localStorage.setItem('notane_store_branding_logo', d.store_logo_url)
+              const formatted = formatLogoUrl(d.store_logo_url)
+              storeLogoUrl.value = formatted
+              localStorage.setItem('notane_store_branding_logo', formatted || d.store_logo_url)
             } else {
               storeLogoUrl.value = null
               localStorage.removeItem('notane_store_branding_logo')
@@ -85,8 +97,9 @@ export const useStoreBrandingStore = defineStore('storeBranding', () => {
           localStorage.setItem('notane_store_branding_tagline', d.store_tagline)
         }
         if (d.store_logo_url) {
-          storeLogoUrl.value = d.store_logo_url
-          localStorage.setItem('notane_store_branding_logo', d.store_logo_url)
+          const formatted = formatLogoUrl(d.store_logo_url)
+          storeLogoUrl.value = formatted
+          localStorage.setItem('notane_store_branding_logo', formatted || d.store_logo_url)
         } else {
           storeLogoUrl.value = null
           localStorage.removeItem('notane_store_branding_logo')

@@ -456,7 +456,7 @@ async function handleSkipWithDefaults() {
               <div class="relative group w-32 h-32 rounded-2xl border-2 border-dashed border-slate-300 bg-white flex items-center justify-center overflow-hidden shadow-inner mb-3">
                 <img
                   v-if="form.store_logo_url"
-                  :src="form.store_logo_url"
+                  :src="brandingStore.formatLogoUrl(form.store_logo_url) || ''"
                   alt="Logo Toko"
                   class="w-full h-full object-contain p-2"
                 />
