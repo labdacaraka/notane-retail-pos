@@ -501,7 +501,7 @@ async fn get_license_info(State(state): State<AppState>) -> impl IntoResponse {
             grace_days_remaining: None,
             features: vec![],
             message: "Database belum aktif".to_string(),
-            provider_server_url: "".to_string(),
+            provider_server_url: crate::services::license_service::LicenseService::get_provider_url(),
         })
     }
 }

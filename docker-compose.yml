@@ -21,8 +21,8 @@ services:
       HOST_URL: ${HOST_URL:-}
       HOST_IP: ${HOST_IP:-}
       HOST_IPS: ${HOST_IPS:-}
-      PROVIDER_SERVER_URL: ${PROVIDER_SERVER_URL:-https://lisensi.notane.id}
-      NOTANE_PROVIDER_SERVER_URL: ${NOTANE_PROVIDER_SERVER_URL:-${PROVIDER_SERVER_URL:-https://lisensi.notane.id}}
+      PROVIDER_SERVER_URL: ${PROVIDER_SERVER_URL:-${provider_server_url:-https://lisensi.notane.id}}
+      NOTANE_PROVIDER_SERVER_URL: ${NOTANE_PROVIDER_SERVER_URL:-${notane_provider_server_url:-${PROVIDER_SERVER_URL:-${provider_server_url:-https://lisensi.notane.id}}}}
       RUST_LOG: ${RUST_LOG:-notane_retail_server=info,tower_http=info}
     ports:
       - "${SERVER_PORT:-18080}:18080"

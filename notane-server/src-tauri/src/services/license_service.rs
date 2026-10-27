@@ -185,8 +185,13 @@ impl LicenseService {
     ///    - Production: `https://lisensi.notane.id`
     ///    - Development/Debug: `http://127.0.0.1:19090`
     pub fn get_provider_url() -> String {
-        if let Ok(env_url) = env::var("PROVIDER_SERVER_URL").or_else(|_| env::var("NOTANE_PROVIDER_SERVER_URL")) {
-            let trimmed = env_url.trim().trim_end_matches('/');
+        let env_url = env::var("PROVIDER_SERVER_URL")
+            .or_else(|_| env::var("provider_server_url"))
+            .or_else(|_| env::var("NOTANE_PROVIDER_SERVER_URL"))
+            .or_else(|_| env::var("notane_provider_server_url"));
+
+        if let Ok(val) = env_url {
+            let trimmed = val.trim().trim_end_matches('/');
             if !trimmed.is_empty() {
                 return trimmed.to_string();
             }
@@ -199,15 +204,7 @@ impl LicenseService {
             }
         }
 
-        #[cfg(debug_assertions)]
-        {
-            Self::DEFAULT_LOCAL_PROVIDER_URL.to_string()
-        }
-
-        #[cfg(not(debug_assertions))]
-        {
-            Self::DEFAULT_OFFICIAL_PROVIDER_URL.to_string()
-        }
+        Self::DEFAULT_OFFICIAL_PROVIDER_URL.to_string()
     }
 
     /// Memeriksa status lisensi dari database lokal & mendeteksi manipulasi jam (Anti-Clock Rollback)

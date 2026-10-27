@@ -92,7 +92,7 @@ export const useLicenseStore = defineStore('license', {
     } as LicenseInfo,
 
     providerConfig: {
-      current_url: 'http://127.0.0.1:19090',
+      current_url: 'https://lisensi.notane.id',
       has_env_override: false,
       default_local_url: 'http://127.0.0.1:19090',
       default_production_url: 'https://lisensi.notane.id',
