@@ -112,16 +112,16 @@ export const useLicenseStore = defineStore('license', {
 
   actions: {
     getCandidateUrls(): string[] {
-      const urls: string[] = []
-
-      // 1. PRIORITAS UTAMA: Jika diakses via Web Browser, gunakan origin browser saat ini!
+      // 1. PRIORITAS UTAMA: Jika diakses via Web Browser (VPS, domain publik, atau IP host),
+      // HANYA gunakan origin browser saat ini (tidak boleh probing ke 127.0.0.1 lokal user!)
       if (typeof window !== 'undefined' && window.location?.origin) {
         const orig = window.location.origin
         if (!orig.startsWith('tauri://') && !orig.includes('tauri.localhost') && !orig.includes(':517')) {
-          urls.push(orig)
+          return [orig]
         }
       }
 
+      const urls: string[] = []
       const targetHost = (localStorage.getItem('notane_target_host') || '127.0.0.1').trim()
       const targetPort = localStorage.getItem('notane_target_port') || '18080'
       const controlPort = String(Number(targetPort) + 1)
@@ -185,6 +185,7 @@ export const useLicenseStore = defineStore('license', {
           }
         } catch (err: any) {
           lastErr = err.response?.data?.message || err.message || lastErr
+          if (err.response) break
         }
       }
       this.errorMessage = lastErr
@@ -217,6 +218,7 @@ export const useLicenseStore = defineStore('license', {
             target_url: url || this.providerConfig.current_url,
             message: err.message || 'Gagal terhubung ke provider',
           }
+          if (err.response) break
         }
       }
       this.testResult = lastErrResult
@@ -243,9 +245,11 @@ export const useLicenseStore = defineStore('license', {
             return true
           } else {
             lastErr = res.data?.message || 'Aktivasi online gagal'
+            break
           }
         } catch (err: any) {
           lastErr = err.response?.data?.message || err.message || lastErr
+          if (err.response) break
         }
       }
       this.errorMessage = lastErr
@@ -292,9 +296,11 @@ export const useLicenseStore = defineStore('license', {
             return true
           } else {
             lastErr = res.data?.message || 'Aktivasi gagal'
+            break
           }
         } catch (err: any) {
           lastErr = err.response?.data?.message || err.message || lastErr
+          if (err.response) break
         }
       }
       this.errorMessage = lastErr
