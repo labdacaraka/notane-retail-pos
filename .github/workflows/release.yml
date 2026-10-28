@@ -19,6 +19,10 @@ on:
         description: 'URL Server Lisensi Notane Provider (Kosongkan jika default https://lisensi.notane.id)'
         required: false
         default: ''
+      build_secret:
+        description: 'Kunci Rahasia Enkripsi & Hardening (Kosongkan jika default dari Secrets/Repo)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -34,7 +38,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set Release Version
+      - name: Set Release Version & Security Secret
         id: vars
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -46,6 +50,15 @@ jobs:
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
           fi
+          if [ -n "${{ inputs.build_secret }}" ]; then
+            echo "build_secret=${{ inputs.build_secret }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ secrets.NOTANE_BUILD_SECRET }}" ]; then
+            echo "build_secret=${{ secrets.NOTANE_BUILD_SECRET }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ vars.NOTANE_BUILD_SECRET }}" ]; then
+            echo "build_secret=${{ vars.NOTANE_BUILD_SECRET }}" >> $GITHUB_OUTPUT
+          else
+            echo "build_secret=NotanePOS-Default-Internal-Key-2026" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -56,7 +69,15 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Synchronize Project Versions
+        shell: bash
+        run: node scripts/sync-version.js "${{ steps.vars.outputs.version }}"
+
       - name: Build Client Web UI
+        env:
+          APP_VERSION: ${{ steps.vars.outputs.version }}
+          VITE_APP_VERSION: ${{ steps.vars.outputs.version }}
+          NOTANE_BUILD_SECRET: ${{ steps.vars.outputs.build_secret }}
         run: npm --prefix notane-client run build
 
       - name: Package Client OTA Bundle ZIP
@@ -148,6 +169,15 @@ jobs:
               echo "provider_url=https://lisensi.notane.id" >> $GITHUB_OUTPUT
             fi
           fi
+          if [ -n "${{ inputs.build_secret }}" ]; then
+            echo "build_secret=${{ inputs.build_secret }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ secrets.NOTANE_BUILD_SECRET }}" ]; then
+            echo "build_secret=${{ secrets.NOTANE_BUILD_SECRET }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ vars.NOTANE_BUILD_SECRET }}" ]; then
+            echo "build_secret=${{ vars.NOTANE_BUILD_SECRET }}" >> $GITHUB_OUTPUT
+          else
+            echo "build_secret=NotanePOS-Default-Internal-Key-2026" >> $GITHUB_OUTPUT
+          fi
 
       - name: Install Linux System Dependencies for Tauri & Packaging
         if: runner.os == 'Linux'
@@ -177,16 +207,27 @@ jobs:
         shell: bash
         run: npm ci
 
+      - name: Synchronize Project Versions
+        shell: bash
+        run: node scripts/sync-version.js "${{ steps.vars.outputs.version }}"
+
       # ------------------------------------------------------------------------
       # A. Build Notane Server Desktop App & OTA Bundle
       # ------------------------------------------------------------------------
       - name: Build Server Host UI
         shell: bash
+        env:
+          APP_VERSION: ${{ steps.vars.outputs.version }}
+          VITE_APP_VERSION: ${{ steps.vars.outputs.version }}
+          NOTANE_BUILD_SECRET: ${{ steps.vars.outputs.build_secret }}
         run: npm --prefix notane-server run build
 
       - name: Build Notane Server Desktop App Installer (Tauri Bundler)
         shell: bash
         env:
+          APP_VERSION: ${{ steps.vars.outputs.version }}
+          VITE_APP_VERSION: ${{ steps.vars.outputs.version }}
+          NOTANE_BUILD_SECRET: ${{ steps.vars.outputs.build_secret }}
           NOTANE_RELEASE_PROVIDER_URL: ${{ steps.vars.outputs.provider_url }}
         run: |
           cd "$GITHUB_WORKSPACE"
@@ -265,6 +306,10 @@ jobs:
       # ------------------------------------------------------------------------
       - name: Build Notane Client Desktop Installer
         shell: bash
+        env:
+          APP_VERSION: ${{ steps.vars.outputs.version }}
+          VITE_APP_VERSION: ${{ steps.vars.outputs.version }}
+          NOTANE_BUILD_SECRET: ${{ steps.vars.outputs.build_secret }}
         run: |
           cd "$GITHUB_WORKSPACE"
           npm --prefix notane-client run build

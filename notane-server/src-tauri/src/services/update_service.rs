@@ -6,11 +6,28 @@ use std::convert::TryInto;
 use std::env;
 use tracing::{info, warn};
 
-use super::license_service::{LicenseService, LicenseState, NOTANE_MASTER_PUBLIC_KEY_HEX};
+use super::license_service::{get_master_public_key_hex, LicenseService, LicenseState};
 
-pub const APP_VERSION: &str = "1.1.0";
 pub const APP_BUILD_DATE: &str = "2026-09-26";
 pub const APP_NAME: &str = "Notane Retail POS Enterprise";
+
+/// Mengambil versi aktif aplikasi secara deterministik:
+/// 1. Environment variable APP_VERSION (prioritas utama untuk Docker / Cloud / VPS deployment tanpa compile ulang)
+/// 2. Compile-time CARGO_PKG_VERSION dari Cargo.toml (Desktop Tauri / Native Compiled Binary)
+/// 3. Fallback "1.0.0"
+pub fn get_app_version() -> String {
+    if let Ok(val) = std::env::var("APP_VERSION") {
+        let trimmed = val.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    let pkg_ver = env!("CARGO_PKG_VERSION");
+    if !pkg_ver.is_empty() {
+        return pkg_ver.to_string();
+    }
+    "1.0.0".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppVersionInfo {
@@ -71,7 +88,7 @@ impl UpdateService {
     pub fn get_version_info() -> AppVersionInfo {
         AppVersionInfo {
             name: APP_NAME.to_string(),
-            version: APP_VERSION.to_string(),
+            version: get_app_version(),
             build_date: APP_BUILD_DATE.to_string(),
             target_os: env::consts::OS.to_string(),
             target_arch: env::consts::ARCH.to_string(),
@@ -92,10 +109,10 @@ impl UpdateService {
         client_version: Option<&str>,
     ) -> UpdateCheckResponse {
         let license_info = LicenseService::check_current_license(pool).await;
-        let server_ver = APP_VERSION.to_string();
+        let server_ver = get_app_version();
         let target_component = component.unwrap_or("server").to_lowercase();
         let current_ver = if target_component == "client" {
-            client_version.unwrap_or("1.1.0").to_string()
+            client_version.unwrap_or(&server_ver).to_string()
         } else {
             server_ver.clone()
         };
@@ -179,7 +196,7 @@ impl UpdateService {
 
     /// Verifikasi tanda tangan kriptografi file pembaruan sebelum dieksekusi (Anti-Tamper & Anti-Malware)
     pub fn verify_update_payload(manifest_json: &str, signature_hex: &str) -> Result<bool, String> {
-        let pub_key_bytes = hex::decode(NOTANE_MASTER_PUBLIC_KEY_HEX)
+        let pub_key_bytes = hex::decode(get_master_public_key_hex())
             .map_err(|e| format!("Master Public Key Hex invalid: {}", e))?;
         
         let pub_key_array: [u8; 32] = pub_key_bytes

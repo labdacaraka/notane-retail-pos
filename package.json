@@ -1,7 +1,7 @@
 {
   "name": "notane-retail-monorepo",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.5.1",
   "type": "module",
   "workspaces": [
     "notane-client",
@@ -37,6 +37,7 @@
     "release:all": "bash ./scripts/build-release.sh all"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "javascript-obfuscator": "^5.9.0"
   }
 }

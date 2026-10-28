@@ -3,10 +3,13 @@ services:
     build:
       context: .
       dockerfile: notane-server/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-}
     image: ${SERVER_IMAGE:-notane-retail-server:latest}
     container_name: ${COMPOSE_PROJECT_NAME:-notane-retail}-server
     restart: unless-stopped
     environment:
+      APP_VERSION: ${APP_VERSION:-}
       PORT: 18080
       SERVER_PORT: 18080
       CONTROL_PORT: 18081

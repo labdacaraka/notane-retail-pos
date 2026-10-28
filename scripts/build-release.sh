@@ -59,6 +59,11 @@ if [ -z "$VERSION" ]; then
     VERSION="${INPUT_VER:-${CURRENT_CLIENT_VER}}"
 fi
 
+# 2.1 Sinkronkan versi ke seluruh manifes proyek (package.json, tauri.conf.json, Cargo.toml)
+node "${ROOT_DIR}/scripts/sync-version.js" "${VERSION}"
+export APP_VERSION="${VERSION}"
+export VITE_APP_VERSION="${VERSION}"
+
 # 3. Input Nama Rilis
 if [ -z "$RELEASE_NAME" ]; then
     if [ "$COMPONENT" = "client" ]; then

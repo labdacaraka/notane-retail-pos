@@ -37,9 +37,21 @@ pub async fn init_db(db_path: Option<PathBuf>) -> Result<DbPool, sqlx::Error> {
         }
     };
 
-    let database_url = if let Ok(env_url) = std::env::var("DATABASE_URL") {
-        let trimmed = env_url.trim();
+    let database_url = if let Ok(env_mgr_url) = std::env::var("MANAGER_DATABASE_URL") {
+        let trimmed = env_mgr_url.trim();
         if !trimmed.is_empty() {
+            trimmed.to_string()
+        } else {
+            resolve_sqlite(db_path)
+        }
+    } else if let Ok(env_url) = std::env::var("DATABASE_URL") {
+        let trimmed = env_url.trim();
+        // Cegah tabrakan fatal dengan database POS notane-server (notane_pos / port 15432)
+        if !trimmed.is_empty()
+            && !trimmed.ends_with("/notane_pos")
+            && !trimmed.contains("15432")
+            && (trimmed.contains("manager") || trimmed.contains("provider"))
+        {
             trimmed.to_string()
         } else {
             resolve_sqlite(db_path)

@@ -3,10 +3,15 @@
 # Multi-stage build for VPS deployment (No GUI/Tauri overhead)
 # ==============================================================================
 
+ARG APP_VERSION=""
+
 # ------------------------------------------------------------------------------
 # STAGE 1: Build Frontend Web Manager (Vue 3 + Vite)
 # ------------------------------------------------------------------------------
 FROM node:20-alpine AS frontend-builder
+ARG APP_VERSION
+ENV VITE_APP_VERSION=${APP_VERSION}
+ENV APP_VERSION=${APP_VERSION}
 WORKDIR /build
 
 COPY notane-server/package.json ./
@@ -19,6 +24,8 @@ RUN npm run build
 # STAGE 2: Build Rust Server Engine (Axum + SQLx + Tokio)
 # ------------------------------------------------------------------------------
 FROM rust:slim-bookworm AS backend-builder
+ARG APP_VERSION
+ENV APP_VERSION=${APP_VERSION}
 WORKDIR /build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -39,6 +46,7 @@ RUN cargo build --release --no-default-features
 # STAGE 3: Minimal Production Runtime Image
 # ------------------------------------------------------------------------------
 FROM debian:bookworm-slim AS runtime
+ARG APP_VERSION=""
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -60,6 +68,7 @@ COPY notane-server/src-tauri/migrations /app/migrations
 RUN mkdir -p /app/uploads /root/.notane/product_images
 
 # Environment defaults
+ENV APP_VERSION=${APP_VERSION}
 ENV PORT=18080
 ENV WEB_DIST=/app/dist
 ENV PRODUCT_IMAGES_DIR=/app/uploads

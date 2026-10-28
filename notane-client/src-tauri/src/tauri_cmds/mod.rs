@@ -7,11 +7,34 @@ pub struct SystemPrinterInfo {
     pub is_default: bool,
 }
 
+/// Mengambil versi aktif client aplikasi:
+/// 1. Environment variable APP_VERSION (jika disetel)
+/// 2. Compile-time CARGO_PKG_VERSION dari Cargo.toml (Desktop Tauri binary)
+/// 3. Fallback "1.0.0"
+pub fn get_app_version() -> String {
+    if let Ok(val) = std::env::var("APP_VERSION") {
+        let trimmed = val.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    let pkg_ver = env!("CARGO_PKG_VERSION");
+    if !pkg_ver.is_empty() {
+        return pkg_ver.to_string();
+    }
+    "1.0.0".to_string()
+}
+
+#[tauri::command]
+pub fn get_client_version() -> String {
+    get_app_version()
+}
+
 #[tauri::command]
 pub fn get_system_info() -> serde_json::Value {
     json!({
         "app_name": "Notane Retail POS",
-        "version": "1.0.0",
+        "version": get_app_version(),
         "mode": "Host / Client Dual Mode",
         "backend": "Rust Axum + PostgreSQL",
         "frontend": "Vue 3 + Tailwind CSS"

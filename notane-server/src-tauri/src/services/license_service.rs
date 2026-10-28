@@ -14,9 +14,23 @@ use std::path::PathBuf;
 use tracing::{error, info, warn};
 
 /// Master Public Key milik Provider Notane (Ed25519 32-byte)
-/// Private Key HANYA disimpan di Provider Licensing Server, tidak pernah ada di client!
-pub const NOTANE_MASTER_PUBLIC_KEY_HEX: &str =
-    "779b7d3fb80a25e9503bf7b85ffbd226ed9a4b8ff9de844872dd3a19357bb213";
+/// Didefinisikan secara terenkripsi compile-time (XOR masked) agar kebal dari AI / decompiler string inspection.
+const MASKED_MASTER_PUBKEY: [u8; 64] = [
+    0x6d, 0x08, 0xa5, 0x70, 0xbf, 0x1f, 0x72, 0x98, 0x38, 0x07, 0xac, 0x73, 0xba, 0x4e, 0x24, 0xc7,
+    0x6f, 0x0f, 0xaf, 0x70, 0xee, 0x4c, 0x23, 0xc6, 0x6f, 0x59, 0xfa, 0x70, 0xec, 0x49, 0x73, 0xc8,
+    0x3f, 0x5b, 0xa5, 0x73, 0xbc, 0x19, 0x79, 0x98, 0x3c, 0x06, 0xf8, 0x77, 0xb0, 0x4f, 0x75, 0xc6,
+    0x6d, 0x0d, 0xf8, 0x76, 0xbb, 0x1a, 0x70, 0xc7, 0x69, 0x0a, 0xab, 0x70, 0xea, 0x49, 0x70, 0xcd,
+];
+const MASK_KEY: [u8; 8] = [0x5a, 0x3f, 0x9c, 0x12, 0x88, 0x7b, 0x41, 0xfe];
+
+#[inline(never)]
+pub fn get_master_public_key_hex() -> String {
+    MASKED_MASTER_PUBKEY
+        .iter()
+        .enumerate()
+        .map(|(i, &b)| (b ^ MASK_KEY[i % 8]) as char)
+        .collect()
+}
 
 /// Payload data sertifikat lisensi
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -160,7 +174,7 @@ impl LicenseService {
 
     /// Memvalidasi tanda tangan kriptografi Ed25519 dari lisensi
     pub fn verify_signature(token_json: &str, signature_hex: &str) -> Result<LicensePayload, String> {
-        let pub_key_bytes = hex::decode(NOTANE_MASTER_PUBLIC_KEY_HEX)
+        let pub_key_bytes = hex::decode(get_master_public_key_hex())
             .map_err(|e| format!("Master Public Key Hex invalid: {}", e))?;
         
         let pub_key_array: [u8; 32] = pub_key_bytes
@@ -196,8 +210,9 @@ impl LicenseService {
     /// URL Provider Resmi yang dibakar ke dalam biner saat proses kompilasi (Compile-Time Baked).
     pub const BAKED_PRODUCTION_PROVIDER_URL: Option<&'static str> = option_env!("NOTANE_RELEASE_PROVIDER_URL");
 
-    /// Mengambil URL Provider Server dengan urutan prioritas runtime/baked
+    /// Mengambil URL Provider Server dengan urutan prioritas environment/baked
     pub fn get_provider_url() -> String {
+        // 1. Environment variable (.env atau sistem host saat development / server container)
         let env_url = env::var("PROVIDER_SERVER_URL")
             .or_else(|_| env::var("provider_server_url"))
             .or_else(|_| env::var("NOTANE_PROVIDER_SERVER_URL"))
@@ -210,6 +225,7 @@ impl LicenseService {
             }
         }
 
+        // 2. Compile-time baked URL (saat proses rilis binary CI/CD)
         if let Some(baked_url) = Self::BAKED_PRODUCTION_PROVIDER_URL {
             let trimmed = baked_url.trim().trim_end_matches('/');
             if !trimmed.is_empty() {
@@ -217,6 +233,7 @@ impl LicenseService {
             }
         }
 
+        // 3. Default Official Cloud Production URL
         Self::DEFAULT_OFFICIAL_PROVIDER_URL.to_string()
     }
 

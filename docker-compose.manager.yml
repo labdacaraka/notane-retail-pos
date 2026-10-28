@@ -32,7 +32,8 @@ services:
       PROVIDER_PORT: ${PROVIDER_PORT:-19090}
       PROVIDER_URL: ${PROVIDER_URL:-${HOST_URL:-}}
       HOST_IP: ${HOST_IP:-}
-      # Database PostgreSQL internal container (atau fallback ke SQLite jika DATABASE_URL dikosongkan)
+      # Database PostgreSQL internal container (atau fallback ke SQLite jika MANAGER_DATABASE_URL dikosongkan)
+      MANAGER_DATABASE_URL: ${MANAGER_DATABASE_URL:-postgres://${MANAGER_POSTGRES_USER:-notane_manager}:${MANAGER_POSTGRES_PASSWORD:-manager_secret_2026}@notane-manager-postgres:5432/${MANAGER_POSTGRES_DB:-notane_manager_db}}
       DATABASE_URL: ${DATABASE_URL:-postgres://${MANAGER_POSTGRES_USER:-notane_manager}:${MANAGER_POSTGRES_PASSWORD:-manager_secret_2026}@notane-manager-postgres:5432/${MANAGER_POSTGRES_DB:-notane_manager_db}}
       DATABASE_PATH: ${DATABASE_PATH:-/data/notane_provider.db}
       WEB_DIST: ${WEB_DIST:-/app/dist}

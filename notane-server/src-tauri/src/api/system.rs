@@ -55,13 +55,14 @@ pub fn system_routes(state: AppState) -> Router {
 
 async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
     let is_running = *state.is_running.read().await;
+    let app_ver = crate::services::update_service::get_app_version();
     if !is_running {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(json!({
                 "status": "stopped",
                 "app": "Notane Retail POS Server",
-                "version": "1.0.0",
+                "version": app_ver,
                 "message": "Host Server sedang dihentikan (Stopped)",
                 "timestamp": Utc::now()
             })),
@@ -72,7 +73,7 @@ async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
         Json(json!({
             "status": "ok",
             "app": "Notane Retail POS Server",
-            "version": "1.0.0",
+            "version": app_ver,
             "timestamp": Utc::now()
         })),
     )
@@ -580,7 +581,7 @@ async fn save_provider_config() -> impl IntoResponse {
         StatusCode::FORBIDDEN,
         Json(json!({
             "status": "error",
-            "message": "Akses Ditolak: URL Provider Server lisensi dikunci mati di dalam binary rilis dan tidak dapat diubah di level toko (Anti-Cloning & Zero-Trust Enforced)."
+            "message": "Akses Ditolak: URL Provider Server lisensi dikunci mati dan tidak dapat diubah melalui antarmuka/API (Anti-Cloning & Zero-Trust Enforced)."
         })),
     )
 }
@@ -709,7 +710,7 @@ async fn activate_license_online(
         "license_key": license_key,
         "hardware_id": hwid,
         "device_name": format!("Host-{}", std::env::consts::OS),
-        "app_version": crate::services::update_service::APP_VERSION
+        "app_version": crate::services::update_service::get_app_version()
     });
 
     let resp = match client.post(&activate_endpoint).json(&req_body).send().await {
@@ -821,10 +822,11 @@ async fn check_updates(
         ).await;
         Json(updates)
     } else {
+        let default_v = crate::services::update_service::get_app_version();
         Json(crate::services::update_service::UpdateCheckResponse {
-            current_version: current_v.unwrap_or(crate::services::update_service::APP_VERSION).to_string(),
+            current_version: current_v.unwrap_or(&default_v).to_string(),
             has_update: false,
-            latest_version: current_v.unwrap_or(crate::services::update_service::APP_VERSION).to_string(),
+            latest_version: current_v.unwrap_or(&default_v).to_string(),
             release_name: None,
             changelog: None,
             release_date: None,
@@ -881,9 +883,10 @@ async fn apply_update(
         }
     };
 
+    let current_ver = crate::services::update_service::get_app_version();
     let _ = crate::services::update_service::UpdateService::log_update_applied(
         &pool,
-        crate::services::update_service::APP_VERSION,
+        &current_ver,
         &req.target_version,
         Some("Release"),
         Some(&req.checksum_sha256),

@@ -54,19 +54,21 @@ Paket pembaruan yang digunakan oleh toko yang sudah berjalan (kasir tinggal klik
 Terdapat **2 cara** mudah untuk menjalankan rilis otomatis:
 
 ### Cara 1: Menggunakan Git Tag (Sangat Direkomendasikan)
-Cukup buat tag versi di git lokal Anda dan push ke GitHub:
+Cukup sinkronkan versi, buat tag semver di git lokal Anda, lalu push ke GitHub:
 
 ```bash
-# 1. Pastikan seluruh kodingan telah di-commit
-git add .
-git commit -m "feat: rilis pembaruan versi 1.2.0"
+# 1. Sinkronkan nomor versi ke seluruh manifes proyek (package.json, tauri.conf.json, Cargo.toml)
+node scripts/sync-version.js 1.4.1
 
-# 2. Buat tag semver (misal: v1.2.0)
-git tag v1.2.0
+# 2. Commit perubahan versi dan buat tag semver (misal: v1.4.1)
+git add .
+git commit -m "chore(release): bump version to 1.4.1"
+git tag v1.4.1
 
 # 3. Push commit & tag ke GitHub
-git push origin main
-git push origin v1.2.0
+git push origin main --tags
+# atau:
+# git push origin main && git push origin v1.4.1
 ```
 
 GitHub Actions akan langsung otomatis mendeteksi tag `v1.2.0` dan mem-build seluruh platform secara paralel!
@@ -122,3 +124,36 @@ Untuk mencegah pengguna/pihak luar memanipulasi aplikasi atau membuat situs lise
    - **Opsi B (Manual via UI GitHub Actions):**
      Saat klik **"Run workflow"** di tab Actions, masukkan URL server lisensi baru pada kolom input **"URL Server Lisensi Notane Provider"**.
    - GitHub Actions akan otomatis membakar URL tersebut secara permanen ke dalam file installer rilis baru. Pengguna toko tetap tidak dapat mengutak-atiknya!
+
+---
+
+## 5. Proteksi Anti-Reverse Engineering & Kunci Enkripsi (Enterprise Hardening)
+
+Untuk melindungi hak kekayaan intelektual (IP), logika bisnis, dan mekanisme validasi lisensi dari decompilation modern berbasis AI (Ghidra, IDA Pro, Deobfuscator), proses build menerapkan **Defense-in-Depth (4 Lapis Proteksi)**:
+
+### A. Lapis Proteksi yang Aktif Otomatis Saat Build
+1. **Frontend JavaScript / Vue Obfuscator (AST Obfuscation):**
+   * Mengacak variabel menjadi string heksadesimal tidak terbaca.
+   * Meratakan alur kontrol (*control flow flattening*) sehingga struktur percabangan menjadi rumit.
+   * Meng-encode string teks menjadi Base64 / array dinamis.
+   * Mengaktifkan *Self-Defending* (mencegah attacker memformat ulang / *pretty-print* kode via DevTools).
+   * Menonaktifkan output console (*suppress console.log*) untuk mencegah *sniffing* data sensitif.
+2. **Rust Binary Hardening & Stripping:**
+   * `strip = true`: Seluruh simbol debug, metadata file, nomor baris, dan nama fungsi dihilangkan 100%.
+   * `lto = true`: Link-Time Optimization melebur seluruh fungsi lintas crate menjadi satu kesatuan mesin biner yang rumit.
+   * `panic = "abort"`: Membuang *unwind stack* yang membocorkan path direktori komputer pengembang.
+3. **Compile-Time String Masking (XOR Obfuscation):**
+   * Kunci publik lisensi (*Master Public Key*) dienkripsi di level byte compile-time dan hanya didekripsi di RAM saat validasi tanda tangan berlangsung. Perintah `strings` pada biner tidak dapat menemukan teks kunci publik.
+
+### B. Konfigurasi Kunci Rahasia Enkripsi (`NOTANE_BUILD_SECRET`)
+* **Penggunaan Default (Otomatis):**
+  Jika Anda tidak menyetel apa pun, sistem menggunakan kunci enkripsi bawaan aman `NotanePOS-Default-Internal-Key-2026`.
+* **Mengatur Kunci Kustom di GitHub Repository (Direkomendasikan):**
+  1. Masuk ke GitHub Repository Anda -> **Settings** > **Secrets and variables** > **Actions**.
+  2. Klik **New repository secret** (atau **Repository variable**).
+  3. Masukkan nama: `NOTANE_BUILD_SECRET`.
+  4. Masukkan string rahasia kuat pilihan Anda (misal: kombinasi 32-64 karakter acak).
+  5. Setiap rilis via tag Git otomatis menggunakan kunci rahasia ini.
+* **Mengubah Kunci Kustom Secara Manual (Saat Run Workflow):**
+  Saat menjalankan rilis secara manual dari menu **Run workflow**, Anda dapat mengisi kolom input **"Kunci Rahasia Enkripsi & Hardening"** dengan kunci yang Anda inginkan.
+

@@ -10,8 +10,8 @@ pub struct SystemPrinterInfo {
 #[tauri::command]
 pub fn get_system_info() -> serde_json::Value {
     json!({
-        "app_name": "Notane Retail POS",
-        "version": "1.0.0",
+        "app_name": "Notane Retail POS Server",
+        "version": crate::services::update_service::get_app_version(),
         "mode": "Host / Client Dual Mode",
         "backend": "Rust Axum + PostgreSQL",
         "frontend": "Vue 3 + Tailwind CSS"

@@ -1,6 +1,6 @@
 [package]
 name = "notane-retail-pos"
-version = "1.0.0"
+version = "1.5.1"
 description = "Sistem POS Retail Enterprise"
 edition = "2021"
 default-run = "notane-retail-pos"
@@ -22,3 +22,11 @@ uuid = { version = "1.11", features = ["serde", "v4"] }
 
 [build-dependencies]
 tauri-build = { version = "2.2.0", features = [] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+

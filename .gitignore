@@ -40,3 +40,8 @@ releases/
 *.zip
 *.tar.gz
 
+# Local License Vault
+.license_vault.enc
+**/.license_vault.enc
+*.enc
+

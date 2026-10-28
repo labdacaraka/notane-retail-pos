@@ -16,7 +16,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    dotenvy::dotenv().ok();
+    // Muat konfigurasi .env.manager jika ada agar tidak menabrak file .env milik notane-server di root
+    if dotenvy::from_filename(".env.manager").is_err() {
+        dotenvy::dotenv().ok();
+    }
 
     info!("============================================================");
     info!("   NOTANE LICENSE & SERVER MANAGEMENT STUDIO (PROVIDER)     ");

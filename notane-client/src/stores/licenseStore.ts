@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { invoke, isTauri } from '@tauri-apps/api/core'
 import { useNetworkStore } from './networkStore'
+
+declare const __APP_VERSION__: string | undefined
+const defaultAppVersion = (import.meta as any).env?.VITE_APP_VERSION || (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0')
 
 export type LicenseStatus = 'ACTIVE' | 'GRACE_PERIOD' | 'EXPIRED' | 'HARDWARE_MISMATCH' | 'CLOCK_TAMPERED' | 'UNLICENSED'
 
@@ -53,14 +57,14 @@ export const useLicenseStore = defineStore('license', {
   state: () => ({
     clientVersionInfo: {
       name: 'Notane Retail Client (Terminal POS & UI)',
-      version: '1.1.0',
+      version: defaultAppVersion,
       build_date: '2026-10-25',
       type: 'UI_ONLY',
     },
 
     versionInfo: {
-      name: 'Notane Retail POS',
-      version: '1.1.0',
+      name: 'Notane Retail POS Server',
+      version: defaultAppVersion,
       build_date: '2026-09-26',
       target_os: 'unknown',
       target_arch: 'unknown',
@@ -106,7 +110,19 @@ export const useLicenseStore = defineStore('license', {
       return netStore.serverUrl
     },
 
+    async initClientVersion() {
+      if (isTauri()) {
+        try {
+          const v = await invoke<string>('get_client_version')
+          if (v && typeof v === 'string' && v.trim().length > 0) {
+            this.clientVersionInfo.version = v.trim()
+          }
+        } catch (_) {}
+      }
+    },
+
     async fetchVersionInfo() {
+      await this.initClientVersion()
       try {
         const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/version`, { timeout: 3000 })
         if (res.data) {
@@ -159,6 +175,7 @@ export const useLicenseStore = defineStore('license', {
       this.isCheckingUpdate = true
       this.errorMessage = ''
       try {
+        await this.initClientVersion()
         const currentVersion = component === 'client' ? this.clientVersionInfo.version : this.versionInfo.version
         const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/updates/check`, {
           component,

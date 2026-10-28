@@ -3,6 +3,9 @@ import axios from 'axios'
 import { useNetworkStore } from './networkStore'
 import { useInitialSetupStore } from './initialSetupStore'
 
+declare const __APP_VERSION__: string | undefined
+const defaultAppVersion = (import.meta as any).env?.VITE_APP_VERSION || (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0')
+
 export type LicenseStatus = 'ACTIVE' | 'GRACE_PERIOD' | 'EXPIRED' | 'HARDWARE_MISMATCH' | 'CLOCK_TAMPERED' | 'UNLICENSED'
 
 export interface LicenseInfo {
@@ -68,7 +71,7 @@ export const useLicenseStore = defineStore('license', {
   state: () => ({
     versionInfo: {
       name: 'Notane Retail Server',
-      version: '1.1.0',
+      version: defaultAppVersion,
       build_date: '2026-09-26',
       target_os: 'unknown',
       target_arch: 'unknown',

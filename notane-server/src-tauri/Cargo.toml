@@ -1,6 +1,6 @@
 [package]
 name = "notane-retail-server"
-version = "1.0.0"
+version = "1.5.1"
 description = "Sistem Server Notane Retail Host Engine"
 edition = "2021"
 default-run = "notane-retail-server"
@@ -53,3 +53,11 @@ semver = "1.0"
 
 [build-dependencies]
 tauri-build = { version = "2.2.0", features = [], optional = true }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+

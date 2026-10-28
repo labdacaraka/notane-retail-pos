@@ -447,13 +447,13 @@ async function handleApplyUpdate() {
               </div>
             </div>
 
-            <!-- Catatan Keamanan Sambungan -->
+            <!-- Catatan Keamanan Sambungan (Anti-Cloning Protection) -->
             <div class="p-3 rounded-lg border border-indigo-200 bg-indigo-50/60 text-indigo-950 flex items-start gap-2.5 text-xs">
               <Lock class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
               <div class="space-y-1">
                 <div class="font-bold text-indigo-900 text-[11px]">Keamanan Lisensi Terkunci (Anti-Cloning Protection)</div>
                 <p class="text-[11px] leading-relaxed text-indigo-800/90">
-                  Alamat server lisensi dikunci mati di dalam biner resmi saat kompilasi rilis dan tidak dapat diubah di level toko untuk menjamin keaslian lisensi dan mencegah situs lisensi tiruan.
+                  Alamat server lisensi dikunci mati di dalam binary rilis dan tidak dapat diubah di level antarmuka/toko untuk menjamin keaslian lisensi dan mencegah pemalsuan URL server provider.
                 </p>
               </div>
             </div>

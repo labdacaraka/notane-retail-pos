@@ -8,9 +8,12 @@ use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 pub const APP_NAME: &str = "notane-retail-pos";
-pub const CURRENT_SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const CURRENT_SCHEMA_VERSION: i32 = 63;
 pub const MIN_COMPATIBLE_SERVER_VERSION: &str = "1.0.0";
+
+pub fn current_server_version() -> String {
+    crate::services::update_service::get_app_version()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableBackupSummary {
@@ -60,7 +63,7 @@ pub struct RestoreSummary {
 }
 
 pub fn check_compatibility(manifest: &BackupManifest) -> CompatibilityCheckResult {
-    let current_version_str = CURRENT_SERVER_VERSION;
+    let current_version_str = current_server_version();
     let current_schema = CURRENT_SCHEMA_VERSION;
 
     if manifest.app_name != APP_NAME {
@@ -80,7 +83,7 @@ pub fn check_compatibility(manifest: &BackupManifest) -> CompatibilityCheckResul
         };
     }
 
-    let parsed_current = semver::Version::parse(current_version_str).unwrap_or_else(|_| semver::Version::new(1, 0, 0));
+    let parsed_current = semver::Version::parse(&current_version_str).unwrap_or_else(|_| semver::Version::new(1, 0, 0));
     let parsed_min = semver::Version::parse(&manifest.min_server_version)
         .unwrap_or_else(|_| semver::Version::new(1, 0, 0));
 
@@ -184,7 +187,7 @@ pub async fn export_database_to_zip(
          -- Nonaktifkan pengecekan foreign key & triggers selama pemulihan berlangsung\n\
          SET session_replication_role = 'replica';\n\n",
         APP_NAME,
-        CURRENT_SERVER_VERSION,
+        current_server_version(),
         CURRENT_SCHEMA_VERSION,
         now.to_rfc3339(),
         db_name,
@@ -297,7 +300,7 @@ pub async fn export_database_to_zip(
     // 3. Bangun Manifest Cadangan
     let manifest = BackupManifest {
         app_name: APP_NAME.to_string(),
-        server_version: CURRENT_SERVER_VERSION.to_string(),
+        server_version: current_server_version(),
         min_server_version: MIN_COMPATIBLE_SERVER_VERSION.to_string(),
         schema_version: CURRENT_SCHEMA_VERSION,
         exported_at: now,

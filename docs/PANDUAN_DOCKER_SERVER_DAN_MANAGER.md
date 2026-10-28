@@ -112,3 +112,41 @@ docker compose -p toko2 --env-file .env.toko2 up -d
 | **Restart Toko Tertentu** | `docker compose -p toko1 restart` |
 | **Hentikan Toko Tertentu** | `docker compose -p toko1 down` |
 | **Update / Rebuild Image** | `docker compose -p toko1 up -d --build` |
+
+---
+
+## 4. Alur Pembaruan & Pengecekan Versi di Docker (Catatan Penting)
+
+Untuk memastikan container Docker menjalankan versi terbaru yang sesuai dengan rilis Desktop dan Git Tag:
+
+### A. Alur Update Versi di Server VPS (Standar & Otomatis)
+Setiap kali ada rilis versi baru (misalnya rilis `v1.4.1`):
+1. **Tarik perubahan kode terbaru dari Git:**
+   ```bash
+   git pull origin main
+   # atau jika menggunakan tag rilis tertentu:
+   # git fetch --tags && git checkout v1.4.1
+   ```
+2. **Rebuild container dengan kode terbaru:**
+   ```bash
+   # Untuk Notane Server (Toko 1):
+   docker compose -p toko1 up -d --build
+
+   # Untuk Notane Manager:
+   docker compose -f docker-compose.manager.yml --env-file .env.manager up -d --build
+   ```
+> [!NOTE]
+> Container otomatis membaca nomor versi terbaru dari `Cargo.toml` dan `package.json` hasil `git pull`. Anda **tidak perlu mengedit file `.env` secara manual**.
+
+### B. Override Versi Runtime via `.env` (Opsional / Tanpa Rebuild)
+Jika Anda ingin mengubah versi yang ditampilkan sistem secara instan tanpa melakukan kompilasi ulang image Docker:
+* Cukup tambahkan atau ubah baris berikut di file `.env` toko Anda:
+  ```env
+  APP_VERSION=1.4.1
+  ```
+* Kemudian restart service server:
+  ```bash
+  docker compose -p toko1 restart server
+  ```
+* Jika variabel `APP_VERSION` dikosongkan atau dihapus dari `.env`, sistem akan otomatis fallback menggunakan nomor versi bawaan kompilasi kode (`Cargo.toml` & `package.json`).
+
