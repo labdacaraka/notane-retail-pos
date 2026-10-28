@@ -71,7 +71,7 @@ const routes = [
     path: '/admin/outlets',
     name: 'admin-outlets',
     component: OutletsPage,
-    meta: { requiresAuth: true, permission: ['outlets:read', 'outlets:manage', 'master:read'], requiredFeature: 'multi_outlet' },
+    meta: { requiresAuth: true, permission: ['outlets:read', 'outlets:manage', 'master:read'] },
   },
   {
     path: '/admin/products',
@@ -180,7 +180,17 @@ router.beforeEach(async (to, _from, next) => {
     }
     if (!licStore.hasFeature(reqFeature)) {
       console.warn(`[LicenseGuard] Akses ditolak: Modul '${reqFeature}' tidak diaktifkan pada lisensi server.`)
-      return next({ path: '/admin' })
+      const featureNames: Record<string, string> = {
+        membership: 'Pelanggan & Membership',
+        accounting: 'Akuntansi & Pembukuan',
+        promotions: 'Promosi Retail, Voucher & Flash Sale',
+        label_printing: 'Cetak Label Harga',
+        expenses: 'Biaya & Pengeluaran Kas',
+        audit_log: 'Jejak Audit Keamanan',
+      }
+      const featName = featureNames[reqFeature] || reqFeature
+      alert(`Fitur Belum Diaktifkan: Modul '${featName}' memerlukan lisensi tambahan pada server toko Anda. Silakan hubungi Provider Notane untuk mengaktifkan fitur ini.`)
+      return next(false)
     }
   }
 

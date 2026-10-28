@@ -25,6 +25,11 @@ export function codeHardeningPlugin(userOptions = {}) {
     apply: 'build',
     enforce: 'post',
     transform(code, id) {
+      // Lewati virtual module Vue template dan style agar render tree Vue tetap stabil & cepat
+      if (id.includes('?vue&type=template') || id.includes('?vue&type=style')) {
+        return null
+      }
+
       const cleanId = id.split('?')[0]
       // Hanya proteksi kode sumber aplikasi (src/), lewati vendor third-party di node_modules
       if (
@@ -44,18 +49,18 @@ export function codeHardeningPlugin(userOptions = {}) {
         const obfuscated = JavaScriptObfuscator.obfuscate(code, {
           compact: true,
           controlFlowFlattening: true,
-          controlFlowFlatteningThreshold: 0.6,
+          controlFlowFlatteningThreshold: 0.3,
           deadCodeInjection: false,
           numbersToExpressions: true,
           simplify: true,
           stringArray: true,
           stringArrayEncoding: ['base64'],
-          stringArrayThreshold: 0.8,
+          stringArrayThreshold: 0.7,
           splitStrings: true,
           splitStringsChunkLength: 10,
-          transformObjectKeys: true,
+          transformObjectKeys: false, // Jaga object keys agar kompatibel dengan reactivity Vue & Vue Router
           unicodeEscapeSequence: false,
-          disableConsoleOutput: true,
+          disableConsoleOutput: false, // Biarkan console aktif untuk pelaporan error runtime WebView
           identifierNamesGenerator: 'hexadecimal',
           ...userOptions,
         })

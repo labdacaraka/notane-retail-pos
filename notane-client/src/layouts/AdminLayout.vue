@@ -33,7 +33,7 @@ const isConnectionConfigPage = computed(() => route.path === '/admin/client-conn
 // 1. Grup Menu Operasional & Master Data Bisnis
 const rawOperationalMenus = [
   { path: '/admin', name: 'Dashboard Hub', icon: 'fluent-color:apps-24' },
-  { path: '/admin/outlets', name: 'Master Outlet', icon: 'fluent-color:building-store-24', permission: ['outlets:read', 'outlets:manage', 'master:read'], requiredFeature: 'multi_outlet' },
+  { path: '/admin/outlets', name: 'Master Outlet', icon: 'fluent-color:building-store-24', permission: ['outlets:read', 'outlets:manage', 'master:read'] },
   { path: '/admin/sales', name: 'Penjualan', icon: 'fluent-color:receipt-24', permission: ['sales:read', 'report:view'] },
   { path: '/admin/purchases', name: 'Pembelian', icon: 'streamline-ultimate-color:delivery-truck-cargo', permission: ['purchasing:read', 'purchasing:write'] },
   { path: '/admin/products', name: 'Master Produk', icon: 'streamline-ultimate-color:warehouse-cart-packages-2', permission: ['products:read', 'master:read'] },

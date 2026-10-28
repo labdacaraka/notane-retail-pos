@@ -24,6 +24,9 @@ import {
   Scale,
 } from 'lucide-vue-next'
 import { api } from '@/services/api'
+import { useLicenseStore } from '@/stores/licenseStore'
+
+const licenseStore = useLicenseStore()
 
 // State Data
 const outlets = ref<any[]>([])
@@ -212,6 +215,10 @@ const totalSupervisorsAssigned = computed(() => globalStats.value.totalSuperviso
 
 // Form Actions
 function openCreateModal(asWarehouse = false) {
+  if (!asWarehouse && totalStoresCount.value >= 1 && !licenseStore.hasFeature('multi_outlet')) {
+    showToast('Menambahkan cabang outlet tambahan memerlukan aktivasi lisensi Multi-Outlet.', 'error')
+    return
+  }
   isEditing.value = false
   formError.value = ''
   form.value = {

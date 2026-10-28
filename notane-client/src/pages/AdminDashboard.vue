@@ -25,7 +25,7 @@ const hubSections = computed(() => {
           icon: 'fluent-color:building-store-24',
           path: '/admin/outlets',
           color: 'from-amber-500 to-orange-600',
-          badge: 'Multi-Outlet',
+          badge: 'Outlet & Toko',
           permission: ['outlets:read', 'master:read'],
         },
         {
