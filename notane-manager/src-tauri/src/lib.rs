@@ -89,6 +89,7 @@ pub fn run_app(context: tauri::Context<tauri::Wry>, state: AppState) {
             commands::get_licenses,
             commands::generate_license,
             commands::update_license_status,
+            commands::unbind_license_claim,
             commands::sign_license_token_manual,
             commands::get_device_activations,
             commands::unbind_device,

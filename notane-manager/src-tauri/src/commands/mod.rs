@@ -1,9 +1,8 @@
-use crate::api::{spawn_api_server, ApiState};
+use crate::api::spawn_api_server;
 use crate::crypto::ed25519::{
     derive_public_key, sign_message, DEFAULT_MASTER_PUBLIC_KEY_HEX,
 };
 use crate::crypto::hash::{hash_secret, verify_secret};
-use crate::db::DbPool;
 use crate::models::{
     AdminUser, AppError, AppRelease, AuditLog, AuthResponse, ChangeCredentialsDto, Client,
     CreateClientDto, CreateLicenseDto, CreateReleaseDto, DeviceActivation, License,
@@ -12,9 +11,6 @@ use crate::models::{
 };
 use chrono::{Duration, Utc};
 use rand::Rng;
-use std::collections::HashSet;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use validator::Validate;
 use crate::db::adapt_sql;
 
@@ -212,7 +208,8 @@ pub async fn get_licenses(state: tauri::State<'_, AppState>) -> Result<Vec<Licen
         "SELECT l.id, l.license_key, l.client_id, c.client_name, l.tier, l.max_terminals,
                 l.status, l.issued_at, l.expires_at, l.grace_period_days, l.features,
                 l.notes, l.created_at, l.updated_at,
-                (SELECT COUNT(*) FROM provider_device_activations d WHERE d.license_id = l.id AND d.is_active = 1) AS active_terminals
+                (SELECT COUNT(*) FROM provider_device_activations d WHERE d.license_id = l.id AND d.is_active = 1) AS active_terminals,
+                l.is_claimed, l.claimed_hardware_id, l.claimed_device_name, l.claimed_at
          FROM provider_licenses l
          LEFT JOIN provider_clients c ON l.client_id = c.id
          ORDER BY l.created_at DESC"
@@ -290,6 +287,10 @@ pub async fn generate_license(
         features: features_json,
         notes: payload.notes,
         active_terminals: Some(0),
+        is_claimed: Some(0),
+        claimed_hardware_id: None,
+        claimed_device_name: None,
+        claimed_at: None,
         created_at: now_str.clone(),
         updated_at: now_str,
     })
@@ -413,13 +414,118 @@ pub async fn unbind_device(
     state: tauri::State<'_, AppState>,
     device_id: String,
 ) -> Result<bool, AppError> {
+    // 1. Ambil info aktivasi sebelum dihapus
+    let dev = sqlx::query_as::<_, (String, String)>(&sql(
+        "SELECT license_id, hardware_id FROM provider_device_activations WHERE id = ?"
+    ))
+    .bind(&device_id)
+    .fetch_optional(&state.pool)
+    .await?;
+
     let rows = sqlx::query(&sql("DELETE FROM provider_device_activations WHERE id = ?"))
         .bind(&device_id)
         .execute(&state.pool)
         .await?
         .rows_affected();
 
+    if let Some((lic_id, hwid)) = dev {
+        // Cek apakah masih ada mesin aktif yang terikat pada lisensi ini
+        let active_count: (i64,) = sqlx::query_as(&sql(
+            "SELECT COUNT(*) FROM provider_device_activations WHERE license_id = ? AND is_active = 1"
+        ))
+        .bind(&lic_id)
+        .fetch_one(&state.pool)
+        .await
+        .unwrap_or((0,));
+
+        if active_count.0 == 0 {
+            let now_str = Utc::now().to_rfc3339();
+            let _ = sqlx::query(&sql(
+                "UPDATE provider_licenses 
+                 SET is_claimed = 0, claimed_hardware_id = NULL, claimed_device_name = NULL, claimed_at = NULL, updated_at = ?
+                 WHERE id = ?"
+            ))
+            .bind(&now_str)
+            .bind(&lic_id)
+            .execute(&state.pool)
+            .await;
+        }
+
+        // Catat ke audit log
+        let _ = sqlx::query(&sql(
+            "INSERT INTO provider_license_audit_logs (id, license_key, hardware_id, action, ip_address, status, details, created_at)
+             VALUES (?, (SELECT license_key FROM provider_licenses WHERE id = ?), ?, 'UNBIND_DEVICE', 'TAURI_DESKTOP', 'SUCCESS', 'Perangkat dilepaskan oleh admin studio', ?)"
+        ))
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(&lic_id)
+        .bind(&hwid)
+        .bind(Utc::now().to_rfc3339())
+        .execute(&state.pool)
+        .await;
+    }
+
     Ok(rows > 0)
+}
+
+#[tauri::command]
+pub async fn unbind_license_claim(
+    state: tauri::State<'_, AppState>,
+    license_id: String,
+) -> Result<bool, AppError> {
+    // 1. Ambil lisensi saat ini
+    let lic = sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
+        &sql("SELECT id, license_key, claimed_hardware_id, claimed_device_name FROM provider_licenses WHERE id = ?")
+    )
+    .bind(&license_id)
+    .fetch_optional(&state.pool)
+    .await?;
+
+    let (lic_id, license_key, claimed_hw, claimed_dev) = match lic {
+        Some(l) => l,
+        None => return Err(AppError::NotFound("Lisensi tidak ditemukan".into())),
+    };
+
+    let now_str = Utc::now().to_rfc3339();
+
+    // 2. Bersihkan status klaim di provider_licenses
+    sqlx::query(&sql(
+        "UPDATE provider_licenses 
+         SET is_claimed = 0, claimed_hardware_id = NULL, claimed_device_name = NULL, claimed_at = NULL, updated_at = ?
+         WHERE id = ?"
+    ))
+    .bind(&now_str)
+    .bind(&lic_id)
+    .execute(&state.pool)
+    .await?;
+
+    // 3. Hapus aktivasi aktif pada lisensi ini agar mesin baru dapat mengaktivasi
+    let deleted_activations = sqlx::query(&sql("DELETE FROM provider_device_activations WHERE license_id = ?"))
+        .bind(&lic_id)
+        .execute(&state.pool)
+        .await?
+        .rows_affected();
+
+    // 4. Catat riwayat audit
+    let audit_detail = format!(
+        "Klaim mesin lisensi dilepaskan via Desktop Studio untuk perangkat: {} (HWID: {}). {} aktivasi dihapus.",
+        claimed_dev.as_deref().unwrap_or("tidak diketahui"),
+        claimed_hw.as_deref().unwrap_or("tidak diketahui"),
+        deleted_activations
+    );
+
+    let _ = sqlx::query(&sql(
+        "INSERT INTO provider_license_audit_logs (id, license_key, hardware_id, action, ip_address, status, details, created_at)
+         VALUES (?, ?, ?, 'UNBIND_CLAIM', 'TAURI_DESKTOP', 'SUCCESS', ?, ?)"
+    ))
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(&license_key)
+    .bind(claimed_hw.as_deref().unwrap_or(""))
+    .bind(&audit_detail)
+    .bind(&now_str)
+    .execute(&state.pool)
+    .await;
+
+    Ok(true)
 }
 
 // ------------------------------------------------------------------------------

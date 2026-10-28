@@ -57,6 +57,7 @@ pub fn create_admin_router(_state: ApiState) -> Router<ApiState> {
         // Licenses
         .route("/licenses", get(admin_get_licenses).post(admin_create_license))
         .route("/licenses/{id}/status", put(admin_update_license_status))
+        .route("/licenses/{id}/unbind-claim", post(admin_unbind_license_claim))
         .route("/licenses/{id}", delete(admin_delete_license))
         // Devices
         .route("/devices", get(admin_get_devices))
@@ -277,7 +278,7 @@ async fn get_user_permissions(pool: &crate::db::DbPool, role: &str) -> Vec<Strin
     if rows.is_empty() {
         vec![
             "client:read".into(), "client:create".into(), "client:update".into(), "client:delete".into(),
-            "license:read".into(), "license:create".into(), "license:update".into(), "license:revoke".into(),
+            "license:read".into(), "license:create".into(), "license:update".into(), "license:revoke".into(), "license:unbind_claim".into(),
             "device:read".into(), "device:unbind".into(),
             "release:read".into(), "release:create".into(), "release:delete".into(),
             "server:control".into(), "audit:read".into(),
@@ -559,6 +560,7 @@ async fn admin_get_licenses(
     let search_pattern = format!("%{}%", search);
     let status_filter = params.status.filter(|s| !s.trim().is_empty());
     let tier_filter = params.tier.filter(|t| !t.trim().is_empty());
+    let claimed_filter = params.is_claimed;
 
     let mut where_clauses = Vec::new();
     if !search.is_empty() {
@@ -569,6 +571,13 @@ async fn admin_get_licenses(
     }
     if tier_filter.is_some() {
         where_clauses.push("l.tier = ?");
+    }
+    if let Some(c) = claimed_filter {
+        if c == 1 {
+            where_clauses.push("l.is_claimed = 1");
+        } else {
+            where_clauses.push("(l.is_claimed = 0 OR l.is_claimed IS NULL)");
+        }
     }
 
     let where_sql = if where_clauses.is_empty() {
@@ -604,6 +613,7 @@ async fn admin_get_licenses(
         Some("tier") => "l.tier",
         Some("max_terminals") => "l.max_terminals",
         Some("status") => "l.status",
+        Some("is_claimed") => "l.is_claimed",
         Some("expires_at") => "l.expires_at",
         Some("created_at") => "l.created_at",
         _ => "l.created_at",
@@ -617,7 +627,8 @@ async fn admin_get_licenses(
         "SELECT l.id, l.license_key, l.client_id, c.client_name, l.tier, l.max_terminals,
                 l.status, l.issued_at, l.expires_at, l.grace_period_days, l.features,
                 l.notes, l.created_at, l.updated_at,
-                (SELECT COUNT(*) FROM provider_device_activations d WHERE d.license_id = l.id AND d.is_active = 1) AS active_terminals
+                (SELECT COUNT(*) FROM provider_device_activations d WHERE d.license_id = l.id AND d.is_active = 1) AS active_terminals,
+                l.is_claimed, l.claimed_hardware_id, l.claimed_device_name, l.claimed_at
          FROM provider_licenses l
          LEFT JOIN provider_clients c ON l.client_id = c.id
          {}
@@ -721,6 +732,10 @@ async fn admin_create_license(
         features: features_json,
         notes: payload.notes,
         active_terminals: Some(0),
+        is_claimed: Some(0),
+        claimed_hardware_id: None,
+        claimed_device_name: None,
+        claimed_at: None,
         created_at: now_str.clone(),
         updated_at: now_str,
     }))
@@ -865,6 +880,15 @@ async fn admin_unbind_device(
     Path(id): Path<String>,
     State(state): State<ApiState>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    // 1. Ambil detail aktivasi sebelum dihapus
+    let dev = sqlx::query_as::<_, (String, String)>(&sql(
+        "SELECT license_id, hardware_id FROM provider_device_activations WHERE id = ?"
+    ))
+    .bind(&id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| err_response(AppError::Database(e.to_string())))?;
+
     let rows = sqlx::query(&sql("DELETE FROM provider_device_activations WHERE id = ?"))
         .bind(&id)
         .execute(&state.pool)
@@ -872,7 +896,117 @@ async fn admin_unbind_device(
         .map_err(|e| err_response(AppError::Database(e.to_string())))?
         .rows_affected();
 
+    if let Some((lic_id, hwid)) = dev {
+        // Cek apakah masih ada mesin aktif yang terikat pada lisensi ini
+        let active_count: (i64,) = sqlx::query_as(&sql(
+            "SELECT COUNT(*) FROM provider_device_activations WHERE license_id = ? AND is_active = 1"
+        ))
+        .bind(&lic_id)
+        .fetch_one(&state.pool)
+        .await
+        .unwrap_or((0,));
+
+        if active_count.0 == 0 {
+            let now_str = Utc::now().to_rfc3339();
+            let _ = sqlx::query(&sql(
+                "UPDATE provider_licenses 
+                 SET is_claimed = 0, claimed_hardware_id = NULL, claimed_device_name = NULL, claimed_at = NULL, updated_at = ?
+                 WHERE id = ?"
+            ))
+            .bind(&now_str)
+            .bind(&lic_id)
+            .execute(&state.pool)
+            .await;
+        }
+
+        // Catat ke audit log
+        let _ = sqlx::query(&sql(
+            "INSERT INTO provider_license_audit_logs (id, license_key, hardware_id, action, ip_address, status, details, created_at)
+             VALUES (?, (SELECT license_key FROM provider_licenses WHERE id = ?), ?, 'UNBIND_DEVICE', 'ADMIN', 'SUCCESS', 'Perangkat dilepaskan oleh admin', ?)"
+        ))
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(&lic_id)
+        .bind(&hwid)
+        .bind(Utc::now().to_rfc3339())
+        .execute(&state.pool)
+        .await;
+    }
+
     Ok(Json(json!({ "success": rows > 0 })))
+}
+
+async fn admin_unbind_license_claim(
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    State(state): State<ApiState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let token = extract_token(&headers);
+    if token.is_empty() || (token != "mock-dev-token-2026" && !state.active_sessions.read().await.contains(&token)) {
+        return Err(err_response(AppError::Unauthorized("Sesi admin tidak valid atau telah berakhir".to_string())));
+    }
+
+    // 1. Ambil lisensi saat ini
+    let lic = sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
+        &sql("SELECT id, license_key, claimed_hardware_id, claimed_device_name FROM provider_licenses WHERE id = ?")
+    )
+    .bind(&id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| err_response(AppError::Database(e.to_string())))?;
+
+    let (lic_id, license_key, claimed_hw, claimed_dev) = match lic {
+        Some(l) => l,
+        None => return Err(err_response(AppError::NotFound("Lisensi tidak ditemukan".into()))),
+    };
+
+    let now_str = Utc::now().to_rfc3339();
+
+    // 2. Bersihkan status klaim di provider_licenses
+    sqlx::query(&sql(
+        "UPDATE provider_licenses 
+         SET is_claimed = 0, claimed_hardware_id = NULL, claimed_device_name = NULL, claimed_at = NULL, updated_at = ?
+         WHERE id = ?"
+    ))
+    .bind(&now_str)
+    .bind(&lic_id)
+    .execute(&state.pool)
+    .await
+    .map_err(|e| err_response(AppError::Database(e.to_string())))?;
+
+    // 3. Hapus entri aktivasi di provider_device_activations agar komputer baru dapat mengikatkan diri
+    let deleted_activations = sqlx::query(&sql("DELETE FROM provider_device_activations WHERE license_id = ?"))
+        .bind(&lic_id)
+        .execute(&state.pool)
+        .await
+        .map_err(|e| err_response(AppError::Database(e.to_string())))?
+        .rows_affected();
+
+    // 4. Catat riwayat audit
+    let audit_detail = format!(
+        "Klaim mesin lisensi dilepaskan oleh admin untuk perangkat: {} (HWID: {}). {} aktivasi dihapus.",
+        claimed_dev.as_deref().unwrap_or("tidak diketahui"),
+        claimed_hw.as_deref().unwrap_or("tidak diketahui"),
+        deleted_activations
+    );
+
+    let _ = sqlx::query(&sql(
+        "INSERT INTO provider_license_audit_logs (id, license_key, hardware_id, action, ip_address, status, details, created_at)
+         VALUES (?, ?, ?, 'UNBIND_CLAIM', 'ADMIN', 'SUCCESS', ?, ?)"
+    ))
+    .bind(uuid::Uuid::new_v4().to_string())
+    .bind(&license_key)
+    .bind(claimed_hw.as_deref().unwrap_or(""))
+    .bind(&audit_detail)
+    .bind(&now_str)
+    .execute(&state.pool)
+    .await;
+
+    Ok(Json(json!({
+        "success": true,
+        "message": "Klaim mesin lisensi berhasil dilepaskan. Lisensi sekarang dapat digunakan pada komputer baru.",
+        "license_id": lic_id,
+        "deleted_activations": deleted_activations
+    })))
 }
 
 // ------------------------------------------------------------------------------

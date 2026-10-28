@@ -39,6 +39,10 @@ export interface License {
   features: string
   notes?: string
   active_terminals?: number
+  is_claimed?: number
+  claimed_hardware_id?: string
+  claimed_device_name?: string
+  claimed_at?: string
   created_at: string
   updated_at: string
 }
@@ -108,6 +112,7 @@ export interface PaginationParams {
   search?: string
   status?: string
   tier?: string
+  is_claimed?: number
 }
 
 export interface PaginatedResponse<T> {
@@ -318,6 +323,7 @@ export const useProviderStore = defineStore('provider', () => {
       if (params.search) queryParams.search = params.search
       if (params.status) queryParams.status = params.status
       if (params.tier) queryParams.tier = params.tier
+      if (params.is_claimed !== undefined) queryParams.is_claimed = params.is_claimed
 
       const { data } = await apiClient.get<PaginatedResponse<License>>('/api/v1/admin/licenses', {
         params: queryParams,
@@ -384,6 +390,23 @@ export const useProviderStore = defineStore('provider', () => {
     }
   }
 
+  async function unbindLicenseClaim(licenseId: string) {
+    isLoading.value = true
+    try {
+      await apiClient.post(`/api/v1/admin/licenses/${licenseId}/unbind-claim`)
+      successMessage.value = 'Klaim mesin lisensi berhasil dilepaskan. Komputer baru sekarang dapat mengaktivasi lisensi ini.'
+      await fetchLicenses()
+      await fetchDevices()
+      await fetchStatus()
+      return true
+    } catch (e: any) {
+      errorMessage.value = e?.message || 'Gagal melepaskan klaim mesin lisensi'
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   // ----------------------------------------------------------------------------
   // DEVICES
   // ----------------------------------------------------------------------------
@@ -418,6 +441,7 @@ export const useProviderStore = defineStore('provider', () => {
       await apiClient.delete(`/api/v1/admin/devices/${deviceId}`)
       successMessage.value = 'Tautan perangkat HWID berhasil di-reset'
       await fetchDevices()
+      await fetchLicenses()
       await fetchStatus()
       return true
     } catch (e: any) {
@@ -604,6 +628,7 @@ export const useProviderStore = defineStore('provider', () => {
     fetchLicenses,
     generateLicense,
     updateLicenseStatus,
+    unbindLicenseClaim,
     deleteLicense,
     fetchDevices,
     unbindDevice,

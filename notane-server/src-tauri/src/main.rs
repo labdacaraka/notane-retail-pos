@@ -62,6 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Err(e) = run_embedded_migrations(&pool).await {
                 error!("Peringatan migrasi database skema: {}", e);
             }
+            notane_retail_server_lib::services::license_service::LicenseService::start_license_sync_scheduler(pool.clone());
             initial_pool = Some(pool);
         } else {
             error!("Gagal membuat database pool ke {}. Memeriksa konfigurasi...", default_db_url);
@@ -138,6 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let db_url = watchdog_state.db_url.read().await.clone();
                 if let Ok(pool) = notane_retail_server_lib::db::create_pool(&db_url).await {
                     let _ = notane_retail_server_lib::db::run_embedded_migrations(&pool).await;
+                    notane_retail_server_lib::services::license_service::LicenseService::start_license_sync_scheduler(pool.clone());
                     watchdog_state.set_pool(pool).await;
                     tracing::info!("[WATCHDOG] Koneksi database PostgreSQL terpulihkan!");
                     // Respawn POS server dengan router yang sudah memiliki database pool

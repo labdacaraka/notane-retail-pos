@@ -35,6 +35,7 @@ services:
         condition: service_healthy
     volumes:
       - uploads_data:/app/uploads
+      - license_data:/root/.local/share/notane-retail-pos
 
   postgres:
     image: postgres:16-alpine
@@ -57,3 +58,4 @@ services:
 volumes:
   postgres_data:
   uploads_data:
+  license_data:

@@ -26,6 +26,8 @@ import {
   RefreshCw,
   Trash2,
   Sparkles,
+  Cpu,
+  Unlink,
 } from 'lucide-vue-next'
 import { z } from 'zod'
 
@@ -38,6 +40,7 @@ const { hasPermission } = usePermission()
 const searchQuery = ref('')
 const selectedStatus = ref<'ALL' | 'ACTIVE' | 'SUSPENDED' | 'EXPIRED'>('ALL')
 const selectedTier = ref<'ALL' | 'BASIC' | 'PRO' | 'ENTERPRISE'>('ALL')
+const selectedClaim = ref<'ALL' | 'CLAIMED' | 'UNCLAIMED'>('ALL')
 const sortBy = ref<'created_at' | 'license_key' | 'client_name' | 'tier' | 'expires_at' | 'status'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const viewMode = ref<'table' | 'grid'>('table')
@@ -97,6 +100,7 @@ async function loadData(page?: number, pageSize?: number) {
     search: searchQuery.value.trim() || undefined,
     status: selectedStatus.value === 'ALL' ? undefined : selectedStatus.value,
     tier: selectedTier.value === 'ALL' ? undefined : selectedTier.value,
+    is_claimed: selectedClaim.value === 'ALL' ? undefined : (selectedClaim.value === 'CLAIMED' ? 1 : 0),
     sort_by: sortBy.value,
     sort_order: sortOrder.value,
   })
@@ -111,7 +115,7 @@ watch(searchQuery, () => {
   }, 350)
 })
 
-watch([selectedStatus, selectedTier], () => {
+watch([selectedStatus, selectedTier, selectedClaim], () => {
   loadData(1)
 })
 
@@ -199,6 +203,18 @@ async function toggleStatus(lic: License) {
   await providerStore.updateLicenseStatus(lic.id, newStatus)
 }
 
+async function confirmUnbindClaim(lic: License) {
+  const machineName = lic.claimed_device_name || 'Komputer Sebelumnya'
+  const hwid = lic.claimed_hardware_id ? ` (HWID: ${lic.claimed_hardware_id})` : ''
+  if (
+    confirm(
+      `Lepaskan ikatan klaim mesin untuk lisensi '${lic.license_key}'?\n\nMesin '${machineName}'${hwid} akan dilepas dari lisensi ini. Pelanggan selanjutnya dapat mengaktivasi lisensi ini pada komputer baru yang diganti.`
+    )
+  ) {
+    await providerStore.unbindLicenseClaim(lic.id)
+  }
+}
+
 async function confirmDelete(lic: License) {
   if (confirm(`Yakin ingin menghapus lisensi '${lic.license_key}'? Mesin kasir terkait tidak akan dapat bertransaksi.`)) {
     await providerStore.deleteLicense(lic.id)
@@ -254,6 +270,16 @@ async function confirmDelete(lic: License) {
           <option value="BASIC">BASIC</option>
           <option value="PRO">PRO</option>
           <option value="ENTERPRISE">ENTERPRISE</option>
+        </select>
+
+        <!-- Status Klaim Filter -->
+        <select
+          v-model="selectedClaim"
+          class="bg-slate-900 border border-slate-800 text-slate-300 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-brand-500 cursor-pointer"
+        >
+          <option value="ALL">Semua Klaim</option>
+          <option value="CLAIMED">Terklaim Mesin</option>
+          <option value="UNCLAIMED">Belum Diklaim</option>
         </select>
       </div>
 
@@ -360,6 +386,13 @@ async function confirmDelete(lic: License) {
 
                 <th class="py-3 px-4 font-semibold text-slate-400">Kapasitas Kasir (Per Server)</th>
 
+                <th class="py-3 px-4 font-semibold text-slate-400">
+                  <div class="flex items-center gap-1.5">
+                    <Cpu class="w-3.5 h-3.5 text-slate-500" />
+                    <span>Klaim Mesin (HWID)</span>
+                  </div>
+                </th>
+
                 <th
                   @click="handleSort('status')"
                   class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
@@ -441,6 +474,30 @@ async function confirmDelete(lic: License) {
                   <span class="text-slate-500"> Kasir / Server</span>
                 </td>
 
+                <!-- Machine Claim Status -->
+                <td class="py-3.5 px-4">
+                  <div v-if="lic.is_claimed === 1" class="flex flex-col gap-0.5">
+                    <div class="flex items-center gap-1.5">
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        <Cpu class="w-3 h-3 text-amber-400" />
+                        Terklaim
+                      </span>
+                    </div>
+                    <span v-if="lic.claimed_device_name" class="text-[10px] text-slate-300 font-medium truncate max-w-[130px]" :title="lic.claimed_device_name">
+                      {{ lic.claimed_device_name }}
+                    </span>
+                    <span v-if="lic.claimed_hardware_id" class="font-mono text-[9px] text-slate-500 truncate max-w-[120px]" :title="lic.claimed_hardware_id">
+                      {{ lic.claimed_hardware_id }}
+                    </span>
+                  </div>
+                  <div v-else>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <CheckCircle2 class="w-3 h-3 text-emerald-400" />
+                      Belum Diklaim
+                    </span>
+                  </div>
+                </td>
+
                 <!-- Status -->
                 <td class="py-3.5 px-4">
                   <span
@@ -463,6 +520,17 @@ async function confirmDelete(lic: License) {
                 <!-- Actions -->
                 <td class="py-3.5 px-4 text-right">
                   <div class="flex items-center justify-end gap-1.5">
+                    <button
+                      v-if="lic.is_claimed === 1"
+                      @click="confirmUnbindClaim(lic)"
+                      :disabled="!hasPermission('license:unbind_claim') && !hasPermission('license:update')"
+                      title="Lepas Klaim Mesin (Ganti Komputer/Mesin Rusak)"
+                      class="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
+                    >
+                      <Unlink class="w-3 h-3" />
+                      <span>Lepas Klaim</span>
+                    </button>
+
                     <button
                       @click="goToOfflineSigner(lic.license_key)"
                       title="Sign Token Kriptografis Offline"
@@ -584,6 +652,28 @@ async function confirmDelete(lic: License) {
                 <span class="font-bold text-slate-200 font-mono">{{ new Date(lic.expires_at).toLocaleDateString() }}</span>
               </div>
             </div>
+
+            <!-- Claim Node Status in Card -->
+            <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/60 text-xs">
+              <div class="flex items-center gap-2">
+                <Cpu class="w-4 h-4 text-slate-400" />
+                <span class="text-slate-400">Status Klaim Mesin:</span>
+              </div>
+              <div v-if="lic.is_claimed === 1" class="flex items-center gap-1.5">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Terklaim
+                </span>
+                <span v-if="lic.claimed_device_name" class="text-[11px] font-semibold text-slate-200 truncate max-w-[120px]" :title="lic.claimed_device_name">
+                  {{ lic.claimed_device_name }}
+                </span>
+              </div>
+              <div v-else>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <CheckCircle2 class="w-3 h-3 text-emerald-400" />
+                  Belum Diklaim Mesin
+                </span>
+              </div>
+            </div>
           </div>
 
           <!-- Action Buttons -->
@@ -597,6 +687,17 @@ async function confirmDelete(lic: License) {
             </button>
 
             <div class="flex items-center gap-1.5">
+              <button
+                v-if="lic.is_claimed === 1"
+                @click="confirmUnbindClaim(lic)"
+                :disabled="!hasPermission('license:unbind_claim') && !hasPermission('license:update')"
+                title="Lepas Klaim Mesin (Ganti Komputer)"
+                class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Unlink class="w-3.5 h-3.5" />
+                <span>Lepas Klaim</span>
+              </button>
+
               <button
                 @click="toggleStatus(lic)"
                 :disabled="!hasPermission('license:update')"

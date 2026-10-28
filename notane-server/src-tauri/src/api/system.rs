@@ -30,6 +30,8 @@ pub fn system_routes(state: AppState) -> Router {
         .route("/license", get(get_license_info))
         .route("/license/activate", post(activate_license))
         .route("/license/activate-online", post(activate_license_online))
+        .route("/license/sync", post(sync_license_handler))
+        .route("/license/logs", get(get_license_logs_handler))
         .route("/provider-config", get(get_provider_config).post(save_provider_config))
         .route("/provider-config/test", post(test_provider_connection))
         .route("/updates/check", post(check_updates))
@@ -506,6 +508,10 @@ async fn get_license_info(State(state): State<AppState>) -> impl IntoResponse {
             features: vec![],
             message: "Database belum aktif".to_string(),
             provider_server_url: crate::services::license_service::LicenseService::get_provider_url(),
+            last_sync_at: None,
+            sync_status: None,
+            consecutive_sync_failures: None,
+            offline_grace_days_remaining: None,
         })
     }
 }
@@ -560,6 +566,76 @@ async fn activate_license(
                 "message": "Database server belum aktif. Silakan mulai server host terlebih dahulu."
             })),
         )
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GetLicenseLogsQuery {
+    pub limit: Option<i64>,
+}
+
+async fn sync_license_handler(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let pool_opt = state.pool.read().await.clone();
+    let Some(pool) = pool_opt else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "status": "error", "message": "Database server belum aktif" })),
+        );
+    };
+
+    match crate::services::license_service::LicenseService::sync_with_provider(&pool, "MANUAL_SYNC").await {
+        Ok(result) => {
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "status": if result.success { "success" } else { "warning" },
+                    "message": result.message,
+                    "data": result,
+                })),
+            )
+        }
+        Err(err) => {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "status": "error",
+                    "message": err,
+                })),
+            )
+        }
+    }
+}
+
+async fn get_license_logs_handler(
+    State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<GetLicenseLogsQuery>,
+) -> impl IntoResponse {
+    let pool_opt = state.pool.read().await.clone();
+    let Some(pool) = pool_opt else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "status": "error", "message": "Database server belum aktif" })),
+        );
+    };
+
+    let limit = query.limit.unwrap_or(20);
+    match crate::services::license_service::LicenseService::get_sync_logs(&pool, limit).await {
+        Ok(logs) => (
+            StatusCode::OK,
+            Json(json!({
+                "status": "success",
+                "data": logs,
+            })),
+        ),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "status": "error",
+                "message": err,
+            })),
+        ),
     }
 }
 

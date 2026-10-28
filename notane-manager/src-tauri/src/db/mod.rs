@@ -132,6 +132,10 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
             tier TEXT NOT NULL DEFAULT 'ENTERPRISE',
             max_terminals INTEGER NOT NULL DEFAULT 5,
             status TEXT NOT NULL DEFAULT 'ACTIVE',
+            is_claimed INTEGER NOT NULL DEFAULT 0,
+            claimed_hardware_id TEXT,
+            claimed_device_name TEXT,
+            claimed_at TEXT,
             issued_at TEXT NOT NULL,
             expires_at TEXT NOT NULL,
             grace_period_days INTEGER NOT NULL DEFAULT 7,
@@ -181,6 +185,31 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
     ).execute(pool).await?;
 
     // Migration kolom jika tabel sudah ada sebelumnya
+    let _ = sqlx::query("ALTER TABLE provider_licenses ADD COLUMN is_claimed INTEGER NOT NULL DEFAULT 0;")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_licenses ADD COLUMN claimed_hardware_id TEXT;")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_licenses ADD COLUMN claimed_device_name TEXT;")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_licenses ADD COLUMN claimed_at TEXT;")
+        .execute(pool)
+        .await;
+
+    // Backfill klaim dari perangkat aktif sebelumnya jika belum ditandai
+    let _ = sqlx::query(
+        "UPDATE provider_licenses
+         SET is_claimed = 1,
+             claimed_hardware_id = (SELECT hardware_id FROM provider_device_activations WHERE license_id = provider_licenses.id AND is_active = 1 ORDER BY activated_at DESC LIMIT 1),
+             claimed_device_name = (SELECT device_name FROM provider_device_activations WHERE license_id = provider_licenses.id AND is_active = 1 ORDER BY activated_at DESC LIMIT 1),
+             claimed_at = (SELECT activated_at FROM provider_device_activations WHERE license_id = provider_licenses.id AND is_active = 1 ORDER BY activated_at DESC LIMIT 1)
+         WHERE id IN (SELECT license_id FROM provider_device_activations WHERE is_active = 1) AND (is_claimed IS NULL OR is_claimed = 0)"
+    )
+    .execute(pool)
+    .await;
+
     let _ = sqlx::query("ALTER TABLE provider_app_releases ADD COLUMN component TEXT NOT NULL DEFAULT 'server';")
         .execute(pool)
         .await;
@@ -271,6 +300,7 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
         ("license:create", "Terbitkan Lisensi", "license", "Membuat dan menandatangani lisensi baru"),
         ("license:update", "Ubah Status Lisensi", "license", "Memperpanjang atau mengubah status lisensi"),
         ("license:revoke", "Cabut Lisensi", "license", "Mencabut/revoke lisensi"),
+        ("license:unbind_claim", "Lepas Klaim Lisensi", "license", "Melepaskan ikatan klaim mesin lisensi agar dapat digunakan di komputer baru"),
         ("device:read", "Lihat Perangkat", "device", "Melihat terminal HWID aktif"),
         ("device:unbind", "Reset Perangkat HWID", "device", "Melepas tautan hardware ID mesin klien"),
         ("release:read", "Lihat Rilis OTA", "release", "Melihat riwayat pembaruan aplikasi"),

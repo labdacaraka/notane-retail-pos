@@ -97,6 +97,10 @@ struct LicenseActivateRow {
     features: String,
     client_name: String,
     company_name: String,
+    is_claimed: Option<i64>,
+    claimed_hardware_id: Option<String>,
+    claimed_device_name: Option<String>,
+    claimed_at: Option<String>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -112,6 +116,8 @@ struct LicenseVerifyRow {
     status: String,
     expires_at: String,
     features: String,
+    is_claimed: Option<i64>,
+    claimed_hardware_id: Option<String>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -219,7 +225,8 @@ async fn handle_activate(
     // 1. Cari Lisensi di Database
     let license_row = sqlx::query_as::<_, LicenseActivateRow>(
         "SELECT l.id, l.license_key, l.tier, l.max_terminals, l.status, l.expires_at,
-                l.grace_period_days, l.features, c.client_name, c.company_name
+                l.grace_period_days, l.features, c.client_name, c.company_name,
+                l.is_claimed, l.claimed_hardware_id, l.claimed_device_name, l.claimed_at
          FROM provider_licenses l
          JOIN provider_clients c ON l.client_id = c.id
          WHERE l.license_key = $1"
@@ -301,7 +308,37 @@ async fn handle_activate(
         }
     }
 
-    // 4. Periksa Node-Locking Server HWID (1 Lisensi = 1 Notane Server)
+    // 4. Periksa Status Klaim Mesin (Mesin Baru vs Mesin yang Sudah Diklaim)
+    if license.is_claimed.unwrap_or(0) == 1 {
+        if let Some(claimed_hw) = &license.claimed_hardware_id {
+            if !claimed_hw.trim().is_empty() && claimed_hw.trim() != clean_hwid {
+                let dev_name = license.claimed_device_name.as_deref().unwrap_or("komputer sebelumnya");
+                log_audit(
+                    &state.pool,
+                    Some(clean_key),
+                    Some(clean_hwid),
+                    "ACTIVATE",
+                    Some(&client_ip),
+                    "BLOCKED",
+                    &format!("Lisensi telah diklaim oleh mesin lain: {} (HWID: {})", dev_name, claimed_hw),
+                ).await;
+
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "success": false,
+                        "code": "LICENSE_ALREADY_CLAIMED",
+                        "message": format!(
+                            "Lisensi ini sudah diklaim pada perangkat lain ({}). Jika komputer lama Anda rusak atau diganti, silakan hubungi Administrator Notane Provider untuk melepaskan klaim mesin lama terlebih dahulu.",
+                            dev_name
+                        )
+                    })),
+                );
+            }
+        }
+    }
+
+    // 5. Periksa Node-Locking Server HWID (1 Lisensi = 1 Notane Server)
     let bound_active_server = sqlx::query_as::<_, DeviceCheckRow>(
         "SELECT id, is_active FROM provider_device_activations
          WHERE license_id = $1 AND is_active = 1"
@@ -322,6 +359,7 @@ async fn handle_activate(
     .unwrap_or(None);
 
     let now_str = Utc::now().to_rfc3339();
+    let effective_device_name = payload.device_name.as_deref().unwrap_or("Notane Server");
 
     if let Some(dev) = existing_dev {
         // Server ini sudah terdaftar: perbarui ping & status aktif
@@ -335,6 +373,20 @@ async fn handle_activate(
         .bind(&payload.device_name)
         .bind(&payload.app_version)
         .bind(&dev.id)
+        .execute(&state.pool)
+        .await;
+
+        // Pastikan status klaim sinkron di tabel provider_licenses
+        let _ = sqlx::query(
+            "UPDATE provider_licenses
+             SET is_claimed = 1, claimed_hardware_id = $1, claimed_device_name = COALESCE($2, claimed_device_name), claimed_at = COALESCE(claimed_at, $3), updated_at = $4
+             WHERE id = $5"
+        )
+        .bind(clean_hwid)
+        .bind(&payload.device_name)
+        .bind(&now_str)
+        .bind(&now_str)
+        .bind(&license.id)
         .execute(&state.pool)
         .await;
     } else if bound_active_server.is_some() {
@@ -353,6 +405,7 @@ async fn handle_activate(
             StatusCode::FORBIDDEN,
             Json(json!({
                 "success": false,
+                "code": "LICENSE_ALREADY_CLAIMED",
                 "message": "Lisensi ini telah terikat secara permanen ke mesin Notane Server lain (Node-Locked). Setiap lisensi hanya dapat diaktivasi pada 1 mesin server. Hubungi Provider untuk melepaskan ikatan server lama."
             })),
         );
@@ -368,12 +421,26 @@ async fn handle_activate(
         .bind(new_dev_id)
         .bind(&license.id)
         .bind(clean_hwid)
-        .bind(&payload.device_name)
+        .bind(effective_device_name)
         .bind(&client_ip)
         .bind("Desktop Client")
         .bind(&payload.app_version)
         .bind(&now_str)
         .bind(&now_str)
+        .execute(&state.pool)
+        .await;
+
+        // Tandai lisensi sebagai TERKLAIM pada mesin ini
+        let _ = sqlx::query(
+            "UPDATE provider_licenses
+             SET is_claimed = 1, claimed_hardware_id = $1, claimed_device_name = $2, claimed_at = COALESCE(claimed_at, $3), updated_at = $4
+             WHERE id = $5"
+        )
+        .bind(clean_hwid)
+        .bind(effective_device_name)
+        .bind(&now_str)
+        .bind(&now_str)
+        .bind(&license.id)
         .execute(&state.pool)
         .await;
     }
@@ -463,7 +530,7 @@ async fn handle_verify(
     let clean_hwid = payload.hardware_id.trim();
 
     let row = sqlx::query_as::<_, LicenseVerifyRow>(
-        "SELECT l.id, l.status, l.expires_at, l.features
+        "SELECT l.id, l.status, l.expires_at, l.features, l.is_claimed, l.claimed_hardware_id
          FROM provider_licenses l
          WHERE l.license_key = $1"
     )
@@ -480,6 +547,22 @@ async fn handle_verify(
             );
         }
     };
+
+    // Jika lisensi telah diklaim oleh HWID lain, tolak verifikasi
+    if license.is_claimed.unwrap_or(0) == 1 {
+        if let Some(claimed_hw) = &license.claimed_hardware_id {
+            if !claimed_hw.trim().is_empty() && claimed_hw.trim() != clean_hwid {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "success": false,
+                        "status": "REVOKED",
+                        "message": "Lisensi telah dipindahkan atau diklaim oleh mesin lain"
+                    })),
+                );
+            }
+        }
+    }
 
     // Perbarui ping perangkat
     let now_str = Utc::now().to_rfc3339();

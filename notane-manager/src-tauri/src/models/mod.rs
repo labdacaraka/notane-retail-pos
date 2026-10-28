@@ -48,6 +48,7 @@ pub enum Permission {
     LicenseCreate,
     LicenseUpdate,
     LicenseRevoke,
+    LicenseUnbindClaim,
     DeviceRead,
     DeviceUnbind,
     ReleaseRead,
@@ -68,6 +69,7 @@ impl Permission {
             Permission::LicenseCreate => "license:create",
             Permission::LicenseUpdate => "license:update",
             Permission::LicenseRevoke => "license:revoke",
+            Permission::LicenseUnbindClaim => "license:unbind_claim",
             Permission::DeviceRead => "device:read",
             Permission::DeviceUnbind => "device:unbind",
             Permission::ReleaseRead => "release:read",
@@ -91,6 +93,7 @@ pub struct PaginationParams {
     pub search: Option<String>,
     pub status: Option<String>,
     pub tier: Option<String>,
+    pub is_claimed: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,6 +164,10 @@ pub struct License {
     pub tier: String, // BASIC, PRO, ENTERPRISE
     pub max_terminals: i64,
     pub status: String, // ACTIVE, SUSPENDED, EXPIRED, REVOKED
+    pub is_claimed: Option<i64>, // 0 = Belum Diklaim, 1 = Telah Diklaim
+    pub claimed_hardware_id: Option<String>,
+    pub claimed_device_name: Option<String>,
+    pub claimed_at: Option<String>,
     pub issued_at: String,
     pub expires_at: String,
     pub grace_period_days: i64,

@@ -23,6 +23,21 @@ export interface LicenseInfo {
   features: string[]
   message: string
   provider_server_url: string
+  last_sync_at?: string | null
+  sync_status?: string | null
+  consecutive_sync_failures?: number | null
+  offline_grace_days_remaining?: number | null
+}
+
+export interface LicenseSyncLogItem {
+  id: number
+  sync_type: string
+  status: string
+  http_status: number | null
+  latency_ms: number | null
+  provider_url: string
+  message: string | null
+  created_at: string
 }
 
 export interface UpdateInfo {
@@ -89,7 +104,9 @@ export const useLicenseStore = defineStore('license', {
     } as LicenseInfo,
 
     updateInfo: null as UpdateInfo | null,
+    syncLogs: [] as LicenseSyncLogItem[],
     isLoading: false,
+    isSyncing: false,
     isCheckingUpdate: false,
     isApplyingUpdate: false,
     errorMessage: '',
@@ -169,6 +186,44 @@ export const useLicenseStore = defineStore('license', {
       } finally {
         this.isLoading = false
       }
+    },
+
+    async syncLicenseWithProvider(): Promise<{ success: boolean; message: string }> {
+      this.isSyncing = true
+      this.errorMessage = ''
+      this.successMessage = ''
+      try {
+        const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/license/sync`, {}, { timeout: 8000 })
+        if (res.data?.data?.license_info) {
+          this.licenseInfo = res.data.data.license_info
+        } else {
+          await this.fetchLicenseInfo()
+        }
+        const msg = res.data?.message || 'Sinkronisasi berhasil'
+        await this.fetchSyncLogs()
+        if (res.data?.status === 'success') {
+          this.successMessage = msg
+          return { success: true, message: msg }
+        } else {
+          return { success: false, message: msg }
+        }
+      } catch (err: any) {
+        const msg = err.response?.data?.message || err.message || 'Gagal menghubungi server provider lisensi'
+        this.errorMessage = msg
+        await this.fetchSyncLogs()
+        return { success: false, message: msg }
+      } finally {
+        this.isSyncing = false
+      }
+    },
+
+    async fetchSyncLogs(): Promise<void> {
+      try {
+        const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/license/logs?limit=20`, { timeout: 4000 })
+        if (res.data?.data) {
+          this.syncLogs = res.data.data
+        }
+      } catch (_) {}
     },
 
     async checkForUpdates(component: 'client' | 'server' = 'client'): Promise<UpdateInfo | null> {
