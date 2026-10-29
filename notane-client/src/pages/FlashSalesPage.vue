@@ -68,11 +68,31 @@ interface FormItem {
   sold_qty: number
 }
 
+function getLocalDateString(d: Date = new Date()): string {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatTimeSeconds(t: string | null | undefined): string | null {
+  if (!t) return null
+  const trimmed = t.trim()
+  const parts = trimmed.split(':')
+  if (parts.length === 2) {
+    return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`
+  }
+  if (parts.length >= 3) {
+    return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].slice(0, 2).padStart(2, '0')}`
+  }
+  return trimmed
+}
+
 const form = ref({
   name: '',
   description: '',
-  start_date: new Date().toISOString().slice(0, 10),
-  end_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+  start_date: getLocalDateString(),
+  end_date: getLocalDateString(new Date(Date.now() + 7 * 86400000)),
   is_all_day: true,
   start_time: '09:00',
   end_time: '21:00',
@@ -161,8 +181,8 @@ function openCreateModal() {
   form.value = {
     name: '',
     description: '',
-    start_date: new Date().toISOString().slice(0, 10),
-    end_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+    start_date: getLocalDateString(),
+    end_date: getLocalDateString(new Date(Date.now() + 7 * 86400000)),
     is_all_day: true,
     start_time: '09:00',
     end_time: '21:00',
@@ -301,6 +321,20 @@ async function handleSave() {
     dialog.alert('Periode tanggal mulai dan selesai wajib diisi!', 'warning')
     return
   }
+  if (form.value.start_date > form.value.end_date) {
+    dialog.alert('Tanggal mulai flash sale tidak boleh lebih besar daripada tanggal selesai!', 'warning')
+    return
+  }
+  if (!form.value.is_all_day) {
+    if (!form.value.start_time || !form.value.end_time) {
+      dialog.alert('Jam mulai dan jam selesai wajib diisi jika bukan promo sepanjang hari!', 'warning')
+      return
+    }
+    if (form.value.start_date === form.value.end_date && form.value.start_time >= form.value.end_time) {
+      dialog.alert('Jam mulai harus lebih awal daripada jam selesai untuk hari yang sama!', 'warning')
+      return
+    }
+  }
   if (form.value.items.length === 0) {
     dialog.alert('Pilih minimal 1 barang untuk diikutsertakan dalam Flash Sale!', 'warning')
     return
@@ -318,9 +352,10 @@ async function handleSave() {
       start_date: form.value.start_date,
       end_date: form.value.end_date,
       is_all_day: form.value.is_all_day,
-      start_time: form.value.is_all_day ? null : form.value.start_time,
+      start_time: form.value.is_all_day ? null : formatTimeSeconds(form.value.start_time),
+      end_time: form.value.is_all_day ? null : formatTimeSeconds(form.value.end_time),
       is_active: (() => {
-        const today = new Date().toISOString().slice(0, 10)
+        const today = getLocalDateString()
         const nowTime = new Date().toTimeString().slice(0, 8)
         if (form.value.end_date < today) return false
         if (form.value.end_date === today && !form.value.is_all_day && form.value.end_time && form.value.end_time < nowTime) return false

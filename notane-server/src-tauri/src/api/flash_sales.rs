@@ -163,12 +163,33 @@ async fn create_flash_sale_handler(
             .into_response();
     }
 
-    if payload.start_time >= payload.end_time {
+    if payload.start_date > payload.end_date {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "success": false, "message": "Waktu mulai flash sale harus lebih awal daripada waktu selesai" })),
+            Json(json!({ "success": false, "message": "Tanggal mulai flash sale tidak boleh lebih besar daripada tanggal selesai" })),
         )
             .into_response();
+    }
+
+    if !payload.is_all_day {
+        match (payload.start_time, payload.end_time) {
+            (Some(st), Some(et)) => {
+                if payload.start_date == payload.end_date && st >= et {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({ "success": false, "message": "Jam mulai flash sale harus lebih awal daripada jam selesai untuk periode hari yang sama" })),
+                    )
+                        .into_response();
+                }
+            }
+            _ => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "success": false, "message": "Jam mulai dan jam selesai wajib diisi jika bukan promo sepanjang hari" })),
+                )
+                    .into_response();
+            }
+        }
     }
 
     if payload.items.is_empty() {
@@ -223,12 +244,33 @@ async fn update_flash_sale_handler(
             .into_response();
     }
 
-    if payload.start_time >= payload.end_time {
+    if payload.start_date > payload.end_date {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "success": false, "message": "Waktu mulai flash sale harus lebih awal daripada waktu selesai" })),
+            Json(json!({ "success": false, "message": "Tanggal mulai flash sale tidak boleh lebih besar daripada tanggal selesai" })),
         )
             .into_response();
+    }
+
+    if !payload.is_all_day {
+        match (payload.start_time, payload.end_time) {
+            (Some(st), Some(et)) => {
+                if payload.start_date == payload.end_date && st >= et {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({ "success": false, "message": "Jam mulai flash sale harus lebih awal daripada jam selesai untuk periode hari yang sama" })),
+                    )
+                        .into_response();
+                }
+            }
+            _ => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "success": false, "message": "Jam mulai dan jam selesai wajib diisi jika bukan promo sepanjang hari" })),
+                )
+                    .into_response();
+            }
+        }
     }
 
     let user_id = Some(claims.sub);

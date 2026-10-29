@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useProviderStore, type License } from '../stores/providerStore'
 import { usePermission } from '../composables/usePermission'
 import PaginationBar from '../components/common/PaginationBar.vue'
+import ClientSearchSelect from '../components/common/ClientSearchSelect.vue'
 import {
   KeyRound,
   Plus,
@@ -143,7 +144,7 @@ function handleSort(column: 'created_at' | 'license_key' | 'client_name' | 'tier
 
 function openCreateModal() {
   form.value = {
-    client_id: providerStore.clients[0]?.id || '',
+    client_id: route.query.client_id ? String(route.query.client_id) : '',
     tier: 'ENTERPRISE',
     max_terminals: 5,
     expires_in_days: 365,
@@ -750,15 +751,11 @@ async function confirmDelete(lic: License) {
           <!-- Pilih Klien -->
           <div>
             <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih Klien Tenant *</label>
-            <select
+            <ClientSearchSelect
               v-model="form.client_id"
-              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"
-            >
-              <option v-for="c in providerStore.clients" :key="c.id" :value="c.id">
-                {{ c.client_name }} ({{ c.company_name }})
-              </option>
-            </select>
-            <span v-if="formErrors.client_id" class="text-[11px] text-rose-400 mt-0.5 block">{{ formErrors.client_id }}</span>
+              :error="formErrors.client_id"
+              placeholder="-- Cari & Pilih Klien Tenant --"
+            />
           </div>
 
           <!-- Tier Lisensi -->
