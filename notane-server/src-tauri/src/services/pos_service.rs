@@ -843,12 +843,16 @@ pub async fn checkout(
     };
 
     // 2. Ambil Promo Flash Sale yang Sedang Aktif di Outlet ini
-    let active_flash_sales = crate::services::flash_sale_service::get_active_promos_for_outlet(
-        pool,
-        Some(outlet_id),
-    )
-    .await
-    .unwrap_or_default();
+    let active_flash_sales = if crate::services::license_service::LicenseService::has_feature(pool, "promotions").await {
+        crate::services::flash_sale_service::get_active_promos_for_outlet(
+            pool,
+            Some(outlet_id),
+        )
+        .await
+        .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
 
     // 3. Pisahkan item yang diklaim sebagai hadiah gratis vs item bayar untuk validasi promo retail
     let mut claimed_free_items: std::collections::HashMap<Uuid, Decimal> = std::collections::HashMap::new();
@@ -1118,6 +1122,7 @@ pub async fn checkout(
             line_tax,
             line_subtotal,
             applied_fs_id,
+            applied_fs_qty,
         ) = if is_valid_free_gift {
             // Item Hadiah Gratis Resmi:
             (
@@ -1129,6 +1134,7 @@ pub async fn checkout(
                 Decimal::ZERO,
                 Decimal::ZERO,
                 None,
+                Decimal::ZERO,
             )
         } else {
             // 2. Evaluasi Tier Harga Grosir (Quantity Breaks)
@@ -1187,19 +1193,21 @@ pub async fn checkout(
             let mut fs_price_unit = active_unit_base_price;
             let mut fs_id_found = None;
             let mut fs_is_stackable = false;
+            let mut fs_eligible_qty = Decimal::ZERO;
 
             if let Some(fs) = active_flash_sales.iter().find(|f| f.product_id == product.id) {
-                let quota_ok = match fs.remaining_quota {
-                    Some(q) => q > Decimal::ZERO,
-                    None => true,
-                };
-                if quota_ok {
+                let max_per_trx = fs.max_qty_per_transaction.unwrap_or(item.quantity);
+                let rem_quota = fs.remaining_quota.unwrap_or(item.quantity);
+                let eligible = item.quantity.min(max_per_trx).min(rem_quota).max(Decimal::ZERO);
+
+                if eligible > Decimal::ZERO {
                     let promo_unit = fs.promo_price * factor;
                     if promo_unit < active_unit_base_price {
                         fs_savings_unit = active_unit_base_price - promo_unit;
                         fs_price_unit = promo_unit;
                         fs_id_found = Some(fs.flash_sale_id);
                         fs_is_stackable = fs.is_stackable_with_member;
+                        fs_eligible_qty = eligible;
                     }
                 }
             }
@@ -1209,17 +1217,17 @@ pub async fn checkout(
                 if fs_is_stackable {
                     let combined = (fs_savings_unit + member_savings_unit).min(active_unit_base_price);
                     let final_p = active_unit_base_price - combined;
-                    (final_p, fs_savings_unit * item.quantity, member_savings_unit * item.quantity, fs_id_found)
+                    (final_p, fs_savings_unit * fs_eligible_qty, member_savings_unit * item.quantity, fs_id_found)
                 } else {
                     // Best Value Rule: Pilih yang paling murah untuk konsumen
                     if fs_price_unit <= member_price_unit {
-                        (fs_price_unit, fs_savings_unit * item.quantity, Decimal::ZERO, fs_id_found)
+                        (fs_price_unit, fs_savings_unit * fs_eligible_qty, Decimal::ZERO, fs_id_found)
                     } else {
                         (member_price_unit, Decimal::ZERO, member_savings_unit * item.quantity, None)
                     }
                 }
             } else if fs_id_found.is_some() {
-                (fs_price_unit, fs_savings_unit * item.quantity, Decimal::ZERO, fs_id_found)
+                (fs_price_unit, fs_savings_unit * fs_eligible_qty, Decimal::ZERO, fs_id_found)
             } else if member_savings_unit > Decimal::ZERO {
                 (member_price_unit, Decimal::ZERO, member_savings_unit * item.quantity, None)
             } else {
@@ -1264,6 +1272,7 @@ pub async fn checkout(
                 calculated_tax,
                 calculated_subtotal,
                 final_fs_id,
+                fs_eligible_qty,
             )
         };
 
@@ -1275,14 +1284,16 @@ pub async fn checkout(
 
         // Jika item ini merupakan bagian dari promo Flash Sale, update kuota promo yang terjual
         if let Some(fs_id) = applied_fs_id {
-            let _ = sqlx::query(
-                "UPDATE flash_sale_items SET sold_qty = sold_qty + $1 WHERE flash_sale_id = $2 AND product_id = $3"
-            )
-            .bind(item.quantity)
-            .bind(fs_id)
-            .bind(product.id)
-            .execute(&mut *tx)
-            .await;
+            if applied_fs_qty > Decimal::ZERO {
+                let _ = sqlx::query(
+                    "UPDATE flash_sale_items SET sold_qty = sold_qty + $1 WHERE flash_sale_id = $2 AND product_id = $3"
+                )
+                .bind(applied_fs_qty)
+                .bind(fs_id)
+                .bind(product.id)
+                .execute(&mut *tx)
+                .await;
+            }
         }
 
         let line_gross = normal_base_price * item.quantity;

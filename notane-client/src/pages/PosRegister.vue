@@ -33,6 +33,7 @@ onMounted(async () => {
     cartStore.setOutlet('')
     cartStore.clearCart()
   }
+  await cartStore.fetchActivePromos()
 })
 
 const barcodeBarRef = ref<any>(null)
@@ -412,7 +413,7 @@ function handleOpenVoucherModal() {
         <div class="space-y-2.5 text-xs">
           <div class="flex justify-between text-slate-600">
             <span>Subtotal Bruto:</span>
-            <span class="font-mono font-bold text-slate-900">{{ formatCurrency(cartStore.subtotal) }}</span>
+            <span class="font-mono font-bold text-slate-900">{{ formatCurrency(cartStore.grossSubtotal) }}</span>
           </div>
 
           <!-- Flash Sale Savings -->

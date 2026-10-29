@@ -84,19 +84,27 @@ export const useCartStore = defineStore('cart', () => {
     return null
   }
 
+  function isPosRoute(): boolean {
+    if (typeof window === 'undefined') return true
+    const p = window.location.pathname
+    return p === '/' || p.startsWith('/pos') || p === ''
+  }
+
   async function fetchActivePromos() {
-    // Hanya panggil promosi aktif jika berada di rute antarmuka kasir /pos
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pos')) {
+    // Hanya panggil promosi aktif jika berada di rute antarmuka kasir POS
+    if (!isPosRoute()) {
       return
     }
 
     try {
       isLoadingPromos.value = true
-      // Tidak perlu menyertakan parameter outlet_id karena backend secara otomatis
-      // mengambil dari open shift kasir atau preferensi lokasi outlet aktif
+      const params: Record<string, any> = {}
+      if (currentOutletId.value) {
+        params.outlet_id = currentOutletId.value
+      }
       const [fsRes, promoRes] = await Promise.allSettled([
-        api.get('/flash-sales/active-promos'),
-        api.get('/promotions/active'),
+        api.get('/flash-sales/active-promos', { params }),
+        api.get('/promotions/active', { params }),
       ])
 
       if (fsRes.status === 'fulfilled' && fsRes.value.data?.success && Array.isArray(fsRes.value.data.data)) {
@@ -132,13 +140,14 @@ export const useCartStore = defineStore('cart', () => {
     if (outletId) {
       localStorage.setItem('notane_pos_outlet_id', outletId)
       localStorage.setItem('notane_active_outlet_id', outletId)
-      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/pos')) {
-        fetchActivePromos()
+      if (isPosRoute()) {
+        await fetchActivePromos()
       }
     } else {
       localStorage.removeItem('notane_pos_outlet_id')
       localStorage.removeItem('notane_active_outlet_id')
       activePromotions.value = []
+      activeFlashSales.value = []
     }
   }
 
@@ -151,7 +160,16 @@ export const useCartStore = defineStore('cart', () => {
     // Jika belum ada shift yang terbuka, reset outlet dan jangan load promo/produk
     currentOutletId.value = ''
     activePromotions.value = []
+    activeFlashSales.value = []
   }
+
+  // Subtotal kotor sebelum diskon apapun (harga katalog normal * quantity)
+  const grossSubtotal = computed(() => {
+    return items.value.reduce((sum, item) => {
+      const normalPrice = Number(item.original_price || item.unit_price || 0)
+      return sum + normalPrice * item.quantity
+    }, 0)
+  })
 
   const subtotal = computed(() => {
     return items.value.reduce((sum, item) => sum + item.unit_price * item.quantity, 0)
@@ -467,6 +485,7 @@ export const useCartStore = defineStore('cart', () => {
     }
 
     items.value.unshift(newItem)
+    recalculateTiers(items.value[0])
     evaluatePromotions()
     soundService.playScanSuccess()
   }
@@ -501,40 +520,50 @@ export const useCartStore = defineStore('cart', () => {
       const promoUnitPrice = Number(promo.promo_price) * factor
       const fsSavingsPerUnit = Math.max(0, normalBasePrice - promoUnitPrice)
 
-      if (hasMemberDiscount) {
-        if (promo.is_stackable_with_member) {
-          // Akumulasi ganda (Stackable): Flash sale dipotong lagi dengan diskon member
-          const memberSavingsPerUnit = Math.max(0, normalBasePrice - memberPrice)
-          finalUnitPrice = Math.max(0, promoUnitPrice - memberSavingsPerUnit)
-          item.flash_sale_discount = fsSavingsPerUnit * item.quantity
-          item.member_discount = memberSavingsPerUnit * item.quantity
-          item.is_flash_sale = true
-          item.flash_sale_id = promo.flash_sale_id
-          item.flash_sale_name = promo.flash_sale_name
-        } else {
-          // Standar Retail Modern (Best Value Rule): Pilih harga yang paling menguntungkan pelanggan
-          if (promoUnitPrice <= memberPrice) {
-            finalUnitPrice = promoUnitPrice
-            item.flash_sale_discount = fsSavingsPerUnit * item.quantity
-            item.member_discount = 0
+      // Cek batas kuantitas per transaksi dan sisa kuota promo
+      const maxPerTrx = promo.max_qty_per_transaction ? Number(promo.max_qty_per_transaction) : Infinity
+      const remQuota = promo.remaining_quota !== null && promo.remaining_quota !== undefined ? Number(promo.remaining_quota) : Infinity
+      const eligibleQty = Math.max(0, Math.min(item.quantity, maxPerTrx, remQuota))
+
+      if (eligibleQty > 0 && fsSavingsPerUnit > 0) {
+        if (hasMemberDiscount) {
+          if (promo.is_stackable_with_member) {
+            // Akumulasi ganda (Stackable): Flash sale dipotong lagi dengan diskon member
+            const memberSavingsPerUnit = Math.max(0, normalBasePrice - memberPrice)
+            finalUnitPrice = Math.max(0, promoUnitPrice - memberSavingsPerUnit)
+            item.flash_sale_discount = fsSavingsPerUnit * eligibleQty
+            item.member_discount = memberSavingsPerUnit * item.quantity
             item.is_flash_sale = true
             item.flash_sale_id = promo.flash_sale_id
             item.flash_sale_name = promo.flash_sale_name
           } else {
-            finalUnitPrice = memberPrice
-            item.flash_sale_discount = 0
-            item.member_discount = (normalBasePrice - memberPrice) * item.quantity
-            item.is_flash_sale = false
+            // Standar Retail Modern (Best Value Rule): Pilih harga yang paling menguntungkan pelanggan
+            if (promoUnitPrice <= memberPrice) {
+              finalUnitPrice = promoUnitPrice
+              item.flash_sale_discount = fsSavingsPerUnit * eligibleQty
+              item.member_discount = 0
+              item.is_flash_sale = true
+              item.flash_sale_id = promo.flash_sale_id
+              item.flash_sale_name = promo.flash_sale_name
+            } else {
+              finalUnitPrice = memberPrice
+              item.flash_sale_discount = 0
+              item.member_discount = (normalBasePrice - memberPrice) * item.quantity
+              item.is_flash_sale = false
+            }
           }
+        } else {
+          // Pelanggan reguler (non-member)
+          finalUnitPrice = promoUnitPrice
+          item.flash_sale_discount = fsSavingsPerUnit * eligibleQty
+          item.member_discount = 0
+          item.is_flash_sale = true
+          item.flash_sale_id = promo.flash_sale_id
+          item.flash_sale_name = promo.flash_sale_name
         }
-      } else {
-        // Pelanggan reguler (non-member)
-        finalUnitPrice = promoUnitPrice
-        item.flash_sale_discount = fsSavingsPerUnit * item.quantity
-        item.member_discount = 0
-        item.is_flash_sale = true
-        item.flash_sale_id = promo.flash_sale_id
-        item.flash_sale_name = promo.flash_sale_name
+      } else if (hasMemberDiscount) {
+        finalUnitPrice = memberPrice
+        item.member_discount = (normalBasePrice - memberPrice) * item.quantity
       }
     } else if (hasMemberDiscount) {
       finalUnitPrice = memberPrice
@@ -946,8 +975,8 @@ export const useCartStore = defineStore('cart', () => {
       barcode: it.product.barcode,
       quantity: it.quantity,
       unit_code: it.selected_unit.unit_code,
-      unit_price: it.unit_price,
-      discount_amount: it.discount_amount,
+      unit_price: it.original_price || it.unit_price,
+      discount_amount: (it.discount_amount || 0) + (it.flash_sale_discount || 0) + (it.promo_discount || 0) + (it.member_discount || 0),
       subtotal: it.subtotal,
     }))
 
@@ -1014,6 +1043,7 @@ export const useCartStore = defineStore('cart', () => {
     currentOutletId,
     setOutlet,
     initOutlet,
+    grossSubtotal,
     subtotal,
     itemDiscounts,
     voucherDiscount,

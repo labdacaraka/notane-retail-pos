@@ -80,7 +80,7 @@ export const useLocationStore = defineStore('location', () => {
     }
 
     // Sinkronkan ke cartStore HANYA jika pengguna sedang berada di halaman kasir/POS
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/pos')) {
+    if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname.startsWith('/pos'))) {
       const cartStore = useCartStore()
       await cartStore.setOutlet(target.id)
     }
