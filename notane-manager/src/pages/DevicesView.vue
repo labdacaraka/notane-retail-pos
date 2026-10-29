@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useProviderStore, type DeviceActivation } from '../stores/providerStore'
 import { usePermission } from '../composables/usePermission'
 import PaginationBar from '../components/common/PaginationBar.vue'
+import { formatNumber } from '@/utils/formatters'
 import {
   Cpu,
   Unlink,
@@ -123,7 +124,7 @@ async function confirmUnbind(dev: DeviceActivation) {
       </div>
 
       <div class="text-xs text-slate-400 font-mono">
-        Total Perangkat: <span class="text-brand-400 font-bold">{{ providerStore.devicesPagination.total_items }}</span>
+        Total Perangkat: <span class="text-brand-400 font-bold">{{ formatNumber(providerStore.devicesPagination.total_items) }}</span>
       </div>
     </div>
 

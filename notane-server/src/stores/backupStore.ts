@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useNetworkStore } from './networkStore'
+import { useDirectorySettingsStore } from './directorySettingsStore'
 
 export interface TableBackupSummary {
   table_name: string
@@ -54,11 +55,14 @@ export const useBackupStore = defineStore('backup', {
     restoreResult: null as RestoreSummary | null,
     errorMessage: '',
     successMessage: '',
+    lastSavedPath: '',
+    lastSavedFolder: '',
   }),
 
   actions: {
-    async exportBackupZip(notes?: string): Promise<void> {
+    async exportBackupZip(notes?: string): Promise<{ filename: string; filePath: string; folderPath: string }> {
       const networkStore = useNetworkStore()
+      const dirStore = useDirectorySettingsStore()
       this.isExporting = true
       this.errorMessage = ''
       this.successMessage = ''
@@ -86,17 +90,23 @@ export const useBackupStore = defineStore('backup', {
           filename = `notane_backup_${timestamp}.zip`
         }
 
-        // Trigger browser / webview download
-        const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }))
-        const link = document.createElement('a')
-        link.href = blobUrl
-        link.setAttribute('download', filename)
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(blobUrl)
+        const blob = new Blob([response.data], { type: 'application/zip' })
+        const saveRes = await dirStore.saveBackupFile(filename, blob)
 
-        this.successMessage = `Berkas cadangan '${filename}' berhasil diunduh.`
+        this.lastSavedPath = saveRes.filePath
+        this.lastSavedFolder = saveRes.folderPath
+
+        const folderMsg = saveRes.isNativeSave
+          ? `Tersimpan di direktori: ${saveRes.folderPath}`
+          : 'Tersimpan di folder Unduhan (Downloads)'
+
+        this.successMessage = `Berkas cadangan '${filename}' berhasil diekspor. ${folderMsg}`
+
+        return {
+          filename,
+          filePath: saveRes.filePath,
+          folderPath: saveRes.folderPath,
+        }
       } catch (err: any) {
         if (err.response && err.response.data instanceof Blob) {
           try {

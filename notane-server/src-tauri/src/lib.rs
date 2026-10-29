@@ -8,7 +8,10 @@ pub mod utils;
 pub mod tauri_cmds;
 
 #[cfg(feature = "gui")]
-use tauri_cmds::{get_system_info, get_system_printers};
+use tauri_cmds::{
+    get_system_info, get_system_printers, get_system_storage_paths, open_folder,
+    save_file_to_directory, select_folder,
+};
 
 #[cfg(feature = "gui")]
 pub fn run_server_manager(context: tauri::Context<tauri::Wry>) {
@@ -25,7 +28,11 @@ pub fn run_server_manager(context: tauri::Context<tauri::Wry>) {
         })
         .invoke_handler(tauri::generate_handler![
             get_system_info,
-            get_system_printers
+            get_system_printers,
+            get_system_storage_paths,
+            select_folder,
+            open_folder,
+            save_file_to_directory
         ])
         .run(context)
         .expect("error while running notane server manager application");

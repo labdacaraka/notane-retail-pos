@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useProviderStore } from '../stores/providerStore'
 import PaginationBar from '../components/common/PaginationBar.vue'
+import { formatNumber } from '@/utils/formatters'
 import {
   ShieldAlert,
   Search,
@@ -103,7 +104,7 @@ function handleSort(column: 'created_at' | 'action' | 'status') {
       </div>
 
       <div class="text-xs text-slate-400 font-mono">
-        Total Riwayat: <span class="text-brand-400 font-bold">{{ providerStore.auditLogsPagination.total_items }}</span>
+        Total Riwayat: <span class="text-brand-400 font-bold">{{ formatNumber(providerStore.auditLogsPagination.total_items) }}</span>
       </div>
     </div>
 

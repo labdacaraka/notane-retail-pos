@@ -9,6 +9,7 @@ import { api } from '@/services/api'
 import { broadcastPaymentSuccess } from '@/services/customerDisplayChannel'
 import { soundService } from '@/services/soundService'
 import { Icon } from '@iconify/vue'
+import { formatCurrency } from '@/utils/formatters'
 import type { PaymentEntry, PaymentMethod, CheckoutResult, LoyaltySettings } from '@/types'
 
 const props = defineProps<{
@@ -265,15 +266,6 @@ function getSaleOtherDiscount(): number {
   const memDisc = Number(sale?.total_member_discount || 0)
   const diff = totalDisc - fsDisc - memDisc
   return diff > 0 ? diff : 0
-}
-
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val)
 }
 
 function setExactCash() {

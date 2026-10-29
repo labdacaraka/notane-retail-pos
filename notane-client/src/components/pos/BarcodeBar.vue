@@ -4,6 +4,7 @@ import { api } from '@/services/api'
 import { useCartStore } from '@/stores/cartStore'
 import { useShiftStore } from '@/stores/shiftStore'
 import { soundService } from '@/services/soundService'
+import { formatCurrency, formatQty } from '@/utils/formatters'
 
 const emit = defineEmits<{
   (e: 'search'): void
@@ -34,15 +35,6 @@ function focusInput() {
   if (shiftStore.isShiftOpen) {
     inputRef.value?.focus()
   }
-}
-
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val)
 }
 
 async function searchProducts(query: string) {
@@ -383,14 +375,14 @@ defineExpose({
           </div>
           <div class="text-right shrink-0">
             <div class="text-sm font-black font-mono text-emerald-700">
-              {{ formatCurrency(Number(prod.base_selling_price || 0)) }}
+              {{ formatCurrency(prod.base_selling_price, true) }}
             </div>
             <div class="text-[10px] font-mono">
               <span v-if="Number(prod.stock_qty ?? 0) <= 0" class="text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 font-bold">
                 Stok Habis (0)
               </span>
               <span v-else class="text-slate-500">
-                Stok: <strong class="text-slate-800 font-bold">{{ prod.stock_qty }} {{ prod.unit_code || 'PCS' }}</strong>
+                Stok: <strong class="text-slate-800 font-bold">{{ formatQty(prod.stock_qty) }} {{ prod.unit_code || 'PCS' }}</strong>
               </span>
             </div>
           </div>

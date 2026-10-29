@@ -2231,9 +2231,71 @@ async fn delete_voucher_handler(
     State(pool): State<PgPool>,
     Path(id): Path<Uuid>,
 ) -> impl IntoResponse {
-    match sqlx::query("UPDATE vouchers SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP WHERE id = $1").bind(id).execute(&pool).await {
-        Ok(_) => (StatusCode::OK, Json(json!({ "success": true, "message": "Voucher dinonaktifkan / kedaluwarsa" }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))).into_response(),
+    let voucher = match sqlx::query("SELECT id, code, used_count FROM vouchers WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&pool)
+        .await
+    {
+        Ok(Some(v)) => v,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "success": false, "message": "Voucher tidak ditemukan" })),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "message": e.to_string() })),
+            )
+                .into_response();
+        }
+    };
+
+    let used_count: i32 = voucher.get::<Option<i32>, _>("used_count").unwrap_or(0);
+    let sales_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sales WHERE voucher_id = $1")
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .unwrap_or(0);
+
+    if used_count == 0 && sales_count == 0 {
+        // Belum ada riwayat transaksi sama sekali: Hapus permanen
+        match sqlx::query("DELETE FROM vouchers WHERE id = $1").bind(id).execute(&pool).await {
+            Ok(_) => (
+                StatusCode::OK,
+                Json(json!({
+                    "success": true,
+                    "permanent": true,
+                    "message": "Voucher berhasil dihapus secara permanen"
+                })),
+            )
+                .into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "message": e.to_string() })),
+            )
+                .into_response(),
+        }
+    } else {
+        // Sudah ada riwayat transaksi klaim: Ubah status menjadi EXPIRED agar data transaksi tetap utuh
+        match sqlx::query("UPDATE vouchers SET status = 'EXPIRED', updated_at = CURRENT_TIMESTAMP WHERE id = $1").bind(id).execute(&pool).await {
+            Ok(_) => (
+                StatusCode::OK,
+                Json(json!({
+                    "success": true,
+                    "permanent": false,
+                    "message": "Voucher memiliki riwayat transaksi, status berhasil dinonaktifkan (EXPIRED)"
+                })),
+            )
+                .into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "message": e.to_string() })),
+            )
+                .into_response(),
+        }
     }
 }
 
@@ -2297,10 +2359,12 @@ async fn get_voucher_claims_handler(
             s.discount_amount,
             s.total_amount,
             s.status,
-            u.name as cashier_name,
+            COALESCE(u.full_name, u_shift.full_name, u.username, u_shift.username, 'Kasir') as cashier_name,
             c.name as customer_name,
             o.name as outlet_name
          FROM sales s
+         LEFT JOIN cashier_shifts cs ON s.shift_id = cs.id
+         LEFT JOIN users u_shift ON cs.user_id = u_shift.id
          LEFT JOIN users u ON s.created_by = u.id
          LEFT JOIN customers c ON s.customer_id = c.id
          LEFT JOIN outlets o ON s.outlet_id = o.id
@@ -2314,12 +2378,15 @@ async fn get_voucher_claims_handler(
     match rows {
         Ok(r) => {
             let claims: Vec<serde_json::Value> = r.iter().map(|row| json!({
+                "id": row.get::<Uuid, _>("id"),
                 "sale_id": row.get::<Uuid, _>("id"),
                 "invoice_number": row.get::<String, _>("invoice_number"),
                 "created_at": row.get::<DateTime<Utc>, _>("created_at"),
+                "transaction_date": row.get::<DateTime<Utc>, _>("created_at"),
                 "subtotal": row.get::<Decimal, _>("subtotal"),
                 "discount_amount": row.get::<Decimal, _>("discount_amount"),
                 "total_amount": row.get::<Decimal, _>("total_amount"),
+                "final_amount": row.get::<Decimal, _>("total_amount"),
                 "status": row.get::<String, _>("status"),
                 "cashier_name": row.get::<Option<String>, _>("cashier_name"),
                 "customer_name": row.get::<Option<String>, _>("customer_name"),

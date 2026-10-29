@@ -5,6 +5,7 @@ import type { LookupSaleDetail, LookupSaleItem } from '@/types'
 import { Icon } from '@iconify/vue'
 import SupervisorAuthSection from '@/components/pos/SupervisorAuthSection.vue'
 import { useLocationStore } from '@/stores/locationStore'
+import { formatCurrency } from '@/utils/formatters'
 
 const locationStore = useLocationStore()
 
@@ -121,13 +122,7 @@ const hasSelectedItems = computed(() => {
   return Object.keys(selectedItems.value).length > 0
 })
 
-function formatRupiah(num: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(num)
-}
+const formatRupiah = (num: any) => formatCurrency(num, true)
 
 async function handleSubmitReturn() {
   if (!saleData.value) return

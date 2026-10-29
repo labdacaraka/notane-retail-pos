@@ -2,6 +2,7 @@
 import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProviderStore } from '../stores/providerStore'
+import { formatNumber } from '@/utils/formatters'
 import {
   KeyRound,
   Users,
@@ -116,10 +117,10 @@ onMounted(async () => {
           </div>
         </div>
         <div class="mt-4">
-          <div class="text-3xl font-extrabold text-white font-mono">{{ providerStore.status.total_licenses }}</div>
+          <div class="text-3xl font-extrabold text-white font-mono">{{ formatNumber(providerStore.status.total_licenses) }}</div>
           <div class="mt-1 flex items-center gap-1.5 text-xs text-emerald-400">
             <CheckCircle2 class="w-3.5 h-3.5" />
-            <span>{{ providerStore.status.active_licenses }} Berstatus Aktif</span>
+            <span>{{ formatNumber(providerStore.status.active_licenses) }} Berstatus Aktif</span>
           </div>
         </div>
       </div>
@@ -133,7 +134,7 @@ onMounted(async () => {
           </div>
         </div>
         <div class="mt-4">
-          <div class="text-3xl font-extrabold text-white font-mono">{{ providerStore.status.total_devices }}</div>
+          <div class="text-3xl font-extrabold text-white font-mono">{{ formatNumber(providerStore.status.total_devices) }}</div>
           <div class="mt-1 text-xs text-slate-400">
             Node-Locking Hardware Terikat
           </div>
@@ -149,7 +150,7 @@ onMounted(async () => {
           </div>
         </div>
         <div class="mt-4">
-          <div class="text-3xl font-extrabold text-white font-mono">{{ providerStore.status.total_clients }}</div>
+          <div class="text-3xl font-extrabold text-white font-mono">{{ formatNumber(providerStore.status.total_clients) }}</div>
           <div class="mt-1 text-xs text-slate-400">
             Entitas Perusahaan Penyewa
           </div>
@@ -165,7 +166,7 @@ onMounted(async () => {
           </div>
         </div>
         <div class="mt-4">
-          <div class="text-3xl font-extrabold text-white font-mono">{{ providerStore.status.total_releases }}</div>
+          <div class="text-3xl font-extrabold text-white font-mono">{{ formatNumber(providerStore.status.total_releases) }}</div>
           <div class="mt-1 text-xs text-slate-400">
             Paket Update Tertanda Tangan
           </div>

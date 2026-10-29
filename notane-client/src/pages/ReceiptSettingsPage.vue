@@ -20,6 +20,7 @@ import {
 
 const printerStore = usePrinterStore()
 import { useDialog } from '@/composables/useDialog'
+import { formatCurrency } from '@/utils/formatters'
 
 const dialog = useDialog()
 
@@ -244,13 +245,7 @@ function showNotification(type: 'success' | 'error', message: string) {
   }, 4500)
 }
 
-function formatRupiah(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(val)
-}
+const formatRupiah = (val: any) => formatCurrency(val, true)
 </script>
 
 <template>

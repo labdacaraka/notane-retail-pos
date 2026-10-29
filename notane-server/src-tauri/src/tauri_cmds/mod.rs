@@ -338,3 +338,213 @@ pub async fn print_html_document(
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SystemStoragePaths {
+    pub downloads: String,
+    pub documents: String,
+    pub desktop: String,
+    pub default_export_dir: String,
+    pub default_backup_dir: String,
+}
+
+/// Mengambil path direktori standar sistem (Downloads, Documents, Desktop, Default Notane)
+#[tauri::command]
+pub fn get_system_storage_paths() -> SystemStoragePaths {
+    let downloads = dirs::download_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .map(|p| p.join("Downloads").to_string_lossy().to_string())
+                .unwrap_or_else(|| "Downloads".to_string())
+        });
+
+    let documents = dirs::document_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .map(|p| p.join("Documents").to_string_lossy().to_string())
+                .unwrap_or_else(|| "Documents".to_string())
+        });
+
+    let desktop = dirs::desktop_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .map(|p| p.join("Desktop").to_string_lossy().to_string())
+                .unwrap_or_else(|| "Desktop".to_string())
+        });
+
+    let default_export_dir = dirs::document_dir()
+        .map(|p| p.join("Notane").join("Exports").to_string_lossy().to_string())
+        .unwrap_or_else(|| format!("{}/Notane/Exports", documents));
+
+    let default_backup_dir = dirs::document_dir()
+        .map(|p| p.join("Notane").join("Backups").to_string_lossy().to_string())
+        .unwrap_or_else(|| format!("{}/Notane/Backups", documents));
+
+    SystemStoragePaths {
+        downloads,
+        documents,
+        desktop,
+        default_export_dir,
+        default_backup_dir,
+    }
+}
+
+/// Menampilkan dialog native OS untuk memilih folder/direktori tujuan
+#[tauri::command]
+pub async fn select_folder(default_path: Option<String>) -> Result<Option<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let script = match default_path {
+            Some(ref p) if !p.trim().is_empty() => format!(
+                "POSIX path of (choose folder with prompt \"Pilih Direktori Penyimpanan Notane:\" default location POSIX file \"{}\")",
+                p.trim().replace('"', "\\\"")
+            ),
+            _ => "POSIX path of (choose folder with prompt \"Pilih Direktori Penyimpanan Notane:\")".to_string(),
+        };
+
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .output()
+            .map_err(|e| format!("Gagal memanggil pemilih direktori: {}", e))?;
+
+        if !output.status.success() {
+            return Ok(None);
+        }
+
+        let selected = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if selected.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(selected))
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let initial_dir = default_path.unwrap_or_default().replace('"', "`\"");
+        let script = format!(
+            r#"
+            Add-Type -AssemblyName System.Windows.Forms
+            $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+            $dialog.Description = "Pilih Direktori Penyimpanan Notane"
+            $dialog.ShowNewFolderButton = $true
+            if ("{}" -ne "" -and (Test-Path "{}")) {{
+                $dialog.SelectedPath = "{}"
+            }}
+            if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
+                [Console]::WriteLine($dialog.SelectedPath)
+            }}
+            "#,
+            initial_dir, initial_dir, initial_dir
+        );
+
+        let output = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output()
+            .map_err(|e| format!("Gagal membuka pemilih direktori: {}", e))?;
+
+        let res = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if res.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(res))
+        }
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let output = std::process::Command::new("zenity")
+            .args(["--file-selection", "--directory", "--title=Pilih Direktori Penyimpanan Notane"])
+            .output();
+
+        if let Ok(out) = output {
+            if out.status.success() {
+                let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !path.is_empty() {
+                    return Ok(Some(path));
+                }
+            }
+        }
+        Ok(None)
+    }
+}
+
+/// Membuka direktori di File Explorer (Windows), Finder (macOS), atau File Manager (Linux)
+#[tauri::command]
+pub fn open_folder(folder_path: String) -> Result<bool, String> {
+    let trimmed = folder_path.trim();
+    if trimmed.is_empty() {
+        return Err("Direktori tidak boleh kosong".to_string());
+    }
+
+    let p = std::path::Path::new(trimmed);
+    if !p.exists() {
+        std::fs::create_dir_all(p).map_err(|e| format!("Gagal membuat direktori: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(trimmed)
+            .spawn()
+            .map_err(|e| format!("Gagal membuka folder di Finder: {}", e))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(trimmed)
+            .spawn()
+            .map_err(|e| format!("Gagal membuka folder di File Explorer: {}", e))?;
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(trimmed)
+            .spawn()
+            .map_err(|e| format!("Gagal membuka folder: {}", e))?;
+    }
+
+    Ok(true)
+}
+
+/// Menyimpan data biner (Base64 encoded) langsung ke file di direktori tertentu
+#[tauri::command]
+pub fn save_file_to_directory(
+    directory: String,
+    filename: String,
+    base64_data: String,
+) -> Result<String, String> {
+    use base64::Engine;
+
+    let dir_trimmed = directory.trim();
+    if dir_trimmed.is_empty() {
+        return Err("Direktori tujuan tidak valid".to_string());
+    }
+
+    let dir_path = std::path::Path::new(dir_trimmed);
+    if !dir_path.exists() {
+        std::fs::create_dir_all(dir_path).map_err(|e| format!("Gagal membuat direktori tujuan: {}", e))?;
+    }
+
+    // Ambil hanya nama file dasar untuk mencegah path traversal (security)
+    let clean_filename = std::path::Path::new(&filename)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| "Nama berkas tidak valid".to_string())?;
+
+    let file_path = dir_path.join(clean_filename);
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64_data.trim())
+        .map_err(|e| format!("Gagal mengurai isi file (Base64 decode): {}", e))?;
+
+    std::fs::write(&file_path, bytes).map_err(|e| format!("Gagal menyimpan berkas ke direktori: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+

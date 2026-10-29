@@ -952,7 +952,7 @@ onUnmounted(() => {
 
           <div v-if="lastScannedItem" class="text-[11px] bg-white/20 p-2 rounded-lg flex items-center justify-between font-medium">
             <span>Terakhir Dihitung: <b>{{ lastScannedItem.name }}</b></span>
-            <span>Total Fisik Saat Ini: <b class="text-white text-xs font-mono font-black">{{ lastScannedItem.actual_qty }} {{ lastScannedItem.unit_code }}</b></span>
+            <span>Total Fisik Saat Ini: <b class="text-white text-xs font-mono font-black">{{ formatQty(lastScannedItem.actual_qty) }} {{ lastScannedItem.unit_code }}</b></span>
           </div>
         </div>
 

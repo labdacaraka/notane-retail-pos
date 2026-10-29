@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import * as XLSX from 'xlsx'
 import { api, getApiBaseUrl } from '@/services/api'
 import { useDialogStore } from './dialogStore'
+import { useDirectorySettingsStore } from './directorySettingsStore'
 
 export interface ExportJob {
   id: string
@@ -18,6 +19,9 @@ export interface ExportJob {
   blobUrl?: string
   downloadUrl?: string
   rawWorkbook?: XLSX.WorkBook
+  savedFilePath?: string
+  savedFolderPath?: string
+  isNativeSave?: boolean
 }
 
 export interface QueueExportOptions {
@@ -61,15 +65,6 @@ export const useExportStore = defineStore('export', () => {
     } catch {
       // Best-effort audio notification
     }
-  }
-
-  function triggerDownloadUrl(url: string, filename: string) {
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   function updateJob(jobId: string, updates: Partial<ExportJob>) {
@@ -127,7 +122,7 @@ export const useExportStore = defineStore('export', () => {
       let pollTimer: any = null
       let wsListener: any = null
 
-      const completeJob = (totalRows: number) => {
+      const completeJob = async (totalRows: number) => {
         if (hasCompleted) return
         hasCompleted = true
         if (tickerTimer) clearInterval(tickerTimer)
@@ -136,22 +131,29 @@ export const useExportStore = defineStore('export', () => {
           window.removeEventListener('notane-ws-message', wsListener)
         }
 
+        const downloadUrl = `${getApiBaseUrl()}/exports/${serverJob.id}/download`
+        const dirStore = useDirectorySettingsStore()
+        const saveRes = await dirStore.saveExportFile(serverJob.filename, downloadUrl)
+
         // Update reaktif langsung ke proxy di dalam jobs.value
         updateJob(serverJob.id, {
           status: 'COMPLETED',
           progress: 100,
           recordCount: totalRows,
           completedAt: new Date(),
+          savedFilePath: saveRes.filePath,
+          savedFolderPath: saveRes.folderPath,
+          isNativeSave: saveRes.isNativeSave,
         })
 
-        // Unduh otomatis file Excel jadi dari server
-        const downloadUrl = `${getApiBaseUrl()}/exports/${serverJob.id}/download`
-        triggerDownloadUrl(downloadUrl, serverJob.filename)
         playSuccessChime()
 
+        const destInfo = saveRes.isNativeSave
+          ? `Tersimpan di: ${saveRes.folderPath}`
+          : 'Tersimpan di folder Unduhan'
         const msg =
           opts.onSuccessMessage ||
-          `Ekspor selesai! File "${serverJob.filename}" berhasil diunduh (${totalRows} data).`
+          `Ekspor selesai! File "${serverJob.filename}" berhasil diekspor (${totalRows} data). ${destInfo}`
         dialog.showToast(msg, 'success', 6000)
       }
 
@@ -306,18 +308,26 @@ export const useExportStore = defineStore('export', () => {
         })
         const blobUrl = URL.createObjectURL(blob)
 
+        const dirStore = useDirectorySettingsStore()
+        const saveRes = await dirStore.saveExportFile(filename, blob)
+
         job.blobUrl = blobUrl
         job.rawWorkbook = wb
         job.status = 'COMPLETED'
         job.progress = 100
         job.completedAt = new Date()
+        job.savedFilePath = saveRes.filePath
+        job.savedFolderPath = saveRes.folderPath
+        job.isNativeSave = saveRes.isNativeSave
 
-        triggerDownloadUrl(blobUrl, filename)
         playSuccessChime()
 
+        const destInfo = saveRes.isNativeSave
+          ? `Tersimpan di: ${saveRes.folderPath}`
+          : 'Tersimpan di folder Unduhan'
         const successMsg =
           opts.onSuccessMessage ||
-          `Ekspor selesai! File "${filename}" berhasil diunduh (${job.recordCount} data).`
+          `Ekspor selesai! File "${filename}" berhasil diekspor (${job.recordCount} data). ${destInfo}`
         dialog.showToast(successMsg, 'success', 6000)
       } catch (err: any) {
         console.error('Export Error:', err)
@@ -334,16 +344,29 @@ export const useExportStore = defineStore('export', () => {
     return jobId
   }
 
-  function redownloadJob(job: ExportJob) {
+  async function redownloadJob(job: ExportJob) {
+    const dirStore = useDirectorySettingsStore()
     if (job.downloadUrl) {
-      triggerDownloadUrl(job.downloadUrl, job.filename)
-      dialog.showToast(`Mengunduh ulang "${job.filename}" dari server...`, 'info', 3000)
+      const saveRes = await dirStore.saveExportFile(job.filename, job.downloadUrl)
+      job.savedFilePath = saveRes.filePath
+      job.savedFolderPath = saveRes.folderPath
+      dialog.showToast(`Berkas disimpan ulang ke "${job.savedFolderPath || 'Unduhan'}"`, 'info', 3000)
     } else if (job.blobUrl) {
-      triggerDownloadUrl(job.blobUrl, job.filename)
-      dialog.showToast(`Mengunduh ulang "${job.filename}"...`, 'info', 3000)
+      const response = await fetch(job.blobUrl)
+      const blob = await response.blob()
+      const saveRes = await dirStore.saveExportFile(job.filename, blob)
+      job.savedFilePath = saveRes.filePath
+      job.savedFolderPath = saveRes.folderPath
+      dialog.showToast(`Berkas disimpan ulang ke "${job.savedFolderPath || 'Unduhan'}"`, 'info', 3000)
     } else if (job.rawWorkbook) {
-      XLSX.writeFile(job.rawWorkbook, job.filename)
-      dialog.showToast(`Mengunduh ulang "${job.filename}"...`, 'info', 3000)
+      const wbout = XLSX.write(job.rawWorkbook, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const saveRes = await dirStore.saveExportFile(job.filename, blob)
+      job.savedFilePath = saveRes.filePath
+      job.savedFolderPath = saveRes.folderPath
+      dialog.showToast(`Berkas disimpan ulang ke "${job.savedFolderPath || 'Unduhan'}"`, 'info', 3000)
     }
   }
 

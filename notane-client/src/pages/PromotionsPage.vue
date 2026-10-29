@@ -24,6 +24,7 @@ import {
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'
 import { useDialog } from '@/composables/useDialog'
+import { formatCurrency, formatQty, formatPercent, parseDecimal } from '@/utils/formatters'
 
 const authStore = useAuthStore()
 const dialog = useDialog()
@@ -145,14 +146,14 @@ function openEditModal(promo: Promotion) {
           rule_type: r.rule_type || promo.promo_type,
           buy_product_id: r.buy_product_id || '',
           buy_product_name: r.buy_product_name || '',
-          buy_quantity: r.buy_quantity || 1,
+          buy_quantity: parseDecimal(r.buy_quantity) || 1,
           reward_product_id: r.reward_product_id || '',
           reward_product_name: r.reward_product_name || '',
-          reward_quantity: r.reward_quantity || 1,
-          reward_discount_percent: r.reward_discount_percent || 0,
-          reward_price: r.reward_price || 0,
-          min_transaction_amount: r.min_transaction_amount || 0,
-          max_usage_per_transaction: r.max_usage_per_transaction || 1,
+          reward_quantity: parseDecimal(r.reward_quantity) || 1,
+          reward_discount_percent: parseDecimal(r.reward_discount_percent) || 0,
+          reward_price: parseDecimal(r.reward_price) || 0,
+          min_transaction_amount: parseDecimal(r.min_transaction_amount) || 0,
+          max_usage_per_transaction: parseDecimal(r.max_usage_per_transaction) || 1,
         }))
       : [
           {
@@ -297,13 +298,7 @@ async function handleDelete(promo: Promotion) {
   }
 }
 
-function formatRupiah(num: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(num)
-}
+const formatRupiah = (num: any) => formatCurrency(num, true)
 
 function getPromoTypeLabel(type: string): string {
   switch (type) {
@@ -340,12 +335,12 @@ function getRuleSummaryText(promo: Promotion): string {
   const first = promo.rules[0]
   if (promo.promo_type === 'BUY_X_GET_Y') {
     const buyProd = first.buy_product_name || (first.buy_product_id ? 'Item Terpilih' : 'Item Bebas')
-    const disc = first.reward_discount_percent >= 100 ? 'Gratis' : `Diskon ${first.reward_discount_percent}%`
-    return `Beli ${first.buy_quantity}x [${buyProd}], dapat ${first.reward_quantity}x (${disc})`
+    const disc = Number(first.reward_discount_percent) >= 100 ? 'Gratis' : `Diskon ${formatPercent(first.reward_discount_percent)}`
+    return `Beli ${formatQty(first.buy_quantity)}x [${buyProd}], dapat ${formatQty(first.reward_quantity)}x (${disc})`
   }
   if (promo.promo_type === 'MIN_PURCHASE_DISCOUNT') {
     const minSpend = formatRupiah(first.min_transaction_amount || 0)
-    const reward = first.reward_discount_percent > 0 ? `${first.reward_discount_percent}%` : formatRupiah(first.reward_price || 0)
+    const reward = Number(first.reward_discount_percent) > 0 ? formatPercent(first.reward_discount_percent) : formatRupiah(first.reward_price || 0)
     return `Min. belanja ${minSpend} dapat diskon ${reward}`
   }
   if (promo.promo_type === 'PURCHASE_WITH_PURCHASE') {
@@ -354,7 +349,7 @@ function getRuleSummaryText(promo: Promotion): string {
     return `Min. belanja ${minSpend}, tebus murah seharga ${tebusPrice}`
   }
   if (promo.promo_type === 'BUNDLE_PRICE') {
-    return `Paket bundling ${first.buy_quantity} item dengan diskon ${first.reward_discount_percent}%`
+    return `Paket bundling ${formatQty(first.buy_quantity)} item dengan diskon ${formatPercent(first.reward_discount_percent)}`
   }
   return 'Aturan kustom'
 }
@@ -704,10 +699,10 @@ onUnmounted(() => {
                   <Gift class="w-4 h-4 text-rose-500 text-sm mt-0.5 shrink-0" />
                   <span class="text-[11px]">
                     <template v-if="promo.promo_type === 'BUY_X_GET_Y'">
-                      Beli <b>{{ rule.buy_quantity }}</b> {{ rule.buy_product_name || 'Item Tertentu' }}, Gratis/Diskon <b>{{ rule.reward_quantity }}</b> (Diskon {{ rule.reward_discount_percent }}%)
+                      Beli <b>{{ formatQty(rule.buy_quantity) }}</b> {{ rule.buy_product_name || 'Item Tertentu' }}, Gratis/Diskon <b>{{ formatQty(rule.reward_quantity) }}</b> (Diskon {{ formatPercent(rule.reward_discount_percent) }})
                     </template>
                     <template v-else-if="promo.promo_type === 'MIN_PURCHASE_DISCOUNT'">
-                      Min. Belanja <b>{{ formatRupiah(rule.min_transaction_amount || 0) }}</b> &bull; Diskon {{ rule.reward_discount_percent > 0 ? `${rule.reward_discount_percent}%` : formatRupiah(rule.reward_price || 0) }}
+                      Min. Belanja <b>{{ formatRupiah(rule.min_transaction_amount || 0) }}</b> &bull; Diskon {{ Number(rule.reward_discount_percent) > 0 ? formatPercent(rule.reward_discount_percent) : formatRupiah(rule.reward_price || 0) }}
                     </template>
                     <template v-else>
                       Aturan: {{ rule.rule_type }}

@@ -22,6 +22,7 @@ import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
 import { useLicenseStore } from '@/stores/licenseStore'
 import ClientUpdateModal from '@/components/common/ClientUpdateModal.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
+import { formatCurrency } from '@/utils/formatters'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -58,15 +59,6 @@ function getUserInitials(name?: string): string {
     return (parts[0][0] + parts[1][0]).toUpperCase()
   }
   return name.slice(0, 2).toUpperCase()
-}
-
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val)
 }
 
 function formatShiftTime(iso?: string): string {

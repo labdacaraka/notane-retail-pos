@@ -5,6 +5,7 @@ import type { CashDropStatusSummary } from '@/types'
 import { Icon } from '@iconify/vue'
 import SupervisorAuthSection from '@/components/pos/SupervisorAuthSection.vue'
 import { useLocationStore } from '@/stores/locationStore'
+import { formatCurrency } from '@/utils/formatters'
 
 const locationStore = useLocationStore()
 
@@ -50,13 +51,7 @@ function setQuickAmount(amt: number) {
   dropAmount.value = amt
 }
 
-function formatRupiah(num: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(num)
-}
+const formatRupiah = (num: any) => formatCurrency(num, true)
 
 async function handleConfirmDrop() {
   if (dropAmount.value <= 0) {

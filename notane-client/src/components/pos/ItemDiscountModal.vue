@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { Percent, Tag, X, Check } from 'lucide-vue-next'
+import { formatCurrency, formatQty } from '@/utils/formatters'
 import type { CartItem } from '@/types'
 
 const props = defineProps<{
@@ -17,15 +18,6 @@ const emit = defineEmits<{
 const inputRef = ref<HTMLInputElement | null>(null)
 const discountMode = ref<'nominal' | 'percent'>('nominal')
 const inputValue = ref<number>(0)
-
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val)
-}
 
 watch(
   () => props.show,
@@ -139,7 +131,7 @@ function handleKeyDown(e: KeyboardEvent) {
               <div>
                 <h4 class="font-bold text-slate-900 text-sm leading-snug">{{ item.product.name }}</h4>
                 <div class="text-[11px] text-slate-500 font-mono mt-0.5">
-                  SKU: {{ item.product.sku }} • {{ item.quantity }} {{ item.selected_unit.unit_code }} @ {{ formatCurrency(item.unit_price) }}
+                  SKU: {{ item.product.sku }} • {{ formatQty(item.quantity) }} {{ item.selected_unit.unit_code }} @ {{ formatCurrency(item.unit_price) }}
                 </div>
               </div>
               <span class="text-xs font-bold font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded-md shrink-0">

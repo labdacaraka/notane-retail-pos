@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
+import { formatNumber } from '@/utils/formatters'
 
 const props = withDefaults(
   defineProps<{
@@ -63,11 +64,11 @@ const displayedPages = computed(() => {
     <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
       <div class="flex items-center gap-1.5">
         <span>Menampilkan</span>
-        <span class="font-bold text-slate-200">{{ fromItem }}</span>
+        <span class="font-bold text-slate-200">{{ formatNumber(fromItem) }}</span>
         <span>-</span>
-        <span class="font-bold text-slate-200">{{ toItem }}</span>
+        <span class="font-bold text-slate-200">{{ formatNumber(toItem) }}</span>
         <span>dari</span>
-        <span class="font-bold text-slate-200">{{ totalItems }}</span>
+        <span class="font-bold text-slate-200">{{ formatNumber(totalItems) }}</span>
         <span>data</span>
       </div>
 

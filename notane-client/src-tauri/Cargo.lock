@@ -2120,8 +2120,10 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "notane-retail-pos"
-version = "1.5.7"
+version = "1.5.8"
 dependencies = [
+ "base64 0.22.1",
+ "dirs",
  "serde",
  "serde_json",
  "tauri",

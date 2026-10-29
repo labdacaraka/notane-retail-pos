@@ -20,7 +20,7 @@ import { Icon } from '@iconify/vue'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 import { useDialog } from '@/composables/useDialog'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatCurrency, formatQty, parseDecimal, formatDate } from '@/utils/formatters'
 import type { FlashSale, Outlet, Product } from '@/types'
 
 const authStore = useAuthStore()
@@ -218,12 +218,12 @@ async function openEditModal(fs: FlashSale) {
           product_name: it.product_name,
           product_barcode: it.product_barcode,
           product_image_url: it.product_image_url,
-          original_price: Number(it.normal_price || it.original_price || 0),
+          original_price: parseDecimal(it.normal_price ?? it.original_price),
           discount_type: it.discount_type,
-          discount_value: Number(it.discount_value || 0),
-          max_qty_per_transaction: it.max_qty_per_transaction ? Number(it.max_qty_per_transaction) : null,
-          promo_quota: it.promo_quota ? Number(it.promo_quota) : null,
-          sold_qty: Number(it.sold_qty) || 0,
+          discount_value: parseDecimal(it.discount_value),
+          max_qty_per_transaction: it.max_qty_per_transaction ? parseDecimal(it.max_qty_per_transaction) : null,
+          promo_quota: it.promo_quota ? parseDecimal(it.promo_quota) : null,
+          sold_qty: parseDecimal(it.sold_qty),
         })),
       }
 
@@ -623,7 +623,7 @@ onUnmounted(() => {
               <div class="flex items-center justify-between text-[11px] bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/60">
                 <span class="text-slate-500 font-medium">Realisasi Kuota:</span>
                 <span class="font-bold font-mono" :class="Number(fs.total_sold_qty || 0) > 0 ? 'text-emerald-700' : 'text-slate-700'">
-                  Terjual {{ Number(fs.total_sold_qty || 0) }} {{ Number(fs.total_promo_quota || 0) > 0 ? '/ ' + Number(fs.total_promo_quota) : '' }} Pcs
+                  Terjual {{ formatQty(fs.total_sold_qty) }} {{ Number(fs.total_promo_quota || 0) > 0 ? '/ ' + formatQty(fs.total_promo_quota) : '' }} Pcs
                 </span>
               </div>
             </div>
@@ -971,7 +971,7 @@ onUnmounted(() => {
                         class="w-full px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-300 font-mono"
                       />
                       <span v-if="isEditing" class="text-[10px] px-2 py-1 rounded border whitespace-nowrap" :class="Number(item.sold_qty) > 0 ? 'text-emerald-700 font-bold bg-emerald-50 border-emerald-300' : 'text-slate-500 bg-slate-100 border-slate-200'">
-                        Terjual: <strong>{{ item.sold_qty || 0 }}</strong> Pcs
+                        Terjual: <strong>{{ formatQty(item.sold_qty) }}</strong> Pcs
                       </span>
                     </div>
                   </div>

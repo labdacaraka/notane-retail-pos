@@ -1,6 +1,6 @@
 [package]
 name = "notane-manager"
-version = "1.5.7"
+version = "1.5.8"
 description = "Notane License & Server Management Studio"
 edition = "2021"
 default-run = "notane-manager"

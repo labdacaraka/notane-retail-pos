@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { X, PlayCircle, Clock, ShoppingBag } from 'lucide-vue-next'
 import { useCartStore } from '@/stores/cartStore'
+import { formatCurrency } from '@/utils/formatters'
 
 defineProps<{
   show: boolean
@@ -15,15 +16,6 @@ const cartStore = useCartStore()
 function handleRecall(orderId: string) {
   cartStore.recallOrder(orderId)
   emit('close')
-}
-
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val)
 }
 </script>
 

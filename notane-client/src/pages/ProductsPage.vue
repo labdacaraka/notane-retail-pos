@@ -1844,8 +1844,8 @@ onUnmounted(() => {
           <Building2 class="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
           <div class="space-y-1">
             <p>
-              Harga Global: <strong>HPP: Rp {{ Number(selectedProductForOutletPrice?.cost_price || 0).toLocaleString() }}</strong> | 
-              <strong>Harga Jual: Rp {{ Number(selectedProductForOutletPrice?.base_selling_price || 0).toLocaleString() }}</strong>.
+              Harga Global: <strong>HPP: {{ formatCurrency(selectedProductForOutletPrice?.cost_price, true) }}</strong> | 
+              <strong>Harga Jual: {{ formatCurrency(selectedProductForOutletPrice?.base_selling_price, true) }}</strong>.
             </p>
             <p class="text-[11px] text-blue-700">
               Outlet dengan input kosong akan otomatis memakai Harga Global. Isi HPP dan Harga Jual khusus outlet di bawah lalu klik tombol simpan (✓).
@@ -2122,7 +2122,7 @@ onUnmounted(() => {
             </span>
           </div>
           <div class="text-[11px] text-emerald-700 mt-0.5">
-            HPP Aktif Outlet: <strong>Rp {{ Number(selectedProductForBatches?.cost_price || 0).toLocaleString() }}</strong>
+            HPP Aktif Outlet: <strong>{{ formatCurrency(selectedProductForBatches?.cost_price, true) }}</strong>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -2190,10 +2190,10 @@ onUnmounted(() => {
               </td>
               <td class="py-2.5 px-3 text-slate-700">{{ b.outlet_name || '-' }}</td>
               <td class="py-2.5 px-3 text-right font-mono font-bold" :class="Number(b.remaining_qty) > 0 ? 'text-slate-900' : 'text-slate-400'">
-                {{ Number(b.remaining_qty).toLocaleString() }} / {{ Number(b.initial_qty).toLocaleString() }}
+                {{ formatQty(b.remaining_qty) }} / {{ formatQty(b.initial_qty) }}
               </td>
               <td class="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                Rp {{ Number(b.cost_price).toLocaleString() }}
+                {{ formatCurrency(b.cost_price, true) }}
               </td>
               <td class="py-2.5 px-3 text-center">
                 <span 
@@ -2333,13 +2333,13 @@ onUnmounted(() => {
                 <td class="py-2.5 px-3 text-slate-600">{{ s.customer_name || 'Umum / Non-Member' }}</td>
                 <td class="py-2.5 px-3 text-slate-600">{{ s.cashier_name || 'Kasir' }}</td>
                 <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                  {{ Number(s.quantity).toLocaleString() }}
+                  {{ formatQty(s.quantity) }}
                 </td>
                 <td class="py-2.5 px-3 text-right font-mono text-slate-600">
-                  Rp {{ Number(s.cost_price).toLocaleString() }}
+                  {{ formatCurrency(s.cost_price, true) }}
                 </td>
                 <td class="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                  Rp {{ Number(s.subtotal_cost).toLocaleString() }}
+                  {{ formatCurrency(s.subtotal_cost, true) }}
                 </td>
                 <td class="py-2.5 px-3 text-center">
                   <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 text-slate-700 border border-slate-200">

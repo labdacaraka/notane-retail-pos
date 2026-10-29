@@ -24,6 +24,7 @@ import { useDialog } from '@/composables/useDialog'
 import { useLabelPrinterStore } from '@/stores/labelPrinterStore'
 import LabelPrinterSettingsModal from '@/components/common/LabelPrinterSettingsModal.vue'
 import PaginationBar from '@/components/common/PaginationBar.vue'
+import { formatCurrency, formatQty } from '@/utils/formatters'
 
 const dialog = useDialog()
 const labelPrinterStore = useLabelPrinterStore()
@@ -401,11 +402,6 @@ function setAllQtyByStock() {
     const s = Math.floor(Number(item.product.stock_qty) || 0)
     item.print_qty = s > 0 ? s : 1
   }
-}
-
-function formatCurrency(val: any): string {
-  const num = Number(val) || 0
-  return num.toLocaleString('id-ID')
 }
 
 // Helper pembuatan dokumen HTML cetak yang kompatibel dengan semua printer (A4 Sheet, Roll, & PDF)
@@ -1135,7 +1131,7 @@ async function handlePrintLabels() {
 
                 <!-- Stok -->
                 <td class="px-3 py-2.5 text-center font-mono text-[11px] text-slate-600">
-                  {{ Number(prod.stock_qty || 0).toLocaleString() }}
+                  {{ formatQty(prod.stock_qty) }}
                 </td>
 
                 <!-- Qty Cetak Stepper -->

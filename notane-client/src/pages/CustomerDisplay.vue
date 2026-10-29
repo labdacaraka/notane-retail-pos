@@ -7,6 +7,7 @@ import {
 } from '@/services/customerDisplayChannel'
 import { Icon } from '@iconify/vue'
 import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
+import { formatCurrency, formatQty } from '@/utils/formatters'
 
 const displayState = ref<CustomerDisplayState>(getCachedCustomerDisplayState())
 const storeBrandingStore = useStoreBrandingStore()
@@ -18,15 +19,6 @@ let timer: any = null
 function updateTime() {
   const now = new Date()
   currentTime.value = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
-
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val || 0)
 }
 
 const isSuccess = computed(() => displayState.value.status === 'PAYMENT_SUCCESS' && !!displayState.value.paymentResult)
@@ -205,7 +197,7 @@ onUnmounted(() => {
                 </div>
 
                 <div class="flex items-center gap-2 text-xs text-slate-400 font-mono mt-0.5">
-                  <span class="text-white font-bold">{{ item.quantity }} {{ item.unit_code }}</span>
+                  <span class="text-white font-bold">{{ formatQty(item.quantity) }} {{ item.unit_code }}</span>
                   <span>×</span>
                   <span>{{ formatCurrency(item.unit_price) }}</span>
                   <span v-if="item.discount_amount > 0" class="text-rose-400 font-bold ml-1">

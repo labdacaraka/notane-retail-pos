@@ -1067,7 +1067,7 @@ onMounted(() => {
               <span class="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-500 text-xs">/ 1 Poin</span>
             </div>
             <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-[11px] text-amber-900">
-              💡 <strong>Contoh:</strong> 1 Poin = Rp {{ loyaltyForm.point_value_rupiah.toLocaleString() }}. Jika pelanggan memiliki <strong>100 Poin</strong>, mereka memiliki saldo potongan sebesar <strong>Rp {{ (100 * loyaltyForm.point_value_rupiah).toLocaleString() }}</strong>.
+              💡 <strong>Contoh:</strong> 1 Poin = {{ formatCurrency(loyaltyForm.point_value_rupiah, true) }}. Jika pelanggan memiliki <strong>100 Poin</strong>, mereka memiliki saldo potongan sebesar <strong>{{ formatCurrency(100 * loyaltyForm.point_value_rupiah, true) }}</strong>.
             </div>
           </div>
 
@@ -1221,7 +1221,7 @@ onMounted(() => {
                 </div>
                 <div class="flex justify-between text-amber-400">
                   <span>Maksimal Poin ({{ loyaltyForm.max_point_usage_percent }}%):</span>
-                  <span class="font-bold">-Rp {{ (100000 * loyaltyForm.max_point_usage_percent / 100).toLocaleString('id-ID') }}</span>
+                  <span class="font-bold">-{{ formatCurrency(100000 * loyaltyForm.max_point_usage_percent / 100, true) }}</span>
                 </div>
                 <div class="flex justify-between text-slate-400 text-[11px]">
                   <span>Poin Dipotong:</span>
@@ -1229,13 +1229,13 @@ onMounted(() => {
                 </div>
                 <div class="pt-1.5 border-t border-slate-700 flex justify-between text-emerald-400 font-bold text-sm">
                   <span>Wajib Bayar Lainnya:</span>
-                  <span>Rp {{ (100000 - (100000 * loyaltyForm.max_point_usage_percent / 100)).toLocaleString('id-ID') }}</span>
+                  <span>{{ formatCurrency(100000 - (100000 * loyaltyForm.max_point_usage_percent / 100), true) }}</span>
                 </div>
               </div>
             </div>
 
             <p class="text-[10.5px] text-slate-400 italic">
-              * Sisa Rp {{ (100000 - (100000 * loyaltyForm.max_point_usage_percent / 100)).toLocaleString('id-ID') }} dapat dibayar kasir menggunakan Tunai, QRIS, atau EDC BCA/Mandiri.
+              * Sisa {{ formatCurrency(100000 - (100000 * loyaltyForm.max_point_usage_percent / 100), true) }} dapat dibayar kasir menggunakan Tunai, QRIS, atau EDC BCA/Mandiri.
             </p>
           </div>
         </div>

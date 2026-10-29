@@ -16,7 +16,7 @@ import {
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 import { useDialog } from '@/composables/useDialog'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatCurrency, formatPercent, parseDecimal, formatDate } from '@/utils/formatters'
 
 const authStore = useAuthStore()
 const dialog = useDialog()
@@ -114,12 +114,12 @@ function openEditModal(v: any) {
     code: v.code,
     description: v.description || '',
     discount_type: v.discount_type,
-    discount_value: Number(v.discount_value),
-    min_purchase_amount: Number(v.min_purchase_amount || 0),
-    max_discount_amount: v.max_discount_amount ? Number(v.max_discount_amount) : null,
+    discount_value: parseDecimal(v.discount_value),
+    min_purchase_amount: parseDecimal(v.min_purchase_amount),
+    max_discount_amount: v.max_discount_amount ? parseDecimal(v.max_discount_amount) : null,
     valid_from: v.valid_from ? new Date(v.valid_from).toISOString().slice(0, 16) : '',
     valid_until: v.valid_until ? new Date(v.valid_until).toISOString().slice(0, 16) : '',
-    quota: Number(v.quota || 0),
+    quota: parseDecimal(v.quota),
     status: v.status || 'ACTIVE',
   }
   showVoucherModal.value = true
@@ -177,26 +177,50 @@ async function handleSaveVoucher() {
   }
 }
 
-async function handleDeleteVoucher(id: string, code: string) {
+async function handleDeleteVoucher(v: any) {
   if (!authStore.hasPermission(['vouchers:manage', 'master:write'])) {
     dialog.alert('Akses ditolak: Anda tidak memiliki wewenang mengelola voucher promo (vouchers:manage)', 'warning')
     return
   }
-  const confirmed = await dialog.confirm({
-    title: 'Nonaktifkan Voucher',
-    message: `Apakah Anda yakin ingin menonaktifkan voucher "${code}"?`,
-    subMessage: 'Voucher ini tidak akan dapat digunakan lagi pada transaksi kasir POS.',
-    confirmText: 'Ya, Nonaktifkan',
-    cancelText: 'Batal',
-    type: 'danger',
-  })
-  if (!confirmed) return
-  try {
-    await api.delete(`/vouchers/${id}`)
-    dialog.toast(`Voucher "${code}" berhasil dinonaktifkan`, 'success')
-    fetchVouchers()
-  } catch (err: any) {
-    dialog.alert(err.response?.data?.message || 'Gagal menonaktifkan voucher', 'danger')
+
+  const hasClaims = (v.used_count || 0) > 0
+
+  if (!hasClaims) {
+    const confirmed = await dialog.confirm({
+      title: 'Hapus Permanen Voucher',
+      message: `Apakah Anda yakin ingin menghapus permanen voucher "${v.code}"?`,
+      subMessage: 'Voucher ini belum pernah diklaim atau digunakan pada transaksi apapun dan akan dihapus sepenuhnya dari database.',
+      confirmText: 'Ya, Hapus Permanen',
+      cancelText: 'Batal',
+      type: 'danger',
+    })
+    if (!confirmed) return
+
+    try {
+      const res = await api.delete(`/vouchers/${v.id}`)
+      dialog.toast(res.data?.message || `Voucher "${v.code}" berhasil dihapus permanen`, 'success')
+      fetchVouchers()
+    } catch (err: any) {
+      dialog.alert(err.response?.data?.message || 'Gagal menghapus voucher', 'danger')
+    }
+  } else {
+    const confirmed = await dialog.confirm({
+      title: 'Nonaktifkan Voucher',
+      message: `Voucher "${v.code}" telah digunakan dalam ${v.used_count} transaksi kasir.`,
+      subMessage: 'Voucher tidak dapat dihapus permanen demi menjaga integritas data riwayat transaksi. Status voucher akan diubah menjadi EXPIRED sehingga tidak bisa digunakan lagi di kasir POS.',
+      confirmText: 'Ya, Nonaktifkan (Expired)',
+      cancelText: 'Batal',
+      type: 'warning',
+    })
+    if (!confirmed) return
+
+    try {
+      const res = await api.delete(`/vouchers/${v.id}`)
+      dialog.toast(res.data?.message || `Voucher "${v.code}" berhasil dinonaktifkan`, 'success')
+      fetchVouchers()
+    } catch (err: any) {
+      dialog.alert(err.response?.data?.message || 'Gagal menonaktifkan voucher', 'danger')
+    }
   }
 }
 
@@ -342,7 +366,7 @@ onUnmounted(() => {
                 </span>
               </td>
               <td class="p-3.5 text-right font-mono font-bold text-emerald-700">
-                {{ v.discount_type === 'PERCENTAGE' ? `${Number(v.discount_value)}%` : formatCurrency(v.discount_value) }}
+                {{ v.discount_type === 'PERCENTAGE' ? formatPercent(v.discount_value) : formatCurrency(v.discount_value) }}
                 <span v-if="v.discount_type === 'PERCENTAGE' && v.max_discount_amount" class="block text-[10px] text-slate-500 font-normal">
                   Maks {{ formatCurrency(v.max_discount_amount) }}
                 </span>
@@ -405,9 +429,9 @@ onUnmounted(() => {
                     <Edit2 class="w-3.5 h-3.5" />
                   </button>
                   <button
-                    v-if="authStore.hasPermission(['vouchers:manage', 'master:write'])"
-                    @click="handleDeleteVoucher(v.id, v.code)"
-                    title="Nonaktifkan Voucher"
+                    v-if="authStore.hasPermission(['vouchers:manage', 'master:write']) && ((v.used_count || 0) === 0 || v.status !== 'EXPIRED')"
+                    @click="handleDeleteVoucher(v)"
+                    :title="(v.used_count || 0) === 0 ? 'Hapus Permanen Voucher' : 'Nonaktifkan Voucher (Expired)'"
                     class="p-1.5 rounded-md bg-white hover:bg-slate-100 border border-slate-300 text-rose-600 transition shadow-xs"
                   >
                     <Trash2 class="w-3.5 h-3.5" />
@@ -608,12 +632,12 @@ onUnmounted(() => {
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200 font-sans">
-              <tr v-for="claim in claimsList" :key="claim.id" class="hover:bg-slate-50 transition">
+              <tr v-for="claim in claimsList" :key="claim.id || claim.sale_id" class="hover:bg-slate-50 transition">
                 <td class="p-2.5 font-mono font-bold text-slate-900">
                   {{ claim.invoice_number }}
                 </td>
                 <td class="p-2.5 text-slate-600 font-mono text-[11px]">
-                  {{ formatDate(claim.transaction_date) }}
+                  {{ formatDate(claim.transaction_date || claim.created_at) }}
                 </td>
                 <td class="p-2.5 text-slate-700 font-medium">
                   {{ claim.cashier_name || '-' }}
@@ -628,7 +652,7 @@ onUnmounted(() => {
                   {{ formatCurrency(claim.discount_amount) }}
                 </td>
                 <td class="p-2.5 text-right font-mono font-bold text-slate-900">
-                  {{ formatCurrency(claim.final_amount) }}
+                  {{ formatCurrency(claim.final_amount ?? claim.total_amount) }}
                 </td>
                 <td class="p-2.5 text-center">
                   <span

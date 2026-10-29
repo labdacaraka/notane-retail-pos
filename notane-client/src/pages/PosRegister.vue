@@ -16,6 +16,7 @@ import { useLicenseStore } from '@/stores/licenseStore'
 import { useDialog } from '@/composables/useDialog'
 import { api } from '@/services/api'
 import { Tag, User, ShoppingCart } from 'lucide-vue-next'
+import { formatCurrency } from '@/utils/formatters'
 import type { CartItem, CheckoutResult } from '@/types'
 
 const cartStore = useCartStore()
@@ -53,15 +54,6 @@ const customerPhoneInput = ref<string>('')
 const showVoucherModal = ref<boolean>(false)
 const voucherInput = ref<string>('')
 const voucherError = ref<string>('')
-
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val)
-}
 
 function handleItemDiscount(item: CartItem, index: number) {
   selectedDiscountItem.value = item

@@ -7,6 +7,7 @@ import { useLocationStore } from '@/stores/locationStore'
 import { api } from '@/services/api'
 import SupervisorAuthSection from '@/components/pos/SupervisorAuthSection.vue'
 import SearchableSelect from '@/components/common/SearchableSelect.vue'
+import { formatCurrency } from '@/utils/formatters'
 
 const props = defineProps<{
   show: boolean
@@ -79,15 +80,6 @@ watch(
     }
   }
 )
-
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val)
-}
 
 async function handleOpenShift() {
   if (!selectedOutletId.value) {

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { Trash2, Scale, Percent, AlertTriangle } from 'lucide-vue-next'
 import { useCartStore } from '@/stores/cartStore'
 import { soundService } from '@/services/soundService'
+import { formatCurrency } from '@/utils/formatters'
 import type { CartItem } from '@/types'
 
 const emit = defineEmits<{
@@ -36,15 +37,6 @@ function confirmDismissGift() {
   }
   showDismissModal.value = false
   giftToDismiss.value = null
-}
-
-function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val)
 }
 
 function handleIncreaseQuantity(index: number, item: any) {

@@ -6,6 +6,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-vue-next'
+import { formatNumber } from '@/utils/formatters'
 
 const props = withDefaults(
   defineProps<{
@@ -79,9 +80,9 @@ function handlePageSizeChange(event: Event) {
     <div class="flex items-center gap-3">
       <span>
         Menampilkan
-        <strong class="text-slate-900 font-mono">{{ startItem }}</strong> -
-        <strong class="text-slate-900 font-mono">{{ endItem }}</strong> dari
-        <strong class="text-emerald-700 font-mono">{{ totalItems }}</strong> total data
+        <strong class="text-slate-900 font-mono">{{ formatNumber(startItem) }}</strong> -
+        <strong class="text-slate-900 font-mono">{{ formatNumber(endItem) }}</strong> dari
+        <strong class="text-emerald-700 font-mono">{{ formatNumber(totalItems) }}</strong> total data
       </span>
 
       <!-- Page Size Selector -->

@@ -19,6 +19,7 @@ import {
 } from 'lucide-vue-next'
 import { Icon } from '@iconify/vue'
 import { api } from '@/services/api'
+import { formatCurrency } from '@/utils/formatters'
 
 const props = defineProps<{
   isOpen: boolean
@@ -866,7 +867,7 @@ function handleClose() {
 
                   <!-- Harga Jual -->
                   <td class="py-2 px-3 text-right font-bold text-emerald-700">
-                    Rp {{ Number(item.base_selling_price).toLocaleString() }}
+                    {{ formatCurrency(item.base_selling_price, true) }}
                   </td>
 
                   <!-- Info Harga Outlet -->

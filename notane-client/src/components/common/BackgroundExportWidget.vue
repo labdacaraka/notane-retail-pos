@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useExportStore } from '@/stores/exportStore'
+import { useDirectorySettingsStore } from '@/stores/directorySettingsStore'
 import {
   FileSpreadsheet,
   Download,
@@ -10,9 +12,19 @@ import {
   X,
   Trash2,
   ChevronDown,
+  Folder,
+  FolderOpen,
+  FolderCheck,
+  Settings,
 } from 'lucide-vue-next'
 
+const router = useRouter()
 const exportStore = useExportStore()
+const dirStore = useDirectorySettingsStore()
+
+onMounted(async () => {
+  await dirStore.init()
+})
 
 const activeProcessingJobs = computed(() =>
   exportStore.jobs.filter((j) => j.status === 'PROCESSING')
@@ -27,6 +39,26 @@ const failedJobs = computed(() =>
 )
 
 const hasAnyJobs = computed(() => exportStore.jobs.length > 0)
+
+const activeExportFolder = computed(() => {
+  if (dirStore.exportDirectory) return dirStore.exportDirectory
+  if (dirStore.systemPaths?.default_export_dir) return dirStore.systemPaths.default_export_dir
+  if (dirStore.systemPaths?.downloads) return dirStore.systemPaths.downloads
+  return 'Folder Unduhan Sistem'
+})
+
+function handleOpenFolder(targetPath?: string) {
+  if (targetPath) {
+    dirStore.openExportFolder()
+  } else {
+    dirStore.openExportFolder()
+  }
+}
+
+function goToSettings() {
+  exportStore.isWidgetOpen = false
+  router.push('/admin/parameters?tab=storage')
+}
 </script>
 
 <template>
@@ -47,7 +79,7 @@ const hasAnyJobs = computed(() => exportStore.jobs.length > 0)
       >
         <div
           v-if="exportStore.isWidgetOpen"
-          class="w-80 sm:w-96 bg-white border border-slate-300 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[460px] animate-in fade-in"
+          class="w-80 sm:w-96 bg-white border border-slate-300 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[500px] animate-in fade-in"
         >
           <!-- Title Bar -->
           <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
@@ -58,7 +90,7 @@ const hasAnyJobs = computed(() => exportStore.jobs.length > 0)
               <div class="text-xs font-bold leading-tight">
                 <div>Manajer Ekspor Latar Belakang</div>
                 <div class="text-[10px] text-slate-400 font-normal">
-                  {{ exportStore.jobs.length }} pekerjaan tercatat
+                  {{ exportStore.jobs.length }} berkas diekspor
                 </div>
               </div>
             </div>
@@ -81,6 +113,42 @@ const hasAnyJobs = computed(() => exportStore.jobs.length > 0)
                 title="Tutup Panel"
               >
                 <ChevronDown class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Banner Informasi Folder Tujuan Ekspor -->
+          <div class="px-3.5 py-2.5 bg-indigo-50/70 border-b border-indigo-100 text-xs flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <Folder class="w-4 h-4 text-indigo-600 shrink-0" />
+              <div class="min-w-0">
+                <div class="text-[10px] text-indigo-900/70 font-bold uppercase tracking-wider">
+                  Direktori Ekspor:
+                </div>
+                <div class="text-[11px] font-mono text-indigo-950 font-medium truncate" :title="activeExportFolder">
+                  {{ activeExportFolder }}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1 shrink-0">
+              <button
+                v-if="dirStore.isTauri"
+                type="button"
+                @click="handleOpenFolder()"
+                class="px-2 py-1 rounded-lg bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                title="Buka Folder di Finder / Explorer"
+              >
+                <FolderOpen class="w-3.5 h-3.5 text-indigo-600" />
+                <span>Buka</span>
+              </button>
+              <button
+                type="button"
+                @click="goToSettings"
+                class="p-1 rounded-lg text-slate-400 hover:text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
+                title="Atur Direktori Penyimpanan"
+              >
+                <Settings class="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -161,6 +229,28 @@ const hasAnyJobs = computed(() => exportStore.jobs.length > 0)
                   class="bg-amber-600 h-1 rounded-full transition-all duration-300"
                   :style="{ width: `${job.progress}%` }"
                 ></div>
+              </div>
+
+              <!-- Banner Info Lokasi Berkas Selesai -->
+              <div
+                v-if="job.status === 'COMPLETED'"
+                class="mt-2.5 pt-2 border-t border-emerald-200/60 flex items-center justify-between gap-2 text-[10px]"
+              >
+                <div class="flex items-center gap-1.5 text-emerald-800 min-w-0">
+                  <FolderCheck class="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span class="truncate font-mono" :title="job.savedFolderPath || activeExportFolder">
+                    {{ job.savedFolderPath || activeExportFolder }}
+                  </span>
+                </div>
+                <button
+                  v-if="dirStore.isTauri"
+                  type="button"
+                  @click="handleOpenFolder(job.savedFolderPath)"
+                  class="px-2 py-0.5 rounded bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-100 font-bold shrink-0 flex items-center gap-1 transition cursor-pointer shadow-2xs"
+                >
+                  <FolderOpen class="w-3 h-3" />
+                  <span>Buka Folder</span>
+                </button>
               </div>
             </div>
           </div>
