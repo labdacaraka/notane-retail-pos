@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import PaginationBar from '@/components/common/PaginationBar.vue'
 import SearchableSelect from '@/components/common/SearchableSelect.vue'
@@ -41,6 +42,7 @@ const authStore = useAuthStore()
 const locationStore = useLocationStore()
 const exportStore = useExportStore()
 const dialog = useDialog()
+const router = useRouter()
 
 const products = ref<any[]>([])
 const categories = ref<any[]>([])
@@ -951,23 +953,25 @@ onUnmounted(() => {
             <span>Import Produk Canggih</span>
           </button>
 
-          <router-link
-            to="/parameters"
+          <button
+            type="button"
+            @click="router.push('/admin/parameters')"
             class="bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             title="Buka Master Parameter untuk mengatur metode perhitungan HPP global"
           >
             <Calculator class="w-4 h-4 text-emerald-600" />
             <span>HPP Global: <strong class="text-emerald-700 underline decoration-emerald-400">{{ globalCostingLabel }}</strong></span>
-          </router-link>
+          </button>
 
-          <router-link
-            to="/admin/price-labels"
+          <button
+            type="button"
+            @click="router.push('/admin/price-labels')"
             class="bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs flex items-center gap-2 transition active:scale-95 cursor-pointer"
             title="Cetak label harga rak display dan barcode produk secara massal"
           >
             <Icon icon="streamline-ultimate-color:tags-1" class="w-4 h-4" />
             <span>Cetak Label Harga</span>
-          </router-link>
+          </button>
 
           <button
             v-if="authStore.hasPermission(['products:create', 'master:write'])"

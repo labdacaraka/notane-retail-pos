@@ -2,6 +2,19 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { useNetworkStore } from './networkStore'
+import { api } from '@/services/api'
+
+export const FEATURE_ALIASES: Record<string, string[]> = {
+  label_printing: ['label_printing', 'price_labels', 'print_labels', 'label_printer', 'barcode_labels', 'label'],
+  membership: ['membership', 'customers', 'loyalty', 'customer_loyalty', 'member'],
+  promotions: ['promotions', 'promotions_engine', 'vouchers', 'flash_sales', 'discounts', 'promo'],
+  expenses: ['expenses', 'petty_cash', 'expense', 'operational_expenses'],
+  accounting: ['accounting', 'ledger', 'accounting_ledger', 'general_ledger'],
+  audit_log: ['audit_log', 'audit_logs', 'audit_trail', 'security_logs', 'audit'],
+  multi_outlet: ['multi_outlet', 'outlets', 'branch_management'],
+  inventory_batch: ['inventory_batch', 'batch_tracking', 'fefo'],
+  remove_branding: ['remove_branding', 'white_label', 'custom_branding'],
+}
 
 declare const __APP_VERSION__: string | undefined
 const defaultAppVersion = (import.meta as any).env?.VITE_APP_VERSION || (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0')
@@ -162,8 +175,30 @@ export const useLicenseStore = defineStore('license', {
       if (!this.licenseInfo?.is_valid) {
         return false
       }
+
+      // 1. Lisensi tier ENTERPRISE atau ULTIMATE otomatis membuka semua fitur modul backoffice
+      const tier = (this.licenseInfo.tier || '').trim().toUpperCase()
+      if (tier === 'ENTERPRISE' || tier === 'ULTIMATE' || tier === 'ALL') {
+        return true
+      }
+
       const feats = this.licenseInfo.features || []
-      return feats.some((f) => f === '*' || f.toLowerCase() === 'all' || f.toLowerCase() === featureId.toLowerCase())
+      if (feats.some((f) => f === '*' || f.toLowerCase() === 'all')) {
+        return true
+      }
+
+      const req = featureId.trim().toLowerCase()
+      // 2. Cocokkan nama eksak
+      if (feats.some((f) => f.trim().toLowerCase() === req)) {
+        return true
+      }
+
+      // 3. Cocokkan variasi alias fitur
+      const aliases = FEATURE_ALIASES[req] || []
+      return feats.some((f) => {
+        const featName = f.trim().toLowerCase()
+        return aliases.includes(featName)
+      })
     },
 
     getBaseUrl(): string {
@@ -185,20 +220,42 @@ export const useLicenseStore = defineStore('license', {
     async fetchVersionInfo() {
       await this.initClientVersion()
       try {
-        const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/version`, { timeout: 3000 })
+        const res = await api.get('/system/version', { timeout: 3500 })
         if (res.data) {
           this.versionInfo = res.data
         }
-      } catch (_) {}
+      } catch (_) {
+        try {
+          const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/version`, { timeout: 3000 })
+          if (res.data) {
+            this.versionInfo = res.data
+          }
+        } catch (_) {}
+      }
     },
 
     async fetchLicenseInfo() {
       this.isLoading = true
       try {
-        const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/license`, { timeout: 4000 })
-        if (res.data) {
-          this.licenseInfo = res.data
-          persistLicenseCache(res.data)
+        // 1. Coba via API Client terstandarisasi (sudah dilengkapi headers & baseUrl)
+        let data: any = null
+        try {
+          const res = await api.get('/system/license', { timeout: 4000 })
+          data = res.data?.data ? res.data.data : res.data
+        } catch (_) {
+          // 2. Fallback via getBaseUrl()
+          const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/license`, { timeout: 4000 })
+          data = res.data?.data ? res.data.data : res.data
+        }
+
+        if (data && typeof data === 'object' && ('status' in data || 'is_valid' in data)) {
+          this.licenseInfo = {
+            ...data,
+            features: Array.isArray(data.features) ? data.features : [],
+          }
+          if (data.is_valid) {
+            persistLicenseCache(this.licenseInfo)
+          }
         }
       } catch (err: any) {
         this.errorMessage = err.message || 'Gagal memuat status lisensi dari server lokal'

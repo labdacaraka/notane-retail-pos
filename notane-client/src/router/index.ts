@@ -21,6 +21,8 @@ import UsersPage from '@/pages/UsersPage.vue'
 import OutletsPage from '@/pages/OutletsPage.vue'
 import ExpensesPage from '@/pages/ExpensesPage.vue'
 import PromotionsPage from '@/pages/PromotionsPage.vue'
+import { useLicenseStore } from '@/stores/licenseStore'
+import { useDialogStore } from '@/stores/dialogStore'
 const routes = [
   {
     path: '/server-host',
@@ -173,9 +175,8 @@ router.beforeEach(async (to, _from, next) => {
   // Feature License Verification (Zero Trust Frontend Guard)
   const reqFeature = to.meta.requiredFeature as string | undefined
   if (reqFeature) {
-    const { useLicenseStore } = await import('@/stores/licenseStore')
     const licStore = useLicenseStore()
-    if (!licStore.licenseInfo.is_valid && licStore.licenseInfo.status === 'UNLICENSED') {
+    if (!licStore.licenseInfo?.is_valid) {
       await licStore.fetchLicenseInfo()
     }
     if (!licStore.hasFeature(reqFeature)) {
@@ -191,7 +192,6 @@ router.beforeEach(async (to, _from, next) => {
       }
       const featName = featureNames[reqFeature] || reqFeature
       try {
-        const { useDialogStore } = await import('@/stores/dialogStore')
         const dialog = useDialogStore()
         dialog.showAlert({
           title: 'Modul Perlu Lisensi Tambahan',
@@ -200,7 +200,7 @@ router.beforeEach(async (to, _from, next) => {
           buttonText: 'Mengerti',
         })
       } catch (_) {}
-      return next('/admin')
+      return _from.path === '/admin' ? next(false) : next('/admin')
     }
   }
 

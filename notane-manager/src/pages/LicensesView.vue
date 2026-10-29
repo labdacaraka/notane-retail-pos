@@ -88,7 +88,7 @@ const form = ref({
   max_terminals: 5,
   expires_in_days: 365,
   grace_period_days: 7,
-  features: ['membership', 'promotions', 'expenses', 'label_printing'],
+  features: availableFeatures.map(f => f.id),
   notes: '',
   custom_key: '',
 })
@@ -148,7 +148,7 @@ function openCreateModal() {
     max_terminals: 5,
     expires_in_days: 365,
     grace_period_days: 7,
-    features: ['membership', 'promotions', 'expenses', 'label_printing'],
+    features: availableFeatures.map(f => f.id),
     notes: '',
     custom_key: '',
   }

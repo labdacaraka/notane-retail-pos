@@ -93,15 +93,15 @@ function handleLogout() {
   router.push('/login')
 }
 
-function handleMenuClick(event: MouseEvent, item: { path: string; name: string; isLocked?: boolean; requiredFeature?: string }) {
+function handleMenuNavigate(item: { path: string; name: string; isLocked?: boolean; requiredFeature?: string }) {
   if (item.isLocked) {
-    event.preventDefault()
-    event.stopPropagation()
     dialog.alert(
       `Modul "${item.name}" memerlukan aktivasi lisensi tambahan pada server toko Anda. Silakan hubungi Provider Notane Retail POS untuk mengaktifkan fitur ini.`,
       'warning'
     )
+    return
   }
+  router.push(item.path)
 }
 
 async function handleExitImpersonation() {
@@ -332,11 +332,11 @@ async function handleExitImpersonation() {
       <div class="flex items-center gap-2 min-w-max">
         <!-- GROUP 1: OPERASIONAL & MASTER DATA BISNIS -->
         <div class="flex items-center gap-2">
-          <router-link
+          <button
+            type="button"
             v-for="item in operationalMenus"
             :key="item.path"
-            :to="item.isLocked ? '' : item.path"
-            @click="handleMenuClick($event, item)"
+            @click="handleMenuNavigate(item)"
             class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[86px] h-[62px] text-center gap-1 cursor-pointer"
             :class="item.isLocked
               ? 'bg-slate-100/70 hover:bg-slate-200/60 text-slate-400 border-dashed border-slate-300 opacity-60 hover:opacity-85'
@@ -372,7 +372,7 @@ async function handleExitImpersonation() {
               v-if="route.path === item.path && !item.isLocked"
               class="w-4 h-0.5 bg-amber-600 rounded-full"
             ></div>
-          </router-link>
+          </button>
         </div>
 
         <!-- DIVIDER ANTAR KELOMPOK -->
@@ -380,11 +380,11 @@ async function handleExitImpersonation() {
 
         <!-- GROUP 2: PENGATURAN & AUDIT -->
         <div v-if="configMenus.length > 0" class="flex items-center gap-2">
-          <router-link
+          <button
+            type="button"
             v-for="item in configMenus"
             :key="item.path"
-            :to="item.isLocked ? '' : item.path"
-            @click="handleMenuClick($event, item)"
+            @click="handleMenuNavigate(item)"
             class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[86px] h-[62px] text-center gap-1 cursor-pointer"
             :class="item.isLocked
               ? 'bg-slate-100/70 hover:bg-slate-200/60 text-slate-400 border-dashed border-slate-300 opacity-60 hover:opacity-85'
@@ -420,7 +420,7 @@ async function handleExitImpersonation() {
               v-if="route.path === item.path && !item.isLocked"
               class="w-4 h-0.5 bg-amber-600 rounded-full"
             ></div>
-          </router-link>
+          </button>
         </div>
 
         <!-- DIVIDER ANTAR KELOMPOK -->
@@ -429,8 +429,9 @@ async function handleExitImpersonation() {
 
         <!-- GROUP 3: KONEKSI JARINGAN LAN -->
         <div class="flex items-center gap-2">
-          <router-link
-            :to="networkMenu.path"
+          <button
+            type="button"
+            @click="handleMenuNavigate(networkMenu)"
             class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[96px] h-[62px] text-center gap-1 cursor-pointer"
             :class="route.path === networkMenu.path
               ? 'bg-blue-100 text-blue-950 border-blue-500 shadow-sm ring-2 ring-blue-400/50 scale-[1.02]'
@@ -450,7 +451,7 @@ async function handleExitImpersonation() {
               v-if="route.path === networkMenu.path"
               class="w-4 h-0.5 rounded-full bg-blue-600"
             ></div>
-          </router-link>
+          </button>
         </div>
 
 
