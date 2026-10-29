@@ -523,15 +523,20 @@ export const useCartStore = defineStore('cart', () => {
       // Cek batas kuantitas per transaksi dan sisa kuota promo
       const maxPerTrx = promo.max_qty_per_transaction ? Number(promo.max_qty_per_transaction) : Infinity
       const remQuota = promo.remaining_quota !== null && promo.remaining_quota !== undefined ? Number(promo.remaining_quota) : Infinity
-      const eligibleQty = Math.max(0, Math.min(item.quantity, maxPerTrx, remQuota))
 
-      if (eligibleQty > 0 && fsSavingsPerUnit > 0) {
+      // Syarat Mutlak Promo Flash Sale:
+      // Jika kuantitas transaksi melebihi batas maksimal per nota (max_qty_per_transaction)
+      // atau melebihi sisa kuota promo yang tersedia (remaining_quota),
+      // maka produk ini TIDAK BERHAK atas harga promo flash sale sama sekali (kembali ke harga normal / member).
+      const isEligible = item.quantity <= maxPerTrx && item.quantity <= remQuota && remQuota > 0 && fsSavingsPerUnit > 0
+
+      if (isEligible) {
         if (hasMemberDiscount) {
           if (promo.is_stackable_with_member) {
             // Akumulasi ganda (Stackable): Flash sale dipotong lagi dengan diskon member
             const memberSavingsPerUnit = Math.max(0, normalBasePrice - memberPrice)
             finalUnitPrice = Math.max(0, promoUnitPrice - memberSavingsPerUnit)
-            item.flash_sale_discount = fsSavingsPerUnit * eligibleQty
+            item.flash_sale_discount = fsSavingsPerUnit * item.quantity
             item.member_discount = memberSavingsPerUnit * item.quantity
             item.is_flash_sale = true
             item.flash_sale_id = promo.flash_sale_id
@@ -540,7 +545,7 @@ export const useCartStore = defineStore('cart', () => {
             // Standar Retail Modern (Best Value Rule): Pilih harga yang paling menguntungkan pelanggan
             if (promoUnitPrice <= memberPrice) {
               finalUnitPrice = promoUnitPrice
-              item.flash_sale_discount = fsSavingsPerUnit * eligibleQty
+              item.flash_sale_discount = fsSavingsPerUnit * item.quantity
               item.member_discount = 0
               item.is_flash_sale = true
               item.flash_sale_id = promo.flash_sale_id
@@ -555,7 +560,7 @@ export const useCartStore = defineStore('cart', () => {
         } else {
           // Pelanggan reguler (non-member)
           finalUnitPrice = promoUnitPrice
-          item.flash_sale_discount = fsSavingsPerUnit * eligibleQty
+          item.flash_sale_discount = fsSavingsPerUnit * item.quantity
           item.member_discount = 0
           item.is_flash_sale = true
           item.flash_sale_id = promo.flash_sale_id

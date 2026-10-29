@@ -335,7 +335,11 @@ function handleSave() {
                 class="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
-            <p class="text-[10px] text-slate-500 italic">
+            <div v-if="labelStore.isPdfOrDocumentPrinter" class="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 text-[11px] flex items-center gap-2">
+              <Icon icon="fluent:document-pdf-24-filled" class="w-4 h-4 text-rose-600 shrink-0" />
+              <span>Printer ini adalah <strong>Driver Dokumen / PDF Virtual</strong>. Sistem akan menggunakan render grafis SVG beresolusi tinggi dan dialog penyimpanan file PDF saat mencetak.</span>
+            </div>
+            <p v-else class="text-[10px] text-slate-500 italic">
               * Perintah cetak akan dikirimkan otomatis langsung ke printer di atas tanpa memunculkan dialog cetak OS.
             </p>
           </div>

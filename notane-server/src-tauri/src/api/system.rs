@@ -1640,18 +1640,26 @@ async fn perform_initial_setup(
         }
     }
 
-    // 4. Update Akun Admin
+    // 4. Update Akun Admin & Supervisor
     if let Some(ref pwd) = payload.admin_password {
         let clean_pwd = pwd.trim();
         if clean_pwd.len() >= 6 {
             match crate::utils::hash::hash_secret(clean_pwd) {
                 Ok(h) => {
-                    let _ = sqlx::query(
-                        "UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE username = 'admin'",
+                    let res = sqlx::query(
+                        "UPDATE users 
+                         SET password_hash = $1, updated_at = CURRENT_TIMESTAMP 
+                         WHERE LOWER(username) = 'admin' OR role_id IN (SELECT id FROM roles WHERE name = 'SUPERADMIN')",
                     )
                     .bind(h)
                     .execute(&mut *tx)
                     .await;
+
+                    if let Err(e) = res {
+                        tracing::error!("Gagal mengupdate password admin di database: {}", e);
+                    } else {
+                        tracing::info!("Password admin berhasil diperbarui dari Setup Wizard");
+                    }
                 }
                 Err(e) => {
                     tracing::error!("Gagal meng-hash password admin: {}", e);
@@ -1665,12 +1673,20 @@ async fn perform_initial_setup(
         if clean_pin.len() >= 4 {
             match crate::utils::hash::hash_secret(clean_pin) {
                 Ok(h) => {
-                    let _ = sqlx::query(
-                        "UPDATE users SET pin_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE username IN ('admin', 'spv')",
+                    let res = sqlx::query(
+                        "UPDATE users 
+                         SET pin_hash = $1, updated_at = CURRENT_TIMESTAMP 
+                         WHERE LOWER(username) IN ('admin', 'spv') OR role_id IN (SELECT id FROM roles WHERE name IN ('SUPERADMIN', 'SUPERVISOR'))",
                     )
                     .bind(h)
                     .execute(&mut *tx)
                     .await;
+
+                    if let Err(e) = res {
+                        tracing::error!("Gagal mengupdate PIN supervisor di database: {}", e);
+                    } else {
+                        tracing::info!("PIN supervisor berhasil diperbarui dari Setup Wizard");
+                    }
                 }
                 Err(e) => {
                     tracing::error!("Gagal meng-hash PIN supervisor: {}", e);
@@ -1682,12 +1698,18 @@ async fn perform_initial_setup(
     if let Some(ref name) = payload.admin_full_name {
         let clean_name = name.trim();
         if !clean_name.is_empty() {
-            let _ = sqlx::query(
-                "UPDATE users SET full_name = $1, updated_at = CURRENT_TIMESTAMP WHERE username = 'admin'",
+            let res = sqlx::query(
+                "UPDATE users 
+                 SET full_name = $1, updated_at = CURRENT_TIMESTAMP 
+                 WHERE LOWER(username) = 'admin' OR role_id IN (SELECT id FROM roles WHERE name = 'SUPERADMIN')",
             )
             .bind(clean_name)
             .execute(&mut *tx)
             .await;
+
+            if let Err(e) = res {
+                tracing::error!("Gagal mengupdate nama admin: {}", e);
+            }
         }
     }
 
@@ -1701,14 +1723,13 @@ async fn perform_initial_setup(
     });
 
     let _ = sqlx::query(
-        "INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, new_values, created_at)
+        "INSERT INTO audit_logs (user_id, action, entity_name, entity_id, new_values, created_at)
          VALUES (
-            gen_random_uuid(),
             (SELECT id FROM users WHERE username = 'admin' LIMIT 1),
             'INITIAL_SETUP_WIZARD_COMPLETED',
             'SYSTEM',
-            '00000000-0000-0000-0000-000000000000'::uuid,
-            $1,
+            '00000000-0000-0000-0000-000000000000',
+            $1::jsonb,
             CURRENT_TIMESTAMP
          )",
     )

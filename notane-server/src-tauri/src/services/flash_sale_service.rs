@@ -96,7 +96,9 @@ pub async fn list_flash_sales(
             fs.is_stackable_with_member,
             fs.created_at,
             (SELECT COUNT(*)::int FROM flash_sale_items WHERE flash_sale_id = fs.id) AS total_items,
-            (SELECT COUNT(*)::int FROM flash_sale_outlets WHERE flash_sale_id = fs.id) AS total_outlets
+            (SELECT COUNT(*)::int FROM flash_sale_outlets WHERE flash_sale_id = fs.id) AS total_outlets,
+            (SELECT COALESCE(SUM(sold_qty), 0) FROM flash_sale_items WHERE flash_sale_id = fs.id) AS total_sold_qty,
+            (SELECT COALESCE(SUM(promo_quota), 0) FROM flash_sale_items WHERE flash_sale_id = fs.id) AS total_promo_quota
         FROM flash_sales fs
         {where_clause}
         ORDER BY fs.created_at DESC
@@ -124,6 +126,8 @@ pub async fn list_flash_sales(
         let created_at: chrono::DateTime<Utc> = row.get("created_at");
         let total_items_count: i32 = row.get("total_items");
         let total_outlets_count: i32 = row.get("total_outlets");
+        let total_sold_qty: Decimal = row.get("total_sold_qty");
+        let total_promo_quota: Decimal = row.get("total_promo_quota");
 
         // Evaluasi status real-time
         let is_running = is_active
@@ -163,6 +167,8 @@ pub async fn list_flash_sales(
             "created_at": created_at.to_rfc3339(),
             "total_items": total_items_count,
             "total_outlets": total_outlets_count,
+            "total_sold_qty": total_sold_qty,
+            "total_promo_quota": total_promo_quota,
             "is_running": is_running,
             "status_label": status_label,
         }));

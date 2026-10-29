@@ -1198,16 +1198,21 @@ pub async fn checkout(
             if let Some(fs) = active_flash_sales.iter().find(|f| f.product_id == product.id) {
                 let max_per_trx = fs.max_qty_per_transaction.unwrap_or(item.quantity);
                 let rem_quota = fs.remaining_quota.unwrap_or(item.quantity);
-                let eligible = item.quantity.min(max_per_trx).min(rem_quota).max(Decimal::ZERO);
 
-                if eligible > Decimal::ZERO {
+                // Syarat Mutlak Promo Flash Sale:
+                // Jika kuantitas transaksi MELEBIHI batas maksimal per transaksi (max_qty_per_transaction)
+                // ATAU kuantitas transaksi MELEBIHI sisa kuota promo (remaining_quota),
+                // maka produk ini TIDAK BERHAK atas potongan harga promo flash sale sama sekali (kembali ke harga normal / member).
+                let is_eligible = item.quantity <= max_per_trx && item.quantity <= rem_quota && rem_quota > Decimal::ZERO;
+
+                if is_eligible {
                     let promo_unit = fs.promo_price * factor;
                     if promo_unit < active_unit_base_price {
                         fs_savings_unit = active_unit_base_price - promo_unit;
                         fs_price_unit = promo_unit;
                         fs_id_found = Some(fs.flash_sale_id);
                         fs_is_stackable = fs.is_stackable_with_member;
-                        fs_eligible_qty = eligible;
+                        fs_eligible_qty = item.quantity;
                     }
                 }
             }
@@ -1285,7 +1290,7 @@ pub async fn checkout(
         // Jika item ini merupakan bagian dari promo Flash Sale, update kuota promo yang terjual
         if let Some(fs_id) = applied_fs_id {
             if applied_fs_qty > Decimal::ZERO {
-                let _ = sqlx::query(
+                let res = sqlx::query(
                     "UPDATE flash_sale_items SET sold_qty = sold_qty + $1 WHERE flash_sale_id = $2 AND product_id = $3"
                 )
                 .bind(applied_fs_qty)
@@ -1293,6 +1298,12 @@ pub async fn checkout(
                 .bind(product.id)
                 .execute(&mut *tx)
                 .await;
+
+                if let Err(e) = res {
+                    tracing::error!("Gagal mengupdate sold_qty flash sale item: {}", e);
+                } else {
+                    tracing::info!("Kuantitas terjual Flash Sale ({}) untuk produk {} berhasil dicatat: +{}", fs_id, product.id, applied_fs_qty);
+                }
             }
         }
 
@@ -1384,6 +1395,8 @@ pub async fn checkout(
     }
 
     let final_total = (subtotal - total_discount) + total_tax;
+    let rounding_amount = req.rounding_amount.unwrap_or(Decimal::ZERO).max(Decimal::ZERO);
+    let payable_total = (final_total - rounding_amount).max(Decimal::ZERO);
 
     let loyalty_setting: Option<LoyaltySettings> = sqlx::query_as::<_, LoyaltySettings>(
         "SELECT * FROM loyalty_settings ORDER BY created_at ASC LIMIT 1",
@@ -1512,13 +1525,13 @@ pub async fn checkout(
     }
 
     let total_paid: Decimal = resolved_payments.iter().map(|p| p.amount).sum();
-    if total_paid < final_total {
+    if total_paid < payable_total {
         return Err(format!(
-            "Pembayaran kurang! Total belanja: Rp {}, Pembayaran: Rp {}",
-            final_total, total_paid
+            "Pembayaran kurang! Total tagihan: Rp {}, Pembayaran: Rp {}",
+            payable_total, total_paid
         ));
     }
-    let change_amount = total_paid - final_total;
+    let change_amount = (total_paid - payable_total).max(Decimal::ZERO);
 
     // Total penghematan belanja: flash sale + diskon member + diskon voucher/item
     let total_savings_amount = total_flash_sale_discount + total_member_discount + total_discount;
@@ -1528,10 +1541,10 @@ pub async fn checkout(
             id, invoice_number, outlet_id, shift_id, customer_id, warehouse_id, voucher_id,
             subtotal, discount_amount, tax_amount, total_amount, paid_amount, change_amount,
             total_cost_amount, status, notes, total_flash_sale_discount, total_member_discount,
-            total_savings_amount, created_at, updated_at, created_by, updated_by
+            total_savings_amount, rounding_amount, created_at, updated_at, created_by, updated_by
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'COMPLETED', $15,
-            $16, $17, $18, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $19, $19
+            $16, $17, $18, $19, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $20, $20
         )
         RETURNING *",
     )
@@ -1553,6 +1566,7 @@ pub async fn checkout(
     .bind(total_flash_sale_discount)
     .bind(total_member_discount)
     .bind(total_savings_amount)
+    .bind(rounding_amount)
     .bind(user_id)
     .fetch_one(&mut *tx)
     .await
@@ -1771,6 +1785,7 @@ pub async fn checkout(
         + total_member_discount
         + voucher_discount
         + manual_item_discount
+        + rounding_amount
         + total_cost;
     let total_credits = gross_sales_revenue + total_tax + total_cost;
 
@@ -1896,6 +1911,22 @@ pub async fn checkout(
             .bind(manual_item_discount)
             .bind(line_outlet_id)
             .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
+        }
+    }
+
+    if rounding_amount > Decimal::ZERO {
+        let acc_rounding: Option<Uuid> = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '5201'")
+            .fetch_optional(&mut *tx).await.unwrap_or(None);
+        let acc_id = acc_rounding.or(acc_disc_item);
+        if let Some(aid) = acc_id {
+            sqlx::query(
+                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Selisih Pembulatan Kas Kasir (Rounding)', $4)",
+            )
+            .bind(journal_id)
+            .bind(aid)
+            .bind(rounding_amount)
+            .bind(line_outlet_id)
+            .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal pembulatan kas: {}", e))?;
         }
     }
 
@@ -2222,6 +2253,33 @@ pub async fn void_sale(
     .bind(user_id)
     .bind(sale.id)
     .execute(&mut *tx).await.map_err(|e| format!("Gagal update status item void: {}", e))?;
+
+    // Kembalikan kuota terjual promo Flash Sale jika nota dibatalkan (void)
+    let fs_items_to_revert = sqlx::query(
+        "SELECT flash_sale_id, product_id, quantity FROM sale_items WHERE sale_id = $1 AND flash_sale_id IS NOT NULL",
+    )
+    .bind(sale.id)
+    .fetch_all(&mut *tx)
+    .await
+    .unwrap_or_default();
+
+    for row in fs_items_to_revert {
+        let fs_id: Option<Uuid> = row.try_get("flash_sale_id").ok().flatten();
+        let prod_id: Uuid = row.get("product_id");
+        let qty: Decimal = row.get("quantity");
+        if let Some(fid) = fs_id {
+            let _ = sqlx::query(
+                "UPDATE flash_sale_items 
+                 SET sold_qty = GREATEST(0, sold_qty - $1) 
+                 WHERE flash_sale_id = $2 AND product_id = $3",
+            )
+            .bind(qty)
+            .bind(fid)
+            .bind(prod_id)
+            .execute(&mut *tx)
+            .await;
+        }
+    }
 
     let reversal_journal_id = Uuid::new_v4();
     let reversal_number = format!("REV-{}", sale.invoice_number);

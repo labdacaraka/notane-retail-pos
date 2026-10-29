@@ -209,6 +209,15 @@ pub async fn silent_print_raw(printer_name: Option<String>, raw_data: String) ->
         let target_printer = printer_name.unwrap_or_default();
         let target_printer = target_printer.trim();
 
+        let lower = target_printer.to_lowercase();
+        if lower.contains("pdf") || lower.contains("xps") || lower.contains("onenote") {
+            let _ = std::fs::remove_file(&file_path);
+            return Err(format!(
+                "Printer [{}] adalah printer dokumen (bukan printer thermal TSPL). Silakan gunakan fitur Pratinjau / Cetak Dokumen (OS/PDF) untuk mengekspor dokumen.",
+                target_printer
+            ));
+        }
+
         let script = if target_printer.is_empty() || target_printer == "Driver Sistem (OS Default / Browser)" {
             format!("Get-Content -Path '{}' -Raw | Out-Printer", file_path.to_string_lossy())
         } else {
@@ -277,13 +286,36 @@ pub async fn print_html_document(
     #[cfg(target_os = "windows")]
     {
         let target_printer = printer_name.unwrap_or_default();
-        let target_printer = target_printer.trim();
+        let target_printer = target_printer.trim().to_string();
 
-        let script = if target_printer.is_empty() || target_printer == "Driver Sistem (OS Default / Browser)" {
-            format!("Start-Process -FilePath '{}' -Verb Print -WindowStyle Hidden", file_path.to_string_lossy())
-        } else {
-            format!("Start-Process -FilePath '{}' -Verb PrintTo -ArgumentList '{}' -WindowStyle Hidden", file_path.to_string_lossy(), target_printer)
-        };
+        let script = format!(
+            r#"
+            $edgePath = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe' -ErrorAction SilentlyContinue).'(default)'
+            if (-not $edgePath -or -not (Test-Path $edgePath)) {{
+                $edgePath = "${{env:ProgramFiles(x86)}}\Microsoft\Edge\Application\msedge.exe"
+            }}
+            if (-not (Test-Path $edgePath)) {{
+                $edgePath = "${{env:ProgramFiles}}\Microsoft\Edge\Application\msedge.exe"
+            }}
+            $target = "{}"
+            $file = "{}"
+            if (Test-Path $edgePath) {{
+                if ($target -and $target -ne "Driver Sistem (OS Default / Browser)") {{
+                    Start-Process -FilePath $edgePath -ArgumentList "--headless", "--disable-gpu", "--print-to-printer=`"$target`"", "`"$file`"" -Wait
+                }} else {{
+                    Start-Process -FilePath $edgePath -ArgumentList "--headless", "--disable-gpu", "--print-to-printer", "`"$file`"" -Wait
+                }}
+            }} else {{
+                if ($target -and $target -ne "Driver Sistem (OS Default / Browser)") {{
+                    Start-Process -FilePath $file -Verb PrintTo -ArgumentList "`"$target`"" -WindowStyle Hidden -Wait
+                }} else {{
+                    Start-Process -FilePath $file -Verb Print -WindowStyle Hidden -Wait
+                }}
+            }}
+            "#,
+            target_printer,
+            file_path.to_string_lossy()
+        );
 
         #[allow(unused_imports)]
         use std::os::windows::process::CommandExt;
@@ -298,7 +330,9 @@ pub async fn print_html_document(
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Gagal mencetak dokumen: {}", stderr));
+            if !stderr.is_empty() {
+                return Err(format!("Gagal mencetak dokumen: {}", stderr));
+            }
         }
         Ok("Dokumen cetak berhasil dikirim ke antrean printer".to_string())
     }

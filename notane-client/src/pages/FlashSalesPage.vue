@@ -618,6 +618,14 @@ onUnmounted(() => {
                   <span>{{ fs.total_items || 0 }} Barang Promo</span>
                 </div>
               </div>
+
+              <!-- Quota & Terjual Summary -->
+              <div class="flex items-center justify-between text-[11px] bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/60">
+                <span class="text-slate-500 font-medium">Realisasi Kuota:</span>
+                <span class="font-bold font-mono" :class="Number(fs.total_sold_qty || 0) > 0 ? 'text-emerald-700' : 'text-slate-700'">
+                  Terjual {{ Number(fs.total_sold_qty || 0) }} {{ Number(fs.total_promo_quota || 0) > 0 ? '/ ' + Number(fs.total_promo_quota) : '' }} Pcs
+                </span>
+              </div>
             </div>
 
             <!-- Actions Footer -->
@@ -962,8 +970,8 @@ onUnmounted(() => {
                         placeholder="Unlimited"
                         class="w-full px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-300 font-mono"
                       />
-                      <span v-if="isEditing && item.sold_qty > 0" class="text-[10px] text-slate-500 whitespace-nowrap">
-                        Terjual: <strong>{{ item.sold_qty }}</strong>
+                      <span v-if="isEditing" class="text-[10px] px-2 py-1 rounded border whitespace-nowrap" :class="Number(item.sold_qty) > 0 ? 'text-emerald-700 font-bold bg-emerald-50 border-emerald-300' : 'text-slate-500 bg-slate-100 border-slate-200'">
+                        Terjual: <strong>{{ item.sold_qty || 0 }}</strong> Pcs
                       </span>
                     </div>
                   </div>

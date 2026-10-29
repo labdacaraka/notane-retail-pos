@@ -28,6 +28,8 @@ pub struct Sale {
     pub total_member_discount: Decimal,
     #[serde(default)]
     pub total_savings_amount: Decimal,
+    #[serde(default)]
+    pub rounding_amount: Decimal,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -80,6 +82,7 @@ pub struct CheckoutRequest {
     pub items: Vec<CheckoutItemInput>,
     pub payments: Vec<CheckoutPaymentInput>,
     pub notes: Option<String>,
+    pub rounding_amount: Option<Decimal>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

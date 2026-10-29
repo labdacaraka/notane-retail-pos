@@ -21,7 +21,6 @@ import { Icon } from '@iconify/vue'
 import { api, getApiBaseUrl } from '@/services/api'
 import { generateCode128Svg } from '@/utils/barcodeSvg'
 import { useDialog } from '@/composables/useDialog'
-import { invoke, isTauri } from '@tauri-apps/api/core'
 import { useLabelPrinterStore } from '@/stores/labelPrinterStore'
 import LabelPrinterSettingsModal from '@/components/common/LabelPrinterSettingsModal.vue'
 import PaginationBar from '@/components/common/PaginationBar.vue'
@@ -31,13 +30,10 @@ const labelPrinterStore = useLabelPrinterStore()
 const showLabelPrinterModal = ref<boolean>(false)
 const isPrinting = ref<boolean>(false)
 
-function checkIsTauri(): boolean {
-  try {
-    return isTauri()
-  } catch {
-    return typeof (window as any).__TAURI_INTERNALS__ !== 'undefined'
-  }
-}
+// State Modal Pratinjau Cetak Label
+const showPreviewModal = ref<boolean>(false)
+const previewHtmlContent = ref<string>('')
+const previewIframeRef = ref<HTMLIFrameElement | null>(null)
 
 interface ProductItem {
   id: string
@@ -412,72 +408,64 @@ function formatCurrency(val: any): string {
   return num.toLocaleString('id-ID')
 }
 
-// Fungsi Cetak Label Otomatis (Silent Print tanpa dialog & tanpa membuka tab browser)
-async function handlePrintLabels() {
-  if (flatLabelsList.value.length === 0) {
-    dialog.alert('Silakan pilih/centang minimal 1 produk dari daftar tabel di sebelah kiri sebelum mencetak label.', 'warning')
-    return
-  }
-
-  // Jika printer hardware SERIAL/BLUETOOTH belum tersambung
-  if (!labelPrinterStore.isConnected && labelPrinterStore.connectionType !== 'SYSTEM' && labelPrinterStore.connectionType !== 'VIRTUAL') {
-    showLabelPrinterModal.value = true
-    dialog.alert(`Printer label (${labelPrinterStore.connectionType}) belum tersambung. Silakan sambungkan printer pada modal pengaturan.`, 'warning')
-    return
-  }
-
-  // Jika format kertas adalah Lembaran A4 Grid: kirim dokumen cetak lembaran langsung
-  if (labelPrinterStore.sizePreset === 'a4_grid' && paperFormat.value === 'sheet_a4') {
-    await triggerBrowserPrint(false)
-    return
-  }
-
-  // Siapkan daftar item label untuk dicetak langsung (Direct TSPL / Spooler)
-  const itemsToPrint = Array.from(selectedItemsMap.value.values()).map((it) => ({
-    name: it.product.name,
-    barcode: it.product.barcode || it.product.sku,
-    price: Number(it.product.base_selling_price || 0),
-    sku: it.product.sku,
-    storeTitle: activeStoreDisplayTitle.value,
-    qty: it.print_qty,
-  }))
-
-  isPrinting.value = true
-  try {
-    const res = await labelPrinterStore.printTsplLabels(itemsToPrint)
-    if (res.success) {
-      dialog.alert(res.message || `Berhasil mencetak ${res.count} label secara otomatis!`, 'success')
-      if (labelPrinterStore.autoClearAfterPrint) {
-        selectedItemsMap.value.clear()
-      }
-    }
-  } catch (err: any) {
-    console.error('Gagal mencetak label:', err)
-    dialog.alert(`Gagal mencetak label: ${err.message || 'Terjadi gangguan komunikasi dengan printer'}`, 'danger')
-  } finally {
-    isPrinting.value = false
-  }
-}
-
-async function triggerBrowserPrint(openInNewTab: boolean = false) {
-  if (flatLabelsList.value.length === 0) {
-    dialog.alert('Silakan pilih/centang minimal 1 produk dari daftar tabel di sebelah kiri sebelum mencetak label.', 'warning')
-    return
-  }
-
+// Helper pembuatan dokumen HTML cetak yang kompatibel dengan semua printer (A4 Sheet, Roll, & PDF)
+function buildPrintDocumentHtml(): string {
   const printableGrid = document.getElementById('notane-printable-grid')
-  if (!printableGrid) {
-    window.print()
-    return
+  let contentHtml = ''
+
+  if (printableGrid && printableGrid.innerHTML.trim().length > 0) {
+    contentHtml = printableGrid.innerHTML
+  } else {
+    // Fallback darurat jika DOM printableGrid belum terisi
+    contentHtml = flatLabelsList.value
+      .map((prod) => {
+        const storeHtml = showOutletName.value
+          ? `<div class="tag-store-header">${activeStoreDisplayTitle.value}</div>`
+          : ''
+        const skuHtml = showSku.value
+          ? `<div class="tag-meta-info"><span>${prod.sku || ''}</span>${prod.category_name ? `<span>${prod.category_name}</span>` : ''}</div>`
+          : ''
+        const barcodeHtml =
+          showBarcodeLines.value && prod.barcode
+            ? `<div class="tag-barcode-container">
+                <div class="tag-barcode-svg">${generateCode128Svg(prod.barcode, 30)}</div>
+                <div class="tag-barcode-text">${prod.barcode}</div>
+               </div>`
+            : ''
+        const dateHtml = showPrintDate.value
+          ? `<div class="tag-footer-date">${printDateStr.value}</div>`
+          : ''
+
+        return `
+          <div class="price-tag-card">
+            ${storeHtml}
+            <div class="tag-product-name">${prod.name}</div>
+            ${skuHtml}
+            ${barcodeHtml}
+            <div class="tag-price-row">
+              <div class="tag-price-amount">
+                <span class="currency-symbol">Rp</span>
+                <span class="price-val">${formatCurrency(prod.base_selling_price)}</span>
+              </div>
+              ${showUnitName.value ? `<span class="unit-badge">/${prod.unit_code || 'PCS'}</span>` : ''}
+            </div>
+            ${dateHtml}
+          </div>
+        `
+      })
+      .join('\n')
   }
 
   const gridClass = [
     paperFormat.value === 'continuous_roll' ? 'mode-roll' : 'mode-a4',
-    labelTemplate.value === 'shelf_standard' ? 'template-shelf' :
-    labelTemplate.value === 'product_sticker' ? 'template-sticker' : 'template-compact'
+    labelTemplate.value === 'shelf_standard'
+      ? 'template-shelf'
+      : labelTemplate.value === 'product_sticker'
+      ? 'template-sticker'
+      : 'template-compact',
   ].join(' ')
 
-  const printHtml = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
@@ -532,7 +520,6 @@ async function triggerBrowserPrint(openInNewTab: boolean = false) {
       justify-content: space-between !important;
     }
 
-    /* Di Kertas Lembaran A4: Kartu mengisi penuh kolom grid (2 kolom / 3 kolom / 4 kolom) */
     .mode-a4 .price-tag-card {
       width: 100% !important;
       max-width: 100% !important;
@@ -553,7 +540,6 @@ async function triggerBrowserPrint(openInNewTab: boolean = false) {
       padding: 1mm !important;
     }
 
-    /* Di Printer Thermal Roll: Kartu menggunakan lebar fixed */
     .mode-roll.template-shelf .price-tag-card {
       width: 65mm !important;
       height: 35mm !important;
@@ -570,7 +556,6 @@ async function triggerBrowserPrint(openInNewTab: boolean = false) {
       padding: 1mm !important;
     }
 
-    /* Elemen-elemen di Dalam Label */
     .tag-store-header {
       font-size: 7pt;
       font-weight: 900;
@@ -695,87 +680,140 @@ async function triggerBrowserPrint(openInNewTab: boolean = false) {
       line-height: 1;
       margin-top: 0.5mm;
     }
-
-    @media print {
-      .preview-toolbar {
-        display: none !important;
-      }
-    }
   </style>
 </head>
 <body>
-  <div class="preview-toolbar" style="background:#f8fafc;padding:12px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;font-family:system-ui,-apple-system,sans-serif;margin-bottom:16px;">
-    <div>
-      <div style="font-size:14px;font-weight:800;color:#0f172a;">Pratinjau Lembaran Label Harga</div>
-      <div style="font-size:11px;color:#64748b;margin-top:2px;">${activeStoreDisplayTitle.value} &bull; Siap dicetak</div>
-    </div>
-    <div style="display:flex;gap:8px;">
-      <button onclick="window.print()" style="background:#059669;color:#ffffff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;">
-        &#128424; Cetak Dokumen Ini
-      </button>
-      <button onclick="window.close()" style="background:#ffffff;color:#475569;border:1px solid #cbd5e1;padding:7px 14px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">
-        Tutup
-      </button>
-    </div>
-  </div>
   <div class="print-grid ${gridClass}">
-    ${printableGrid.innerHTML}
+    ${contentHtml}
   </div>
 </body>
 </html>`
+}
 
-  // 1. Lingkungan Desktop Tauri (macOS / Windows / Linux)
-  // Menghubungi Rust backend untuk mencetak langsung ke printer yang dipilih secara silent tanpa membuka peramban
-  if (checkIsTauri()) {
-    try {
-      await invoke('print_html_document', {
-        title: `Cetak Label Harga - ${activeStoreDisplayTitle.value}`,
-        htmlContent: printHtml,
-        printerName: labelPrinterStore.printerName
-      })
-      dialog.alert(`Dokumen label berhasil dikirim ke antrean cetak [${labelPrinterStore.printerName}]!`, 'success')
-      return
-    } catch (err: any) {
-      console.warn('Gagal mencetak via Tauri print_html_document, beralih ke fallback browser:', err)
-      dialog.alert(`Gagal mencetak dokumen: ${err}`, 'danger')
-      return
-    }
+// Cetak dokumen HTML visual via iframe tersembunyi (Membuka dialog cetak OS asli / ekspor Microsoft Print to PDF)
+function printHtmlViaIframe(htmlContent: string) {
+  let iframe = document.getElementById('notane-silent-print-iframe') as HTMLIFrameElement
+  if (!iframe) {
+    iframe = document.createElement('iframe')
+    iframe.id = 'notane-silent-print-iframe'
+    iframe.style.position = 'fixed'
+    iframe.style.right = '0'
+    iframe.style.bottom = '0'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = '0'
+    iframe.style.opacity = '0'
+    iframe.style.pointerEvents = 'none'
+    document.body.appendChild(iframe)
   }
 
-  // 2. Lingkungan Web Browser (Chrome, Safari, Edge, Firefox)
-  if (openInNewTab) {
-    const printWin = window.open('', '_blank')
-    if (printWin) {
-      printWin.document.open()
-      printWin.document.write(printHtml)
-      printWin.document.close()
-      setTimeout(() => {
-        printWin.focus()
-        printWin.print()
-      }, 350)
-      return
-    }
-  }
-
-  // Buka popup dialog print standar di peramban
-  const printWin = window.open('', '_blank', 'width=950,height=750')
-  if (printWin) {
-    printWin.document.open()
-    printWin.document.write(printHtml)
-    printWin.document.close()
+  const doc = iframe.contentWindow?.document
+  if (doc) {
+    doc.open()
+    doc.write(htmlContent)
+    doc.close()
     setTimeout(() => {
-      printWin.focus()
       try {
-        printWin.print()
+        iframe.contentWindow?.focus()
+        iframe.contentWindow?.print()
       } catch (e) {
-        console.warn('Print popup error:', e)
+        console.warn('Iframe print failed, falling back to window.print():', e)
+        window.print()
       }
-    }, 350)
+    }, 250)
+  }
+}
+
+// Buka Modal Pratinjau Dokumen Label
+function openPrintPreview() {
+  if (flatLabelsList.value.length === 0) {
+    dialog.alert('Silakan pilih/centang minimal 1 produk dari daftar tabel di sebelah kiri sebelum membuka pratinjau.', 'warning')
+    return
+  }
+  previewHtmlContent.value = buildPrintDocumentHtml()
+  showPreviewModal.value = true
+}
+
+// Cetak langsung dari dalam Modal Pratinjau
+function triggerPrintFromPreview() {
+  if (!previewHtmlContent.value) {
+    previewHtmlContent.value = buildPrintDocumentHtml()
+  }
+  if (previewIframeRef.value?.contentWindow) {
+    try {
+      previewIframeRef.value.contentWindow.focus()
+      previewIframeRef.value.contentWindow.print()
+      return
+    } catch (e) {
+      console.warn('previewIframeRef.print failed, using iframe fallback:', e)
+    }
+  }
+  printHtmlViaIframe(previewHtmlContent.value)
+}
+
+// Buka dokumen print di tab / jendela peramban terpisah (Blob URL)
+function openInExternalWindow() {
+  const html = buildPrintDocumentHtml()
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  window.open(url, '_blank')
+}
+
+// Fungsi Cetak Label Otomatis
+async function handlePrintLabels() {
+  if (flatLabelsList.value.length === 0) {
+    dialog.alert('Silakan pilih/centang minimal 1 produk dari daftar tabel di sebelah kiri sebelum mencetak label.', 'warning')
     return
   }
 
-  // Fallback terakhir: print dokumen aktif jika popup diblokir peramban
-  window.print()
+  // Jika printer hardware SERIAL/BLUETOOTH belum tersambung
+  if (!labelPrinterStore.isConnected && labelPrinterStore.connectionType !== 'SYSTEM' && labelPrinterStore.connectionType !== 'VIRTUAL') {
+    showLabelPrinterModal.value = true
+    dialog.alert(`Printer label (${labelPrinterStore.connectionType}) belum tersambung. Silakan sambungkan printer pada modal pengaturan.`, 'warning')
+    return
+  }
+
+  // Jika printer adalah Microsoft Print to PDF / Driver Dokumen ATAU format kertas adalah Lembaran A4 Grid:
+  // Gunakan render dokumen HTML visual (membuka dialog cetak OS untuk menyimpan PDF atau mencetak lembaran)
+  if (
+    labelPrinterStore.isPdfOrDocumentPrinter ||
+    (labelPrinterStore.sizePreset === 'a4_grid' && paperFormat.value === 'sheet_a4')
+  ) {
+    const htmlDoc = buildPrintDocumentHtml()
+    printHtmlViaIframe(htmlDoc)
+    if (labelPrinterStore.autoClearAfterPrint) {
+      selectedItemsMap.value.clear()
+    }
+    return
+  }
+
+  // Siapkan daftar item label untuk dicetak langsung via TSPL ke printer thermal
+  const itemsToPrint = Array.from(selectedItemsMap.value.values()).map((it) => ({
+    name: it.product.name,
+    barcode: it.product.barcode || it.product.sku,
+    price: Number(it.product.base_selling_price || 0),
+    sku: it.product.sku,
+    storeTitle: activeStoreDisplayTitle.value,
+    qty: it.print_qty,
+  }))
+
+  isPrinting.value = true
+  try {
+    const res = await labelPrinterStore.printTsplLabels(itemsToPrint)
+    if (res.success) {
+      dialog.alert(res.message || `Berhasil mencetak ${res.count} label secara otomatis!`, 'success')
+      if (labelPrinterStore.autoClearAfterPrint) {
+        selectedItemsMap.value.clear()
+      }
+    } else {
+      dialog.alert(res.message, 'warning')
+    }
+  } catch (err: any) {
+    console.error('Gagal mencetak label:', err)
+    dialog.alert(`Gagal mencetak label: ${err.message || 'Terjadi gangguan komunikasi dengan printer'}`, 'danger')
+  } finally {
+    isPrinting.value = false
+  }
 }
 </script>
 
@@ -840,15 +878,15 @@ async function triggerBrowserPrint(openInNewTab: boolean = false) {
             <span>{{ isPrinting ? 'Mencetak Label...' : `Cetak ${totalLabelsToPrint} Label (Otomatis)` }}</span>
           </button>
 
-          <!-- Tombol Cadangan Pratinjau / Tab Baru -->
+          <!-- Tombol Pratinjau Dokumen Cetak Label -->
           <button
             type="button"
-            @click="triggerBrowserPrint(true)"
-            class="px-3 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 hover:text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
+            @click="openPrintPreview"
+            class="px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 hover:text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
             :class="{ 'opacity-70 hover:opacity-100': flatLabelsList.length === 0 }"
-            title="Buka pratinjau lembaran dokumen label di tab browser baru"
+            title="Buka pratinjau lembaran dokumen label sebelum dicetak"
           >
-            <Icon icon="fluent:open-24-filled" class="w-4 h-4 text-slate-500" />
+            <Eye class="w-4 h-4 text-emerald-600" />
             <span class="hidden sm:inline">Pratinjau</span>
           </button>
         </div>
@@ -1608,6 +1646,113 @@ async function triggerBrowserPrint(openInNewTab: boolean = false) {
       :show="showLabelPrinterModal"
       @close="showLabelPrinterModal = false"
     />
+
+    <!-- ===================================================================== -->
+    <!-- MODAL PRATINJAU DOKUMEN CETAK LABEL (Interactive Print Preview)      -->
+    <!-- ===================================================================== -->
+    <div
+      v-if="showPreviewModal"
+      class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5"
+      @click.self="showPreviewModal = false"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+      >
+        <!-- Preview Modal Header -->
+        <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center shadow-2xs shrink-0">
+              <Eye class="w-5 h-5" />
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-bold text-slate-900">Pratinjau Dokumen Cetak Label</h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  {{ flatLabelsList.length }} Label
+                </span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                  {{ paperFormat === 'sheet_a4' ? `Lembaran A4 (${a4GridColumns} Kolom)` : 'Continuous Roll' }}
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Target: <strong class="text-slate-700">{{ activeStoreDisplayTitle }}</strong> &bull; Printer: <strong class="text-slate-800 font-mono">{{ labelPrinterStore.printerName }}</strong>
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Tombol Cetak Dokumen / Ekspor PDF -->
+            <button
+              type="button"
+              @click="triggerPrintFromPreview"
+              class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition active:scale-95 cursor-pointer"
+              title="Kirim ke printer atau simpan ke PDF via dialog sistem operasi"
+            >
+              <Printer class="w-4 h-4" />
+              <span>Cetak / Ekspor PDF</span>
+            </button>
+
+            <!-- Tombol Buka Tab Terpisah -->
+            <button
+              type="button"
+              @click="openInExternalWindow"
+              class="p-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 hover:text-slate-900 transition cursor-pointer"
+              title="Buka dokumen dalam jendela / tab browser baru"
+            >
+              <Icon icon="fluent:open-24-filled" class="w-4 h-4" />
+            </button>
+
+            <!-- Tombol Tutup -->
+            <button
+              type="button"
+              @click="showPreviewModal = false"
+              class="w-8 h-8 rounded-xl hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer text-lg font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Preview Modal Body (Embedded Iframe) -->
+        <div class="flex-1 bg-slate-200/90 p-3 sm:p-5 overflow-hidden flex flex-col items-center justify-center">
+          <div class="w-full h-full bg-white rounded-xl shadow-lg border border-slate-400 overflow-hidden relative">
+            <iframe
+              ref="previewIframeRef"
+              :srcdoc="previewHtmlContent"
+              class="w-full h-full border-0"
+              title="Pratinjau Cetak Lembaran Label"
+            ></iframe>
+          </div>
+        </div>
+
+        <!-- Preview Modal Footer -->
+        <div class="px-5 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-500 shrink-0 gap-2">
+          <div class="flex items-center gap-2">
+            <span>Ukuran Label: <strong class="text-slate-800 font-mono">{{ labelPrinterStore.effectiveWidthMm }}×{{ labelPrinterStore.effectiveHeightMm }}mm</strong></span>
+            <span>&bull;</span>
+            <span>Format: <strong class="text-slate-800">{{ paperFormat === 'sheet_a4' ? 'Lembaran Stiker A4' : 'Roll Thermal' }}</strong></span>
+            <span>&bull;</span>
+            <span v-if="labelPrinterStore.isPdfOrDocumentPrinter" class="text-blue-700 font-bold flex items-center gap-1">
+              <Icon icon="fluent:document-pdf-24-filled" class="w-3.5 h-3.5 text-rose-600" />
+              Mode PDF Virtual (Simpan sebagai file PDF)
+            </span>
+            <span v-else class="text-slate-600">
+              Mode Cetak Printer Standar
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              @click="showPreviewModal = false"
+              class="px-4 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold transition cursor-pointer"
+            >
+              Tutup Pratinjau
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </AdminLayout>
 </template>
 

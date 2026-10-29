@@ -226,6 +226,8 @@ export interface FlashSale {
   items_count?: number
   total_outlets?: number
   outlets_count?: number
+  total_sold_qty?: number
+  total_promo_quota?: number
   is_running?: boolean
   status?: string
   status_label?: string

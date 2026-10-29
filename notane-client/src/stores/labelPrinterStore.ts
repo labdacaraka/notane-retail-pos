@@ -69,6 +69,20 @@ const BT_LABEL_SERVICES = [
   '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 BLE module
 ]
 
+export function isDocumentOrPdfPrinter(printerName: string): boolean {
+  if (!printerName) return false
+  const lower = printerName.toLowerCase().trim()
+  return (
+    lower.includes('pdf') ||
+    lower.includes('xps') ||
+    lower.includes('onenote') ||
+    lower.includes('fax') ||
+    lower.includes('writer') ||
+    lower.includes('driver sistem') ||
+    lower.includes('browser')
+  )
+}
+
 export const useLabelPrinterStore = defineStore('labelPrinter', () => {
   // Config state
   const connectionType = ref<LabelConnectionType>('SYSTEM')
@@ -113,6 +127,11 @@ export const useLabelPrinterStore = defineStore('labelPrinter', () => {
 
   const isWebBluetoothSupported = computed(() => {
     return typeof navigator !== 'undefined' && 'bluetooth' in navigator
+  })
+
+  // Cek apakah printer sistem yang dipilih merupakan virtual PDF atau printer dokumen (bukan direct TSPL)
+  const isPdfOrDocumentPrinter = computed(() => {
+    return connectionType.value === 'SYSTEM' && isDocumentOrPdfPrinter(printerName.value)
   })
 
   // Efektif ukuran lebar & tinggi dalam mm
@@ -521,6 +540,14 @@ export const useLabelPrinterStore = defineStore('labelPrinter', () => {
     }
 
     if (connectionType.value === 'SYSTEM') {
+      if (isPdfOrDocumentPrinter.value) {
+        statusMessage.value = `Printer PDF/Dokumen [${printerName.value}] siap`
+        return {
+          success: true,
+          message: `Printer [${printerName.value}] adalah printer dokumen/PDF. Sistem akan menggunakan render grafis SVG resolusi tinggi dan dialog cetak PDF.`,
+        }
+      }
+
       if (checkIsTauri()) {
         const tspl = buildTestPrintTspl()
         await invoke('silent_print_raw', {
@@ -569,8 +596,16 @@ export const useLabelPrinterStore = defineStore('labelPrinter', () => {
 
     let totalPrinted = 0
 
-    // 1. Jika mode SYSTEM dan berjalan di Tauri Desktop: kirim langsung batch TSPL via silent_print_raw
+    // 1. Jika mode SYSTEM dan berjalan di Tauri Desktop:
     if (connectionType.value === 'SYSTEM' && checkIsTauri()) {
+      if (isPdfOrDocumentPrinter.value) {
+        return {
+          success: false,
+          count: 0,
+          message: `Printer [${printerName.value}] membutuhkan render visual HTML/PDF. Silakan gunakan cetak lembaran atau pratinjau dokumen.`,
+        }
+      }
+
       let batchTspl = ''
       for (const item of items) {
         if (item.qty <= 0) continue
@@ -689,6 +724,7 @@ export const useLabelPrinterStore = defineStore('labelPrinter', () => {
     isFetchingPrinters,
     isWebSerialSupported,
     isWebBluetoothSupported,
+    isPdfOrDocumentPrinter,
     effectiveWidthMm,
     effectiveHeightMm,
 

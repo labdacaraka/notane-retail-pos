@@ -157,16 +157,23 @@ const roundingMode = computed(() => {
 
 const cashRoundingAdjustment = computed(() => {
   if (activeMethod.value !== 'CASH') return 0
+  const bill = Math.round(remainingBill.value * 100) / 100
   if (roundingMode.value === 'ROUND_100_DOWN') {
-    return remainingBill.value % 100
+    return bill % 100
   } else if (roundingMode.value === 'ROUND_500_DOWN') {
-    return remainingBill.value % 500
+    return bill % 500
+  } else {
+    // Mode NONE: jika ada pecahan koma desimal uang tunai (misal Rp 15.234,50), bulatkan ke rupiah utuh
+    const decimalFraction = bill - Math.floor(bill)
+    if (decimalFraction > 0) {
+      return Number(decimalFraction.toFixed(2))
+    }
   }
   return 0
 })
 
 const effectivePayableBill = computed(() => {
-  return Math.max(0, remainingBill.value - cashRoundingAdjustment.value)
+  return Math.max(0, Math.round(remainingBill.value - cashRoundingAdjustment.value))
 })
 
 const rawChangeAmount = computed(() => {
@@ -270,7 +277,7 @@ function formatCurrency(val: number): string {
 }
 
 function setExactCash() {
-  cashAmount.value = effectivePayableBill.value
+  cashAmount.value = Math.round(effectivePayableBill.value)
 }
 
 function addCash(denomination: number) {
@@ -354,9 +361,12 @@ async function handleCompletePayment() {
     })
   }
 
+  const payableTarget = activeMethod.value === 'CASH'
+    ? Math.round(effectivePayableBill.value) + appliedPointsRupiah.value
+    : cartStore.grandTotal
   const total = finalPayments.reduce((sum, p) => sum + p.amount, 0)
-  if (total < cartStore.grandTotal) {
-    errorMsg.value = `Total pembayaran masih kurang dari total belanja (Kurang: ${formatCurrency(cartStore.grandTotal - total)})`
+  if (total < payableTarget) {
+    errorMsg.value = `Total pembayaran masih kurang dari total belanja (Kurang: ${formatCurrency(payableTarget - total)})`
     return
   }
 
@@ -397,6 +407,7 @@ async function handleCompletePayment() {
         payment_proof_url: p.payment_proof_url,
       })),
       notes: `Kasir: ${authStore.user?.full_name}`,
+      rounding_amount: activeMethod.value === 'CASH' && cashRoundingAdjustment.value > 0 ? Number(cashRoundingAdjustment.value.toFixed(2)) : undefined,
     }
 
     const res = await api.post('/sales/checkout', payload)
