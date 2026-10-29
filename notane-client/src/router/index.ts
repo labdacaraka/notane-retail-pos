@@ -187,10 +187,20 @@ router.beforeEach(async (to, _from, next) => {
         label_printing: 'Cetak Label Harga',
         expenses: 'Biaya & Pengeluaran Kas',
         audit_log: 'Jejak Audit Keamanan',
+        multi_outlet: 'Multi-Outlet Cabang',
       }
       const featName = featureNames[reqFeature] || reqFeature
-      alert(`Fitur Belum Diaktifkan: Modul '${featName}' memerlukan lisensi tambahan pada server toko Anda. Silakan hubungi Provider Notane untuk mengaktifkan fitur ini.`)
-      return next(false)
+      try {
+        const { useDialogStore } = await import('@/stores/dialogStore')
+        const dialog = useDialogStore()
+        dialog.showAlert({
+          title: 'Modul Perlu Lisensi Tambahan',
+          message: `Fitur "${featName}" belum diaktifkan pada lisensi server toko Anda. Silakan hubungi Provider Notane Retail POS untuk mengaktifkan lisensi modul ini.`,
+          type: 'warning',
+          buttonText: 'Mengerti',
+        })
+      } catch (_) {}
+      return next('/admin')
     }
   }
 

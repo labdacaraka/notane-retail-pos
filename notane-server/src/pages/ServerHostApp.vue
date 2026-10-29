@@ -38,11 +38,13 @@ import LicenseUpdateModal from '@/components/common/LicenseUpdateModal.vue'
 import InitialSetupWizardModal from '@/components/common/InitialSetupWizardModal.vue'
 import DatabaseBackupModal from '@/components/common/DatabaseBackupModal.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
+import { useDialog } from '@/composables/useDialog'
 
 const networkStore = useNetworkStore()
 const licenseStore = useLicenseStore()
 const storeBrandingStore = useStoreBrandingStore()
 const initialSetupStore = useInitialSetupStore()
+const dialog = useDialog()
 
 const copiedIp = ref(false)
 const copiedCode = ref(false)
@@ -61,7 +63,7 @@ async function handleRestoreSuccess() {
   await networkStore.fetchConnectedDevices()
   await licenseStore.fetchVersionInfo()
   await storeBrandingStore.fetchBranding()
-  alert('Database toko berhasil dipulihkan secara penuh dari berkas cadangan!')
+  dialog.toast('Database toko berhasil dipulihkan secara penuh dari berkas cadangan!', 'success')
 }
 
 // Store Branding State
@@ -92,14 +94,14 @@ async function handleLogoUpload(e: Event) {
       const url = await storeBrandingStore.uploadLogoFile(file)
       brandingForm.value.storeLogoUrl = url
     } catch (err: any) {
-      alert('Gagal memproses gambar logo: ' + err.message)
+      dialog.alert('Gagal memproses gambar logo: ' + err.message, 'danger')
     }
   }
 }
 
 async function handleSaveBranding() {
   if (!brandingForm.value.storeName.trim()) {
-    alert('Nama toko wajib diisi')
+    dialog.alert('Nama toko wajib diisi', 'warning')
     return
   }
   isSavingBranding.value = true
@@ -115,7 +117,7 @@ async function handleSaveBranding() {
       brandingFeedback.value = ''
     }, 4000)
   } catch (err: any) {
-    alert('Gagal menyimpan branding toko: ' + err.message)
+    dialog.alert('Gagal menyimpan branding toko: ' + err.message, 'danger')
   } finally {
     isSavingBranding.value = false
   }
@@ -365,20 +367,55 @@ const copyHwid = () => {
 
 const toggleServer = async () => {
   if (isServerRunning.value) {
-    const ok = window.confirm('Peringatan: Menghentikan server akan memutus koneksi seluruh komputer kasir yang sedang aktif. Lanjutkan menghentikan server?')
+    const ok = await dialog.confirm({
+      title: 'Hentikan Server Sementara?',
+      message: 'Peringatan: Menghentikan server akan memutus koneksi seluruh komputer kasir yang sedang aktif (Mode Maintenance). Apakah Anda yakin ingin menghentikan server?',
+      confirmText: 'Ya, Hentikan Server',
+      cancelText: 'Batal',
+      type: 'danger',
+    })
     if (!ok) return
   } else if (!isLicenseValid.value) {
-    alert('Server Terkunci: Aplikasi belum teraktivasi lisensi resmi. Silakan lakukan aktivasi lisensi terlebih dahulu.')
+    await dialog.alert({
+      title: 'Server Terkunci',
+      message: 'Aplikasi belum teraktivasi lisensi resmi. Silakan lakukan aktivasi lisensi terlebih dahulu.',
+      type: 'warning',
+    })
     showLicenseModal.value = true
     return
   }
+
   isActionLoading.value = true
   try {
     if (isServerRunning.value) {
-      await networkStore.stopHostServer()
+      const ok = await networkStore.stopHostServer()
+      if (ok) {
+        dialog.toast('Host Server berhasil dihentikan sementara (Mode Maintenance)', 'info')
+      } else {
+        await dialog.alert({
+          title: 'Gagal Menghentikan Server',
+          message: 'Server tidak merespons perintah penghentian. Pastikan Daemon kontrol aktif.',
+          type: 'danger',
+        })
+      }
     } else {
-      await networkStore.startHostServer()
+      const ok = await networkStore.startHostServer()
+      if (ok) {
+        dialog.toast('Host Server berhasil dijalankan dan siap menerima koneksi kasir!', 'success')
+      } else {
+        await dialog.alert({
+          title: 'Gagal Menyalakan Server',
+          message: networkStore.disconnectReason || 'Gagal menyalakan server POS.',
+          type: 'danger',
+        })
+      }
     }
+  } catch (err: any) {
+    await dialog.alert({
+      title: 'Kesalahan Sistem',
+      message: err?.message || 'Terjadi kesalahan saat memproses status server.',
+      type: 'danger',
+    })
   } finally {
     isActionLoading.value = false
   }
@@ -386,13 +423,42 @@ const toggleServer = async () => {
 
 const restartServer = async () => {
   if (!isLicenseValid.value) {
-    alert('Server Terkunci: Aplikasi belum teraktivasi lisensi resmi. Silakan lakukan aktivasi lisensi terlebih dahulu.')
+    await dialog.alert({
+      title: 'Server Terkunci',
+      message: 'Aplikasi belum teraktivasi lisensi resmi. Silakan lakukan aktivasi lisensi terlebih dahulu.',
+      type: 'warning',
+    })
     showLicenseModal.value = true
     return
   }
+
+  const ok = await dialog.confirm({
+    title: 'Mulai Ulang Server?',
+    message: 'Koneksi kasir akan terputus sesaat dan otomatis terhubung kembali saat server selesai memuat ulang.',
+    confirmText: 'Mulai Ulang',
+    cancelText: 'Batal',
+    type: 'warning',
+  })
+  if (!ok) return
+
   isActionLoading.value = true
   try {
-    await networkStore.restartHostServer()
+    const ok = await networkStore.restartHostServer()
+    if (ok) {
+      dialog.toast('Host Server berhasil dimuat ulang!', 'success')
+    } else {
+      await dialog.alert({
+        title: 'Gagal Memuat Ulang',
+        message: 'Gagal memuat ulang server POS.',
+        type: 'danger',
+      })
+    }
+  } catch (err: any) {
+    await dialog.alert({
+      title: 'Kesalahan Sistem',
+      message: err?.message || 'Terjadi kesalahan saat memuat ulang server.',
+      type: 'danger',
+    })
   } finally {
     isActionLoading.value = false
   }

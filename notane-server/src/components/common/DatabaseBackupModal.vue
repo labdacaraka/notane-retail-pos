@@ -12,6 +12,7 @@ import {
   ShieldAlert,
 } from 'lucide-vue-next'
 import { useBackupStore } from '@/stores/backupStore'
+import { useDialog } from '@/composables/useDialog'
 
 defineProps<{
   modelValue: boolean
@@ -23,6 +24,7 @@ const emit = defineEmits<{
 }>()
 
 const backupStore = useBackupStore()
+const dialog = useDialog()
 
 const activeTab = ref<'EXPORT' | 'RESTORE'>('EXPORT')
 const exportNotes = ref('')
@@ -53,7 +55,7 @@ async function handleFileSelected(e: Event) {
 
   const file = target.files[0]
   if (!file.name.toLowerCase().endsWith('.zip')) {
-    alert('Harap pilih file dengan ekstensi .zip hasil ekspor cadangan Notane Server.')
+    dialog.alert('Harap pilih file dengan ekstensi .zip hasil ekspor cadangan Notane Server.', 'warning')
     if (fileInputRef.value) fileInputRef.value.value = ''
     return
   }
@@ -78,17 +80,18 @@ function resetSelectedFile() {
 async function handleRestore() {
   if (!selectedFile.value) return
   if (!confirmChecked.value) {
-    alert('Harap centang kotak persetujuan konfirmasi risiko sebelum memulihkan database.')
+    dialog.alert('Harap centang kotak persetujuan konfirmasi risiko sebelum memulihkan database.', 'warning')
     return
   }
 
-  if (
-    !confirm(
-      'PERINGATAN TERAKHIR:\n\nProses pemulihan database akan mengganti seluruh data operasional toko saat ini. Seluruh transaksi kasir yang belum tercadangkan akan hilang.\n\nApakah Anda benar-benar yakin ingin melanjutkan pemulihan data ini?'
-    )
-  ) {
-    return
-  }
+  const ok = await dialog.confirm({
+    title: 'Konfirmasi Pemulihan Database',
+    message: 'PERINGATAN: Proses pemulihan database akan mengganti seluruh data operasional toko saat ini. Seluruh transaksi kasir yang belum tercadangkan akan hilang. Apakah Anda benar-benar yakin ingin melanjutkan pemulihan data ini?',
+    confirmText: 'Ya, Pulihkan Sekarang',
+    cancelText: 'Batal',
+    type: 'danger',
+  })
+  if (!ok) return
 
   try {
     await backupStore.restoreDatabase(selectedFile.value)

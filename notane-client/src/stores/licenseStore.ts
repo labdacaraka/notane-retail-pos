@@ -68,6 +68,65 @@ export interface AppVersionInfo {
   is_production: boolean
 }
 
+const LICENSE_CACHE_KEY = 'notane_cached_license_info'
+
+function getCachedLicenseInfo(): LicenseInfo {
+  try {
+    const raw = localStorage.getItem(LICENSE_CACHE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') {
+        return {
+          status: parsed.status || 'UNLICENSED',
+          is_valid: Boolean(parsed.is_valid),
+          license_key: parsed.license_key || null,
+          client_name: parsed.client_name || null,
+          tier: parsed.tier || null,
+          max_terminals: Number(parsed.max_terminals) || 1,
+          current_hardware_id: parsed.current_hardware_id || 'MEMUAT...',
+          licensed_hardware_id: parsed.licensed_hardware_id || null,
+          expires_at: parsed.expires_at || null,
+          days_remaining: parsed.days_remaining ?? null,
+          grace_days_remaining: parsed.grace_days_remaining ?? null,
+          features: Array.isArray(parsed.features) ? parsed.features : [],
+          message: parsed.message || 'Memuat status lisensi...',
+          provider_server_url: parsed.provider_server_url || 'https://lisensi.notane.id',
+          last_sync_at: parsed.last_sync_at || null,
+          sync_status: parsed.sync_status || null,
+          consecutive_sync_failures: parsed.consecutive_sync_failures ?? null,
+          offline_grace_days_remaining: parsed.offline_grace_days_remaining ?? null,
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[LicenseStore] Gagal membaca cache lisensi lokal:', err)
+  }
+  return {
+    status: 'UNLICENSED',
+    is_valid: false,
+    license_key: null,
+    client_name: null,
+    tier: null,
+    max_terminals: 1,
+    current_hardware_id: 'MEMUAT...',
+    licensed_hardware_id: null,
+    expires_at: null,
+    days_remaining: null,
+    grace_days_remaining: null,
+    features: [],
+    message: 'Memuat status lisensi...',
+    provider_server_url: 'https://lisensi.notane.id',
+  }
+}
+
+function persistLicenseCache(info: LicenseInfo) {
+  try {
+    localStorage.setItem(LICENSE_CACHE_KEY, JSON.stringify(info))
+  } catch (err) {
+    console.warn('[LicenseStore] Gagal menyimpan cache lisensi lokal:', err)
+  }
+}
+
 export const useLicenseStore = defineStore('license', {
   state: () => ({
     clientVersionInfo: {
@@ -86,22 +145,7 @@ export const useLicenseStore = defineStore('license', {
       is_production: true,
     } as AppVersionInfo,
 
-    licenseInfo: {
-      status: 'UNLICENSED',
-      is_valid: false,
-      license_key: null,
-      client_name: null,
-      tier: null,
-      max_terminals: 1,
-      current_hardware_id: 'MEMUAT...',
-      licensed_hardware_id: null,
-      expires_at: null,
-      days_remaining: null,
-      grace_days_remaining: null,
-      features: [],
-      message: 'Memuat status lisensi...',
-      provider_server_url: 'https://lisensi.notane.id',
-    } as LicenseInfo,
+    licenseInfo: getCachedLicenseInfo(),
 
     updateInfo: null as UpdateInfo | null,
     syncLogs: [] as LicenseSyncLogItem[],
@@ -119,7 +163,7 @@ export const useLicenseStore = defineStore('license', {
         return false
       }
       const feats = this.licenseInfo.features || []
-      return feats.some((f) => f.toLowerCase() === featureId.toLowerCase())
+      return feats.some((f) => f === '*' || f.toLowerCase() === 'all' || f.toLowerCase() === featureId.toLowerCase())
     },
 
     getBaseUrl(): string {
@@ -154,6 +198,7 @@ export const useLicenseStore = defineStore('license', {
         const res = await axios.get(`${this.getBaseUrl()}/api/v1/system/license`, { timeout: 4000 })
         if (res.data) {
           this.licenseInfo = res.data
+          persistLicenseCache(res.data)
         }
       } catch (err: any) {
         this.errorMessage = err.message || 'Gagal memuat status lisensi dari server lokal'
@@ -196,6 +241,7 @@ export const useLicenseStore = defineStore('license', {
         const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/license/sync`, {}, { timeout: 8000 })
         if (res.data?.data?.license_info) {
           this.licenseInfo = res.data.data.license_info
+          persistLicenseCache(res.data.data.license_info)
         } else {
           await this.fetchLicenseInfo()
         }

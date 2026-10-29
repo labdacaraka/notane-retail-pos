@@ -48,11 +48,12 @@ const rawOperationalMenus = [
 ]
 
 const operationalMenus = computed(() => {
-  return rawOperationalMenus.filter(m => {
-    const passPerm = !m.permission || authStore.hasPermission(m.permission)
-    const passFeat = !m.requiredFeature || licenseStore.hasFeature(m.requiredFeature)
-    return passPerm && passFeat
-  })
+  return rawOperationalMenus
+    .filter(m => !m.permission || authStore.hasPermission(m.permission))
+    .map(m => ({
+      ...m,
+      isLocked: Boolean(m.requiredFeature && !licenseStore.hasFeature(m.requiredFeature)),
+    }))
 })
 
 // 2. Grup Menu Pengaturan & Keamanan
@@ -64,11 +65,12 @@ const rawConfigMenus = [
 ]
 
 const configMenus = computed(() => {
-  return rawConfigMenus.filter(m => {
-    const passPerm = !m.permission || authStore.hasPermission(m.permission)
-    const passFeat = !m.requiredFeature || licenseStore.hasFeature(m.requiredFeature)
-    return passPerm && passFeat
-  })
+  return rawConfigMenus
+    .filter(m => !m.permission || authStore.hasPermission(m.permission))
+    .map(m => ({
+      ...m,
+      isLocked: Boolean(m.requiredFeature && !licenseStore.hasFeature(m.requiredFeature)),
+    }))
 })
 
 // 3. Menu Jaringan LAN Terminal Client
@@ -89,6 +91,17 @@ onMounted(async () => {
 function handleLogout() {
   authStore.logout()
   router.push('/login')
+}
+
+function handleMenuClick(event: MouseEvent, item: { path: string; name: string; isLocked?: boolean; requiredFeature?: string }) {
+  if (item.isLocked) {
+    event.preventDefault()
+    event.stopPropagation()
+    dialog.alert(
+      `Modul "${item.name}" memerlukan aktivasi lisensi tambahan pada server toko Anda. Silakan hubungi Provider Notane Retail POS untuk mengaktifkan fitur ini.`,
+      'warning'
+    )
+  }
 }
 
 async function handleExitImpersonation() {
@@ -322,24 +335,41 @@ async function handleExitImpersonation() {
           <router-link
             v-for="item in operationalMenus"
             :key="item.path"
-            :to="item.path"
+            :to="item.isLocked ? '' : item.path"
+            @click="handleMenuClick($event, item)"
             class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[86px] h-[62px] text-center gap-1 cursor-pointer"
-            :class="route.path === item.path
-              ? 'bg-amber-100 text-amber-950 border-amber-500 shadow-sm ring-2 ring-amber-400/50 scale-[1.02]'
-              : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-amber-300 active:scale-95'"
+            :class="item.isLocked
+              ? 'bg-slate-100/70 hover:bg-slate-200/60 text-slate-400 border-dashed border-slate-300 opacity-60 hover:opacity-85'
+              : route.path === item.path
+                ? 'bg-amber-100 text-amber-950 border-amber-500 shadow-sm ring-2 ring-amber-400/50 scale-[1.02]'
+                : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-amber-300 active:scale-95'"
+            :title="item.isLocked ? `Modul ${item.name} (Perlu Upgrade Lisensi)` : item.name"
           >
+            <!-- Badge Upgrade -->
+            <span
+              v-if="item.isLocked"
+              class="absolute -top-1.5 -right-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-mono text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-xs uppercase tracking-wider border border-amber-600"
+            >
+              Upgrade
+            </span>
+
             <Icon
               :icon="item.icon"
-              class="w-6 h-6 transition-transform duration-150 group-hover:scale-110 drop-shadow-xs"
+              class="w-6 h-6 transition-transform duration-150 drop-shadow-xs"
+              :class="item.isLocked ? 'grayscale opacity-60' : 'group-hover:scale-110'"
             />
             <span
               class="text-[10px] leading-tight tracking-tight font-bold whitespace-nowrap"
-              :class="route.path === item.path ? 'text-amber-950 font-extrabold' : 'text-slate-700 group-hover:text-slate-900'"
+              :class="item.isLocked
+                ? 'text-slate-400 font-semibold'
+                : route.path === item.path
+                  ? 'text-amber-950 font-extrabold'
+                  : 'text-slate-700 group-hover:text-slate-900'"
             >
               {{ item.name }}
             </span>
             <div
-              v-if="route.path === item.path"
+              v-if="route.path === item.path && !item.isLocked"
               class="w-4 h-0.5 bg-amber-600 rounded-full"
             ></div>
           </router-link>
@@ -353,24 +383,41 @@ async function handleExitImpersonation() {
           <router-link
             v-for="item in configMenus"
             :key="item.path"
-            :to="item.path"
+            :to="item.isLocked ? '' : item.path"
+            @click="handleMenuClick($event, item)"
             class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[86px] h-[62px] text-center gap-1 cursor-pointer"
-            :class="route.path === item.path
-              ? 'bg-amber-100 text-amber-950 border-amber-500 shadow-sm ring-2 ring-amber-400/50 scale-[1.02]'
-              : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-amber-300 active:scale-95'"
+            :class="item.isLocked
+              ? 'bg-slate-100/70 hover:bg-slate-200/60 text-slate-400 border-dashed border-slate-300 opacity-60 hover:opacity-85'
+              : route.path === item.path
+                ? 'bg-amber-100 text-amber-950 border-amber-500 shadow-sm ring-2 ring-amber-400/50 scale-[1.02]'
+                : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-amber-300 active:scale-95'"
+            :title="item.isLocked ? `Modul ${item.name} (Perlu Upgrade Lisensi)` : item.name"
           >
+            <!-- Badge Upgrade -->
+            <span
+              v-if="item.isLocked"
+              class="absolute -top-1.5 -right-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-mono text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-xs uppercase tracking-wider border border-amber-600"
+            >
+              Upgrade
+            </span>
+
             <Icon
               :icon="item.icon"
-              class="w-6 h-6 transition-transform duration-150 group-hover:scale-110 drop-shadow-xs"
+              class="w-6 h-6 transition-transform duration-150 drop-shadow-xs"
+              :class="item.isLocked ? 'grayscale opacity-60' : 'group-hover:scale-110'"
             />
             <span
               class="text-[10px] leading-tight tracking-tight font-bold whitespace-nowrap"
-              :class="route.path === item.path ? 'text-amber-950 font-extrabold' : 'text-slate-700 group-hover:text-slate-900'"
+              :class="item.isLocked
+                ? 'text-slate-400 font-semibold'
+                : route.path === item.path
+                  ? 'text-amber-950 font-extrabold'
+                  : 'text-slate-700 group-hover:text-slate-900'"
             >
               {{ item.name }}
             </span>
             <div
-              v-if="route.path === item.path"
+              v-if="route.path === item.path && !item.isLocked"
               class="w-4 h-0.5 bg-amber-600 rounded-full"
             ></div>
           </router-link>

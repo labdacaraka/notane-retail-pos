@@ -19,6 +19,7 @@ import {
   Zap,
 } from 'lucide-vue-next'
 import { useLicenseStore } from '@/stores/licenseStore'
+import { useDialog } from '@/composables/useDialog'
 
 const props = withDefaults(
   defineProps<{
@@ -35,6 +36,7 @@ const emit = defineEmits<{
 }>()
 
 const licenseStore = useLicenseStore()
+const dialog = useDialog()
 const activeTab = ref<'LICENSE' | 'PROVIDER' | 'UPDATE'>(props.initialTab || 'LICENSE')
 const activationMode = ref<'ONLINE' | 'OFFLINE'>('ONLINE')
 
@@ -80,7 +82,7 @@ function copyHwid() {
 
 async function handleOnlineActivate() {
   if (!onlineLicenseKey.value.trim()) {
-    alert('Mohon masukkan Nomor Lisensi resmi (contoh: NOTANE-ENT-XXXX-XXXX).')
+    dialog.alert('Mohon masukkan Nomor Lisensi resmi (contoh: NOTANE-ENT-XXXX-XXXX).', 'warning')
     return
   }
   const ok = await licenseStore.activateLicenseOnline(onlineLicenseKey.value)
@@ -91,7 +93,7 @@ async function handleOnlineActivate() {
 
 async function handleActivateOffline() {
   if (!tokenInput.value || !signatureInput.value) {
-    alert('Mohon isi Token Lisensi (JSON) dan Signature Kriptografi (Hex) dari Provider.')
+    dialog.alert('Mohon isi Token Lisensi (JSON) dan Signature Kriptografi (Hex) dari Provider.', 'warning')
     return
   }
   const ok = await licenseStore.activateLicense(tokenInput.value, signatureInput.value)
@@ -112,7 +114,7 @@ async function handleCheckUpdate() {
 async function handleApplyUpdate() {
   const ok = await licenseStore.applyOneClickUpdate()
   if (ok) {
-    alert('Pembaruan sistem berhasil disiapkan! Aplikasi akan dimuat ulang.')
+    await dialog.alert('Pembaruan sistem berhasil disiapkan! Aplikasi akan dimuat ulang.', 'success')
     window.location.reload()
   }
 }

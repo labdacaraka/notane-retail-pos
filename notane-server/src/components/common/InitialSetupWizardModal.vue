@@ -23,6 +23,7 @@ import {
 import { useInitialSetupStore } from '@/stores/initialSetupStore'
 import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
 import { useNetworkStore } from '@/stores/networkStore'
+import { useDialog } from '@/composables/useDialog'
 
 const props = defineProps<{
   modelValue: boolean
@@ -37,6 +38,7 @@ const emit = defineEmits<{
 const setupStore = useInitialSetupStore()
 const brandingStore = useStoreBrandingStore()
 const networkStore = useNetworkStore()
+const dialog = useDialog()
 
 const currentStep = ref<number>(1)
 const totalSteps = 5
@@ -144,7 +146,7 @@ async function handleLogoUpload(e: Event) {
       const url = await brandingStore.uploadLogoFile(file)
       form.value.store_logo_url = url
     } catch (err: any) {
-      alert('Gagal mengupload logo: ' + err.message)
+      dialog.alert('Gagal mengupload logo: ' + err.message, 'danger')
     } finally {
       isUploadingLogo.value = false
     }

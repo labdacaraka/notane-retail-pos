@@ -1231,6 +1231,6 @@ impl LicenseService {
         if !lic.is_valid {
             return false;
         }
-        lic.features.iter().any(|f| f.eq_ignore_ascii_case(feature_name))
+        lic.features.iter().any(|f| f == "*" || f.eq_ignore_ascii_case("all") || f.eq_ignore_ascii_case(feature_name))
     }
 }

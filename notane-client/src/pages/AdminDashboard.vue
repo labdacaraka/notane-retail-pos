@@ -4,18 +4,51 @@ import { useRouter } from 'vue-router'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
+import { useLicenseStore } from '@/stores/licenseStore'
+import { useDialog } from '@/composables/useDialog'
 import { ArrowUpRight } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const storeBrandingStore = useStoreBrandingStore()
+const licenseStore = useLicenseStore()
+const dialog = useDialog()
 
 onMounted(() => {
   storeBrandingStore.fetchBranding().catch(() => {})
+  licenseStore.fetchLicenseInfo().catch(() => {})
 })
 
+function handleTileClick(tile: any) {
+  if (tile.isLocked) {
+    dialog.alert(
+      `Fitur "${tile.title}" belum diaktifkan pada lisensi server toko Anda. Silakan hubungi Provider Notane Retail POS untuk mengaktifkan lisensi modul ini.`,
+      'warning'
+    )
+    return
+  }
+  router.push(tile.path)
+}
+
+interface HubTile {
+  title: string
+  desc: string
+  icon: string
+  path: string
+  color: string
+  badge: string
+  permission?: string[]
+  requiredFeature?: string
+  isLocked?: boolean
+}
+
+interface HubSection {
+  category: string
+  tiles: HubTile[]
+}
+
 const hubSections = computed(() => {
-  const allSections = [
+  const allSections: HubSection[] = [
     {
       category: 'DATA MASTER TOKO',
       tiles: [
@@ -26,7 +59,7 @@ const hubSections = computed(() => {
           path: '/admin/outlets',
           color: 'from-amber-500 to-orange-600',
           badge: 'Outlet & Toko',
-          permission: ['outlets:read', 'master:read'],
+          permission: ['outlets:read', 'outlets:manage', 'master:read'],
         },
         {
           title: 'Master Produk & SKU',
@@ -38,13 +71,24 @@ const hubSections = computed(() => {
           permission: ['products:read', 'master:read'],
         },
         {
+          title: 'Cetak Label Harga',
+          desc: 'Desain label barcode rak display, cetak stiker harga & label promo',
+          icon: 'streamline-ultimate-color:tags-1',
+          path: '/admin/price-labels',
+          color: 'from-amber-400 to-amber-600',
+          badge: 'Label Barcode',
+          permission: ['products:read', 'master:read'],
+          requiredFeature: 'label_printing',
+        },
+        {
           title: 'Pelanggan & Member',
           desc: 'Registrasi pelanggan, tier membership, saldo reward poin & piutang',
           icon: 'fluent-color:people-team-24',
           path: '/admin/customers',
           color: 'from-blue-400 to-indigo-600',
           badge: 'Loyalti Member',
-          permission: ['customers:read', 'master:read'],
+          permission: ['customers:read', 'customers:manage', 'master:read'],
+          requiredFeature: 'membership',
         },
         {
           title: 'Voucher & Promo',
@@ -53,7 +97,28 @@ const hubSections = computed(() => {
           path: '/admin/vouchers',
           color: 'from-rose-400 to-pink-600',
           badge: 'Promosi',
-          permission: ['vouchers:read', 'master:read'],
+          permission: ['vouchers:read', 'vouchers:manage', 'master:read'],
+          requiredFeature: 'promotions',
+        },
+        {
+          title: 'Flash Sale Diskon',
+          desc: 'Manajemen event flash sale jam tertentu, batas kuota & hitung mundur',
+          icon: 'flat-color-icons:flash-on',
+          path: '/admin/flash-sales',
+          color: 'from-orange-500 to-rose-600',
+          badge: 'Flash Sale',
+          permission: ['promotions:read', 'master:read'],
+          requiredFeature: 'promotions',
+        },
+        {
+          title: 'Promosi Retail',
+          desc: 'Aturan diskon otomatis bertingkat, tebus murah, dan beli X gratis Y',
+          icon: 'streamline-ultimate-color:discount',
+          path: '/admin/promotions',
+          color: 'from-rose-500 to-red-600',
+          badge: 'Diskon & Promo',
+          permission: ['promotions:read', 'master:read'],
+          requiredFeature: 'promotions',
         },
         {
           title: 'Parameter Retail',
@@ -105,6 +170,16 @@ const hubSections = computed(() => {
           badge: 'Warehouse & Opname',
           permission: ['inventory:read', 'inventory:write'],
         },
+        {
+          title: 'Biaya & Pengeluaran',
+          desc: 'Pencatatan kas operasional, petty cash, kategori beban biaya & laporan pengeluaran',
+          icon: 'streamline-ultimate-color:money-bag-dollar',
+          path: '/admin/expenses',
+          color: 'from-rose-500 to-amber-600',
+          badge: 'Beban Operasional',
+          permission: ['expenses:read', 'expenses:categories', 'accounting:read'],
+          requiredFeature: 'expenses',
+        },
       ],
     },
     {
@@ -150,6 +225,7 @@ const hubSections = computed(() => {
           color: 'from-emerald-500 to-teal-700',
           badge: 'Accounting Ledger',
           permission: ['accounting:read', 'accounting:write'],
+          requiredFeature: 'accounting',
         },
         {
           title: 'Jejak Audit 360°',
@@ -159,6 +235,7 @@ const hubSections = computed(() => {
           color: 'from-slate-600 to-slate-800',
           badge: 'Security Logs',
           permission: ['audit:read', 'report:view'],
+          requiredFeature: 'audit_log',
         },
       ],
     },
@@ -167,7 +244,12 @@ const hubSections = computed(() => {
   return allSections
     .map((sec) => ({
       ...sec,
-      tiles: sec.tiles.filter((t) => !t.permission || authStore.hasPermission(t.permission)),
+      tiles: sec.tiles
+        .filter((t) => !t.permission || authStore.hasPermission(t.permission))
+        .map((t) => ({
+          ...t,
+          isLocked: Boolean(t.requiredFeature && !licenseStore.hasFeature(t.requiredFeature)),
+        })),
     }))
     .filter((sec) => sec.tiles.length > 0)
 })
@@ -241,27 +323,62 @@ const hubSections = computed(() => {
             <div
               v-for="tile in section.tiles"
               :key="tile.title"
-              @click="router.push(tile.path)"
-              class="group bg-white hover:bg-slate-50/80 border border-slate-300 hover:border-emerald-500 p-5 rounded-xl shadow-sm hover:shadow-md transition duration-150 cursor-pointer flex flex-col justify-between relative overflow-hidden active:scale-95"
+              @click="handleTileClick(tile)"
+              class="group border p-5 rounded-xl shadow-sm transition duration-150 cursor-pointer flex flex-col justify-between relative overflow-hidden active:scale-95"
+              :class="tile.isLocked
+                ? 'bg-slate-100/70 hover:bg-slate-200/60 border-dashed border-slate-300 opacity-60 hover:opacity-85'
+                : 'bg-white hover:bg-slate-50/80 border-slate-300 hover:border-emerald-500 hover:shadow-md'"
+              :title="tile.isLocked ? `Fitur ${tile.title} (Perlu Upgrade Lisensi)` : tile.title"
             >
               <!-- Top Color Strip -->
-              <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r" :class="tile.color"></div>
+              <div
+                class="absolute top-0 left-0 right-0 h-1.5"
+                :class="tile.isLocked ? 'bg-slate-300' : 'bg-gradient-to-r ' + tile.color"
+              ></div>
 
               <div>
                 <!-- Tile Header -->
                 <div class="flex items-center justify-between mb-4">
-                  <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-50 border border-slate-200 group-hover:border-amber-400 group-hover:bg-amber-50/50 shadow-xs transition group-hover:scale-105">
+                  <div
+                    class="w-12 h-12 rounded-xl flex items-center justify-center border shadow-xs transition"
+                    :class="tile.isLocked
+                      ? 'bg-slate-200/60 border-slate-300 grayscale opacity-70'
+                      : 'bg-slate-50 border-slate-200 group-hover:border-amber-400 group-hover:bg-amber-50/50 group-hover:scale-105'"
+                  >
                     <Icon :icon="tile.icon" class="w-7 h-7 drop-shadow-xs" />
                   </div>
-                  <span class="text-[9px] font-mono font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+
+                  <!-- Badge Upgrade vs Normal -->
+                  <span
+                    v-if="tile.isLocked"
+                    class="text-[9px] font-mono font-black text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs"
+                  >
+                    <Icon icon="fluent:sparkle-16-filled" class="w-3 h-3 text-amber-600" />
+                    Upgrade
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-mono font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200"
+                  >
                     {{ tile.badge }}
                   </span>
                 </div>
 
                 <!-- Tile Title & Description -->
-                <h3 class="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition flex items-center justify-between">
+                <h3
+                  class="text-sm font-bold transition flex items-center justify-between"
+                  :class="tile.isLocked ? 'text-slate-500' : 'text-slate-900 group-hover:text-emerald-700'"
+                >
                   <span>{{ tile.title }}</span>
-                  <ArrowUpRight class="w-4 h-4 opacity-0 group-hover:opacity-100 text-emerald-600 transition-opacity" />
+                  <ArrowUpRight
+                    v-if="!tile.isLocked"
+                    class="w-4 h-4 opacity-0 group-hover:opacity-100 text-emerald-600 transition-opacity"
+                  />
+                  <Icon
+                    v-else
+                    icon="fluent:lock-closed-16-filled"
+                    class="w-4 h-4 text-amber-600 shrink-0"
+                  />
                 </h3>
                 <p class="text-xs text-slate-500 mt-1 leading-relaxed">
                   {{ tile.desc }}
@@ -269,9 +386,18 @@ const hubSections = computed(() => {
               </div>
 
               <!-- Footer CTA -->
-              <div class="pt-3 mt-4 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 group-hover:text-slate-700 font-mono">
-                <span>Buka Modul</span>
-                <span class="font-bold text-emerald-700">&rarr;</span>
+              <div class="pt-3 mt-4 border-t border-slate-200 flex items-center justify-between text-[11px] font-mono">
+                <template v-if="tile.isLocked">
+                  <span class="text-amber-800 font-bold flex items-center gap-1">
+                    <Icon icon="fluent:lock-closed-16-filled" class="w-3.5 h-3.5 text-amber-600" />
+                    Perlu Upgrade Lisensi
+                  </span>
+                  <span class="font-bold text-amber-700">&rarr;</span>
+                </template>
+                <template v-else>
+                  <span class="text-slate-500 group-hover:text-slate-700">Buka Modul</span>
+                  <span class="font-bold text-emerald-700">&rarr;</span>
+                </template>
               </div>
             </div>
           </div>
