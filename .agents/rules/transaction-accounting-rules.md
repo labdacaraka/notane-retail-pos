@@ -22,18 +22,23 @@ You enforce a strict double-entry bookkeeping architecture (Standar Akuntansi Ke
      - Pembayaran Piutang & Pembayaran Utang
      - Pembagian Dividen & Penarikan Modal
 
-2. **Zero Hard Delete Policy (Immutability & Audit Trail):**
+2. **Zero Hard Delete & Standardized Void Policy (Immutability & Audit Trail):**
    - **TIDAK ADA istilah transaksi yang dihapus secara permanen dari database (`DELETE FROM ...` DILARANG KERAS untuk tabel transaksi finansial).**
-   - Setiap penghapusan transaksi harus dilakukan secara logika / soft-delete:
-     - Mengubah status transaksi menjadi dibatalkan: e.g., `status = 'CANCELLED'` atau `status = 'VOIDED'`.
-     - Menyimpan stempel waktu dan pelaku pembatalan: `cancelled_at = CURRENT_TIMESTAMP`, `cancelled_by = user_id`, dan `cancellation_reason = '...'`.
+   - Setiap penghapusan transaksi harus dilakukan secara logika / void terstandarisasi:
+     - Mengubah status transaksi menjadi dibatalkan: `status = 'VOID'`.
+     - Untuk tabel detail item (jika ada): `is_voided = TRUE`.
+     - Menggunakan relasi resmi ke tabel `reason_codes`: `void_reason_id = reason_codes.id` (bukan string bebas arbitrer).
+     - Menyimpan user yang mengotorisasi pembatalan: `void_authorized_by = user_id` (supervisor / kasir yang berwenang).
+     - Menyimpan jejak audit baku: `updated_by = user_id` dan `updated_at = CURRENT_TIMESTAMP`.
+     - Catatan opsional dimasukkan atau di-append ke kolom `notes`.
 
-3. **Mandatory Reversing Journal (Jurnal Pembalik untuk Pembatalan / Soft-Delete):**
-   - Saat transaksi dibatalkan (soft-delete), sistem **WAJIB menerbitkan Jurnal Pembalik (Reversing Entry)**:
-     - Dibuat entri baru pada `journal_entries` dengan `reference_type = 'REVERSAL_<ORIGINAL_TYPE>'` (misal: `REVERSAL_SALES`, `REVERSAL_PURCHASE`).
+3. **Mandatory Reversing Journal (Jurnal Pembalik untuk Void / Soft-Delete):**
+   - Saat transaksi dibatalkan (void), sistem **WAJIB menerbitkan Jurnal Pembalik (Reversing Entry)**:
+     - Dibuat entri baru pada `journal_entries` dengan `reference_type = 'REVERSAL_<ORIGINAL_TYPE>'` (misal: `REVERSAL_SALES`, `REVERSAL_PURCHASE`, `REVERSAL_EXPENSE`).
      - Seluruh akun Debit pada jurnal asli dibalik menjadi Kredit dengan nominal yang sama persis.
      - Seluruh akun Kredit pada jurnal asli dibalik menjadi Debit dengan nominal yang sama persis.
-     - Deskripsi mencantumkan nomor dokumen asal dan alasan pembatalan.
+     - Deskripsi mencantumkan nomor dokumen asal dan deskripsi alasan dari `reason_codes`:
+       `"Jurnal Pembalik: Void [Tipe] [Nomor Dokumen] - [Deskripsi Reason Code]"`
    - Dengan jurnal pembalik, saldo buku besar (ledger) dan neraca saldo kembali netral secara akurat tanpa menghapus jejak historis transaksi asal.
 
 4. **Update Transaksi Finansial (Two-Phase Reversal Pattern):**
@@ -129,19 +134,21 @@ Gunakan pemetaan Chart of Accounts (COA) resmi saat menyusun baris jurnal:
 
 ## 4. PROTOKOL IMPLEMENTASI BACKEND (RUST & TAURI)
 
-Setiap handler atau service transaksi backend **WAJIB** mengikuti template transaksi berikut:
+Setiap handler atau service transaksi backend **WAJIB** mengikuti template transaksi terstandarisasi berikut:
 
 ```rust
-// Standard Atomic Transaction with Reversing Journal Helper
-pub async fn cancel_transaction(
+// Standard Atomic Transaction with Reason Code & Reversing Journal Helper
+pub async fn void_transaction(
     pool: &PgPool,
     user_id: Uuid,
     transaction_id: Uuid,
-    reason: &str,
+    void_reason_id: Uuid,
+    supervisor_id: Option<Uuid>,
+    notes: Option<&str>,
 ) -> Result<(), String> {
     let mut tx = pool.begin().await.map_err(|e| format!("Database error: {}", e))?;
 
-    // 1. Ambil data transaksi & pastikan belum pernah dibatalkan
+    // 1. Ambil data transaksi & pastikan belum pernah di-void
     let trx = sqlx::query!(
         "SELECT id, invoice_number, status, transaction_date FROM sales WHERE id = $1 FOR UPDATE",
         transaction_id
@@ -150,8 +157,8 @@ pub async fn cancel_transaction(
     .await
     .map_err(|e| format!("Transaksi tidak ditemukan: {}", e))?;
 
-    if trx.status == "CANCELLED" || trx.status == "VOIDED" {
-        return Err("Transaksi sudah pernah dibatalkan sebelumnya".to_string());
+    if trx.status == "VOID" {
+        return Err("Transaksi sudah pernah dibatalkan (VOID) sebelumnya".to_string());
     }
 
     // 2. Proteksi Periode Akuntansi: Pastikan periode belum ditutup
@@ -166,27 +173,55 @@ pub async fn cancel_transaction(
     .unwrap_or(false);
 
     if is_period_closed {
-        return Err("Gagal membatalkan transaksi: Periode akuntansi untuk tanggal transaksi ini sudah ditutup".to_string());
+        return Err("Gagal void transaksi: Periode akuntansi untuk tanggal transaksi ini sudah ditutup".to_string());
     }
 
-    // 3. Soft-Delete Transaksi (DILARANG MENGGUNAKAN DELETE FROM)
+    // 3. Ambil deskripsi resmi alasan dari tabel reason_codes
+    let reason_desc: String = sqlx::query_scalar(
+        "SELECT description FROM reason_codes WHERE id = $1"
+    )
+    .bind(void_reason_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|e| format!("Database error fetching reason: {}", e))?
+    .unwrap_or_else(|| "Void Transaksi".to_string());
+
+    // 4. Soft-Delete Transaksi menggunakan Standar Penamaan Otoritatif (DILARANG DELETE FROM)
+    let void_notes = notes.map(|n| format!(" | Alasan Void: {}", n)).unwrap_or_default();
     sqlx::query(
         "UPDATE sales 
-         SET status = 'CANCELLED', 
-             cancelled_at = CURRENT_TIMESTAMP, 
-             cancelled_by = $2, 
-             cancellation_reason = $3,
-             updated_at = CURRENT_TIMESTAMP
+         SET status = 'VOID', 
+             notes = COALESCE(notes, '') || $2,
+             updated_at = CURRENT_TIMESTAMP,
+             updated_by = $3
          WHERE id = $1"
     )
     .bind(transaction_id)
+    .bind(&void_notes)
     .bind(user_id)
-    .bind(reason)
     .execute(&mut *tx)
     .await
-    .map_err(|e| format!("Gagal memperbarui status pembatalan: {}", e))?;
+    .map_err(|e| format!("Gagal memperbarui status nota void: {}", e))?;
 
-    // 4. Cari Jurnal Asli yang Terhubung dengan Transaksi Ini
+    // Update detail items jika transaksi memiliki baris item (misal: sale_items)
+    sqlx::query(
+        "UPDATE sale_items 
+         SET is_voided = TRUE, 
+             void_reason_id = $2, 
+             void_authorized_by = $3, 
+             updated_at = CURRENT_TIMESTAMP, 
+             updated_by = $4 
+         WHERE sale_id = $1"
+    )
+    .bind(transaction_id)
+    .bind(void_reason_id)
+    .bind(supervisor_id.unwrap_or(user_id))
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| format!("Gagal memperbarui status item void: {}", e))?;
+
+    // 5. Cari Jurnal Asli yang Terhubung dengan Transaksi Ini
     let original_journal = sqlx::query!(
         "SELECT id, total_debit, total_credit FROM journal_entries 
          WHERE reference_id = $1 AND reference_type = 'SALES'",
@@ -196,7 +231,7 @@ pub async fn cancel_transaction(
     .await
     .map_err(|e| format!("Gagal mencari jurnal transaksi asal: {}", e))?;
 
-    // 5. Buat Jurnal Pembalik (Reversing Entry) Jika Jurnal Asli Ditemukan
+    // 6. Buat Jurnal Pembalik (Reversing Entry) Jika Jurnal Asli Ditemukan
     if let Some(orig_jrn) = original_journal {
         let rev_journal_id = Uuid::new_v4();
         let rev_journal_number = format!("REV-{}", Uuid::new_v4().to_string()[..8].to_uppercase());
@@ -214,7 +249,7 @@ pub async fn cancel_transaction(
         .bind(rev_journal_id)
         .bind(&rev_journal_number)
         .bind(transaction_id)
-        .bind(format!("Jurnal Pembalik: Pembatalan Penjualan {} - Alasan: {}", trx.invoice_number, reason))
+        .bind(format!("Jurnal Pembalik: Void Penjualan {} - Alasan: {}", trx.invoice_number, reason_desc))
         .bind(orig_jrn.total_debit)
         .bind(orig_jrn.total_credit)
         .bind(user_id)
@@ -254,7 +289,7 @@ pub async fn cancel_transaction(
         }
     }
 
-    // 6. Kembalikan Stok Fisik (Mutasi Pemulihan) jika transaksi mempengaruhi persediaan
+    // 7. Kembalikan Stok Fisik (Mutasi Pemulihan) jika transaksi mempengaruhi persediaan
     // ...
 
     tx.commit().await.map_err(|e| format!("Gagal menyelesaikan transaksi: {}", e))?;
@@ -268,28 +303,32 @@ pub async fn cancel_transaction(
 
 1. **Larangan Tombol Hapus Fisik (No Hard Delete UI):**
    - Halaman daftar transaksi (Penjualan, Pembelian, Beban, dsb.) **TIDAK BOLEH** menyediakan tombol aksi yang bertuliskan "Hapus Permanen" atau ikon tempat sampah merah langsung menghapus baris.
-   - Gunakan tombol **"Batalkan Transaksi"** atau **"Void"** dengan dialog konfirmasi wajib.
+   - Gunakan tombol **"Void Transaksi"** dengan dialog konfirmasi terstandarisasi.
 
-2. **Dialog Wajib Alasan Pembatalan:**
-   - Dialog pembatalan transaksi wajib meminta input alasan pembatalan (`cancellation_reason`) dari pengguna minimal 5 karakter sebelum memicu IPC / API call.
+2. **Dialog Wajib Pilihan Alasan dari `reason_codes`:**
+   - Dialog void transaksi **WAJIB** memuat pilihan alasan dari tabel `reason_codes` (dropdown pilihan alasan resmi seperti *Salah Input Kasir*, *Pelanggan Batal*, *Kerusakan Sistem*, dsb.).
+   - Payload IPC / API harus mengirimkan `void_reason_id: string (UUID)`, bukan teks bebas acak.
+   - Jika memerlukan otorisasi manajer/supervisor, dialog harus memvalidasi PIN/password supervisor dan mengirimkan `supervisor_id` sebagai `void_authorized_by`.
 
-3. **Indikator Visual Transaksi Dibatalkan:**
-   - Baris transaksi yang berstatus `CANCELLED` atau `VOIDED` harus diberi gaya visual khusus:
+3. **Indikator Visual Transaksi Void:**
+   - Baris transaksi yang berstatus `VOID` harus diberi gaya visual khusus:
      - Teks dicoret (*line-through*) atau warna teks abu-abu (*slate-400*).
-     - Badge status berwarna merah atau abu-abu: `[Dibatalkan]` atau `[Void]`.
-     - Tombol aksi dibatalkan/void dinonaktifkan (`disabled`) sehingga tidak dapat dibatalkan ulang.
+     - Badge status: `[VOID]` berwarna merah marun atau abu-abu gelap dengan tooltip alasan resmi dari `reason_codes`.
+     - Tombol aksi void dinonaktifkan (`disabled`) sehingga tidak dapat di-void berulang kali.
 
 4. **Navigasi ke Jurnal Pembukuan Terkait:**
-   - Di modal rincian transaksi (Detail Penjualan, Detail Pembelian, Detail Retur), sertakan link atau tab **"Riwayat Jurnal Pembukuan"** yang menampilkan nomor jurnal asal dan jurnal pembalik (jika dibatalkan).
+   - Di modal rincian transaksi (Detail Penjualan, Detail Pembelian, Detail Retur), sertakan link atau tab **"Riwayat Jurnal Pembukuan"** yang menampilkan nomor jurnal asal dan jurnal pembalik (`REVERSAL_*`).
 
 ---
 
 ## 6. CHECKLIST VERIFIKASI SEBELUM SELESAI (AI AGENT PROTOCOL)
 
 Setiap kali menyelesaikan tugas yang berkaitan dengan penambahan atau pembaruan fitur transaksi:
-- [ ] Apakah operasi pembatalan menggunakan soft-delete (`status = 'CANCELLED'`), bukan hard-delete?
+- [ ] Apakah operasi pembatalan menggunakan standar void (`status = 'VOID'`), bukan hard-delete (`DELETE FROM`)?
+- [ ] Apakah kolom alasan mengacu pada relasi baku `void_reason_id` ke tabel `reason_codes`, dan otorisator ke `void_authorized_by`?
 - [ ] Apakah `journal_entries` dan `journal_lines` dibuat secara otomatis dan atomik dalam blok `tx.begin()`?
-- [ ] Apakah ada pembuatan Jurnal Pembalik saat pembatalan dilakukan dengan membalik posisi Debit dan Kredit?
+- [ ] Apakah ada pembuatan Jurnal Pembalik (`reference_type = 'REVERSAL_*'`) saat void dilakukan dengan membalik posisi Debit dan Kredit?
 - [ ] Apakah check constraint `total_debit == total_credit` terjamin seimbang di kedua jurnal (asli & pembalik)?
-- [ ] Apakah ada validasi periode akuntansi sebelum pembatalan/update diizinkan?
-- [ ] Apakah UI frontend menampilkan badge status pembatalan dan meminta input alasan pembatalan?
+- [ ] Apakah ada validasi periode akuntansi sebelum void/update diizinkan?
+- [ ] Apakah UI frontend menampilkan badge status `[VOID]` dan menggunakan dropdown `reason_codes` untuk pemilihan alasan?
+
