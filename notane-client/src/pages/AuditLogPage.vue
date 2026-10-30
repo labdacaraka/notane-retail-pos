@@ -50,7 +50,7 @@ const isCleaningUp = ref<boolean>(false)
 const entityList = [
   { value: 'all', label: 'Semua Modul' },
   { value: 'pos', label: 'Kasir & POS' },
-  { value: 'auth', label: 'Otentikasi & Akun' },
+  { value: 'auth', label: 'Login & Akun Pengguna' },
   { value: 'products', label: 'Master Produk' },
   { value: 'inventory', label: 'Inventori & Stok' },
   { value: 'vouchers', label: 'Voucher & Kuota' },
@@ -287,10 +287,10 @@ onUnmounted(() => {
         <div>
           <h2 class="text-xl md:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
             <Icon icon="streamline-ultimate-color:shield-check-1" class="w-7 h-7 drop-shadow-xs" />
-            <span>Jejak Audit Aktivitas & Keamanan (Audit Trail 360°)</span>
+            <span>Jejak Audit & Riwayat Aktivitas</span>
           </h2>
           <p class="text-xs text-slate-600 mt-1">
-            Intersepsi otomatis setiap request pengguna, pelacakan mutasi data, histori siapa & kapan akses fitur, serta retensi log otomatis.
+            Catatan riwayat perubahan data, aksi kasir & supervisor, serta aktivitas sistem toko.
           </p>
         </div>
 
@@ -402,13 +402,13 @@ onUnmounted(() => {
           <table class="w-full text-left text-xs border-collapse min-w-[950px]">
             <thead class="bg-slate-100/80 border-b border-slate-300 text-slate-700 font-mono text-[11px] uppercase tracking-wider">
               <tr>
-                <th class="py-3 px-4">Waktu & Durasi</th>
+                <th class="py-3 px-4">Waktu</th>
                 <th class="py-3 px-3">Metode & Status</th>
-                <th class="py-3 px-4">Aksi / Endpoint API</th>
+                <th class="py-3 px-4">Aktivitas</th>
                 <th class="py-3 px-3">Modul</th>
-                <th class="py-3 px-4">Pelaksana (Aktor)</th>
-                <th class="py-3 px-3">Terminal & IP</th>
-                <th class="py-3 px-3 text-center">Payload</th>
+                <th class="py-3 px-4">Pengguna</th>
+                <th class="py-3 px-3">Perangkat</th>
+                <th class="py-3 px-3 text-center">Rincian Data</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200">
@@ -639,7 +639,7 @@ onUnmounted(() => {
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
               <h4 class="font-bold text-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
-                Data yang Dikirim (Request Payload / Query)
+                Rincian Data yang Dikirim
               </h4>
               <button
                 v-if="selectedLog.log.new_values"
@@ -654,7 +654,7 @@ onUnmounted(() => {
 
             <div class="bg-slate-950 text-slate-200 rounded-xl p-3 font-mono text-[11px] overflow-x-auto max-h-56 border border-slate-800">
               <pre v-if="selectedLog.log.new_values">{{ JSON.stringify(selectedLog.log.new_values, null, 2) }}</pre>
-              <div v-else class="text-slate-500 italic">Tidak ada payload body pada request ini (GET atau empty body).</div>
+              <div v-else class="text-slate-500 italic">Tidak ada rincian data tambahan pada aktivitas ini.</div>
             </div>
           </div>
         </div>

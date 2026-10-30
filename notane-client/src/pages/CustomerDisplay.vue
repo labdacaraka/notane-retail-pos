@@ -190,7 +190,7 @@ onUnmounted(() => {
                   </h3>
                   <span
                     v-if="idx === 0"
-                    class="bg-emerald-500 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse"
+                    class="bg-emerald-500 text-slate-950 font-bold text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider"
                   >
                     Baru Dipindai
                   </span>

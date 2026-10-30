@@ -1,6 +1,6 @@
 [package]
 name = "notane-retail-pos"
-version = "1.5.8"
+version = "1.5.9"
 description = "Sistem POS Retail Enterprise"
 edition = "2021"
 default-run = "notane-retail-pos"

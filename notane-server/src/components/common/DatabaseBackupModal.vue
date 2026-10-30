@@ -128,23 +128,20 @@ function formatDate(iso: string) {
     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-fadeIn"
   >
     <div
-      class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-scaleUp"
+      class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-scaleUp"
     >
       <!-- Modal Header -->
-      <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+      <div class="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-2xl bg-indigo-100 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0">
             <Database class="w-5 h-5" />
           </div>
           <div>
-            <h3 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <span>Cadangan & Pemulihan Database</span>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold uppercase">
-                SQL Backup (.zip)
-              </span>
+            <h3 class="text-base font-bold text-slate-900 tracking-tight">
+              Cadangan & Pemulihan Database
             </h3>
             <p class="text-xs text-slate-500 mt-0.5">
-              Ekspor seluruh data SQL terenkapsulasi zip atau pulihkan ke komputer server ini.
+              Ekspor file cadangan database atau pulihkan data dari file .zip sebelumnya.
             </p>
           </div>
         </div>
@@ -239,15 +236,15 @@ function formatDate(iso: string) {
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
               <div class="bg-white/80 p-2.5 rounded-xl border border-indigo-100">
                 <span class="text-slate-400 block text-[10px]">Cakupan Data</span>
-                <span class="font-bold text-slate-800">100% Seluruh Tabel Toko</span>
+                <span class="font-bold text-slate-800">Semua Data Toko</span>
               </div>
               <div class="bg-white/80 p-2.5 rounded-xl border border-indigo-100">
                 <span class="text-slate-400 block text-[10px]">Tipe Berkas</span>
-                <span class="font-bold text-slate-800">ZIP (SQL + Manifest)</span>
+                <span class="font-bold text-slate-800">Arsip Cadangan (.zip)</span>
               </div>
               <div class="bg-white/80 p-2.5 rounded-xl border border-indigo-100">
-                <span class="text-slate-400 block text-[10px]">Integritas Data</span>
-                <span class="font-bold text-slate-800">SHA-256 Checksum</span>
+                <span class="text-slate-400 block text-[10px]">Keamanan File</span>
+                <span class="font-bold text-slate-800">Verifikasi Otomatis</span>
               </div>
             </div>
           </div>
@@ -299,27 +296,27 @@ function formatDate(iso: string) {
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1.5">
-              Catatan / Deskripsi Cadangan (Opsional)
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+              Catatan Cadangan (Opsional)
             </label>
             <textarea
               v-model="exportNotes"
               rows="2"
-              placeholder="Contoh: Cadangan data bulanan sebelum tutup buku periode Oktober 2026..."
-              class="w-full bg-slate-50 border border-slate-300 rounded-2xl p-3.5 text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+              placeholder="Contoh: Cadangan data bulanan periode Oktober 2026..."
+              class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-600 transition"
             ></textarea>
           </div>
 
-          <div class="pt-2">
+          <div class="pt-1">
             <button
               type="button"
               @click="handleExport"
               :disabled="backupStore.isExporting"
-              class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition active:scale-98 disabled:opacity-50 cursor-pointer shadow-md"
+              class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition active:scale-98 disabled:opacity-50 cursor-pointer shadow-xs"
             >
               <RefreshCw v-if="backupStore.isExporting" class="w-4 h-4 animate-spin" />
               <Download v-else class="w-4 h-4" />
-              <span>{{ backupStore.isExporting ? 'Memproses Ekspor Database...' : 'Unduh Berkas Cadangan Database (.zip)' }}</span>
+              <span>{{ backupStore.isExporting ? 'Mengekspor Database...' : 'Unduh Cadangan Database (.zip)' }}</span>
             </button>
           </div>
         </div>

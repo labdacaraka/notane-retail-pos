@@ -972,7 +972,7 @@ const isPreparingPrintData = ref<boolean>(false)
 
 const REPORT_METADATA: Record<string, { title: string; subtitle: string; periodLabel: string }> = {
   income: {
-    title: 'LAPORAN LABA RUGI KOMPREHENSIF',
+    title: 'LAPORAN LABA RUGI',
     subtitle: 'INCOME STATEMENT / PROFIT & LOSS REPORT',
     periodLabel: 'Periode Berjalan',
   },
@@ -982,7 +982,7 @@ const REPORT_METADATA: Record<string, { title: string; subtitle: string; periodL
     periodLabel: 'Posisi Per Tanggal',
   },
   journal: {
-    title: 'BUKU JURNAL UMUM DOUBLE-ENTRY',
+    title: 'BUKU JURNAL UMUM',
     subtitle: 'GENERAL LEDGER & GENERAL JOURNAL TRANSACTIONS',
     periodLabel: 'Periode Transaksi',
   },
@@ -2821,7 +2821,7 @@ onMounted(async () => {
             <div class="flex flex-wrap items-center justify-between border-b border-slate-200 pb-3 gap-3">
               <h3 class="font-black text-sm text-slate-900 flex items-center gap-2">
                 <TrendingUp class="w-4 h-4 text-emerald-600" />
-                <span>Rincian Laporan Laba Rugi Komprehensif</span>
+                <span>Rincian Laporan Laba Rugi</span>
               </h3>
               <div class="flex items-center gap-3">
                 <div class="text-xs text-slate-500 font-mono">
@@ -3290,7 +3290,7 @@ onMounted(async () => {
                 <strong>Penutupan Akun Nominal:</strong> Seluruh saldo akun Pendapatan (Revenue) dan Beban (Expenses/HPP) ditutup ke akun <em>Ikhtisar Laba Rugi</em>, dan selisih laba/rugi bersih otomatis dipindahkan ke akun <em>Laba Ditahan (Retained Earnings, 3201)</em> melalui jurnal penutup resmi.
               </li>
               <li>
-                <strong>Penguncian Transaksi Masa Lampau:</strong> Setelah periode ditutup buku, transaksi masa lampau pada periode tersebut <strong>dikunci permanen</strong> dan tidak dapat diubah/ditambah/dihapus oleh kasir maupun staf untuk menjaga integritas audit laporan keuangan.
+                <strong>Penguncian Transaksi:</strong> Setelah periode ditutup buku, transaksi pada periode tersebut <strong>dikunci permanen</strong> dan tidak dapat diubah atau dihapus agar laporan keuangan tetap akurat dan konsisten.
               </li>
               <li>
                 <strong>Penyesuaian Standar:</strong> Sesuai PSAK/SAK, penyesuaian untuk masa lampau yang sudah tutup buku wajib dicatat pada <em>periode berjalan terbuka</em> via <strong>Jurnal Penyesuaian Manual</strong> (Prior Period Adjustment), atau jika sangat mendesak dapat dilakukan <em>Buka Kembali Buku (Reopen)</em> dengan alasan audit tertulis.
@@ -4267,7 +4267,7 @@ onMounted(async () => {
             <div>
               <h4 class="font-bold text-emerald-900">Rekening Bank Penerimaan Operasional & Modal</h4>
               <p class="text-[11px] text-emerald-700 mt-0.5 leading-relaxed">
-                Kelola daftar rekening bank tujuan transfer transaksi pelanggan, pembayaran invoice, dan setoran modal usaha. Setiap rekening akan otomatis dipetakan ke akun Bagan Akun (COA 111x) tanpa merusak integritas akun sistem.
+                Kelola daftar rekening bank tujuan transfer transaksi pelanggan, pembayaran tagihan, dan setoran modal usaha. Setiap rekening akan langsung terhubung ke pencatatan kas & bank.
               </p>
             </div>
           </div>
@@ -6300,7 +6300,7 @@ onMounted(async () => {
                 <span v-else-if="coaForm.account_category_id === 4" class="text-sky-700 font-bold">4 - REVENUE (Pendapatan)</span>
                 <span v-else-if="coaForm.account_category_id === 5" class="text-rose-700 font-bold">5 - EXPENSE (Beban)</span>
               </div>
-              <p class="mt-1 text-[11px] text-slate-400">Kategori tidak dapat diubah untuk menjaga integritas jurnal.</p>
+              <p class="mt-1 text-[11px] text-slate-400">Kategori akun ini sudah terkunci dan tidak dapat diubah.</p>
             </div>
 
             <!-- Kode Akun + Nama -->

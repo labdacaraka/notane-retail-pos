@@ -189,7 +189,7 @@ async function handleDeleteVoucher(v: any) {
     const confirmed = await dialog.confirm({
       title: 'Hapus Permanen Voucher',
       message: `Apakah Anda yakin ingin menghapus permanen voucher "${v.code}"?`,
-      subMessage: 'Voucher ini belum pernah diklaim atau digunakan pada transaksi apapun dan akan dihapus sepenuhnya dari database.',
+      subMessage: 'Voucher ini belum pernah digunakan pada transaksi kasir dan akan dihapus dari sistem.',
       confirmText: 'Ya, Hapus Permanen',
       cancelText: 'Batal',
       type: 'danger',
@@ -207,7 +207,7 @@ async function handleDeleteVoucher(v: any) {
     const confirmed = await dialog.confirm({
       title: 'Nonaktifkan Voucher',
       message: `Voucher "${v.code}" telah digunakan dalam ${v.used_count} transaksi kasir.`,
-      subMessage: 'Voucher tidak dapat dihapus permanen demi menjaga integritas data riwayat transaksi. Status voucher akan diubah menjadi EXPIRED sehingga tidak bisa digunakan lagi di kasir POS.',
+      subMessage: 'Voucher ini sudah pernah digunakan dalam transaksi kasir, sehingga statusnya akan diubah menjadi Kedaluwarsa (Expired) agar tidak bisa dipakai lagi.',
       confirmText: 'Ya, Nonaktifkan (Expired)',
       cancelText: 'Batal',
       type: 'warning',

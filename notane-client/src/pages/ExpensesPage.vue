@@ -1018,16 +1018,16 @@ async function handleSaveCategory() {
         v-if="showCreateModal"
         class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
       >
-        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
           <!-- Modal Header -->
-          <div class="px-6 py-4 bg-gradient-to-r from-amber-600 via-amber-700 to-orange-700 text-white flex items-center justify-between shrink-0">
+          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
-              <div class="p-2.5 bg-white/20 rounded-2xl backdrop-blur-xs">
-                <Icon icon="streamline-ultimate-color:money-bag-dollar" class="w-6 h-6" />
+              <div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700">
+                <Icon icon="streamline:money-cash-bag-dollar-bag-payment-cash-money-finance" class="w-5 h-5 text-amber-400" />
               </div>
               <div>
-                <h3 class="text-base font-black tracking-tight">Catat Pengeluaran Toko</h3>
-                <p class="text-[11px] text-amber-100">Catat uang keluar operasional harian. Pembukuan & jurnal akuntansi diatur otomatis.</p>
+                <h3 class="text-base font-bold tracking-tight">Catat Pengeluaran Operasional</h3>
+                <p class="text-xs text-slate-400">Catat kas keluar dan beban operasional toko.</p>
               </div>
             </div>
             <button

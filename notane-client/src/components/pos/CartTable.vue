@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Trash2, Scale, Percent, AlertTriangle } from 'lucide-vue-next'
+import { Trash2, Scale, Percent, AlertTriangle, Zap, Gift, Tag } from 'lucide-vue-next'
 import { useCartStore } from '@/stores/cartStore'
 import { soundService } from '@/services/soundService'
 import { formatCurrency } from '@/utils/formatters'
@@ -97,10 +97,10 @@ function handleQuantityChange(index: number, val: number) {
             <div class="flex items-center gap-2">
               <span
                 v-if="item.is_flash_sale"
-                class="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 font-black shadow-2xs"
+                class="bg-amber-600 text-white px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 font-bold shadow-2xs"
                 title="Produk sedang masuk program Flash Sale"
               >
-                ⚡ Flash Sale
+                <Zap class="w-3 h-3" /> Flash Sale
               </span>
               <span
                 v-if="item.product.is_weight_embedded"
@@ -111,17 +111,19 @@ function handleQuantityChange(index: number, val: number) {
               </span>
               <span
                 v-if="item.is_auto_gift"
-                class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 font-black shadow-2xs"
+                class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 font-bold shadow-2xs"
                 :title="item.promo_name || 'Hadiah Promo Otomatis'"
               >
-                🎁 Hadiah Otomatis
+                <Gift class="w-3 h-3" /> Hadiah Promo
               </span>
               <span
                 v-else-if="item.is_free_item || (item.promo_discount || 0) > 0"
-                class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 font-black shadow-2xs"
+                class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 font-bold shadow-2xs"
                 :title="item.promo_name || 'Program Promosi Ritel'"
               >
-                {{ item.is_free_item ? '🎁 Gratis' : '🏷️ Promo' }}
+                <Gift v-if="item.is_free_item" class="w-3 h-3" />
+                <Tag v-else class="w-3 h-3" />
+                <span>{{ item.is_free_item ? 'Gratis' : 'Promo' }}</span>
               </span>
               <span class="font-bold text-slate-900 text-sm group-hover:text-emerald-800 transition">
                 {{ item.product.name }}

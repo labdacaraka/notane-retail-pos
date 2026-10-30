@@ -10,7 +10,6 @@ import {
   Check,
   ShieldCheck,
   AlertCircle,
-  Sparkles,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -79,7 +78,6 @@ async function copySignature() {
         <div>
           <h2 class="text-base font-bold text-white flex items-center gap-2">
             Aktivasi Lisensi Manual
-            <Sparkles class="w-4 h-4 text-brand-400" />
           </h2>
           <p class="text-xs text-slate-300 mt-1 leading-relaxed">
             Digunakan untuk komputer toko yang tidak terhubung ke internet. Masukkan nomor lisensi dan kode perangkat untuk menghasilkan kode aktivasi toko.

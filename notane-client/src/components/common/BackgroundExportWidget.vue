@@ -79,7 +79,7 @@ function goToSettings() {
       >
         <div
           v-if="exportStore.isWidgetOpen"
-          class="w-80 sm:w-96 bg-white border border-slate-300 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[500px] animate-in fade-in"
+          class="w-80 sm:w-96 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[500px] animate-in fade-in"
         >
           <!-- Title Bar -->
           <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
@@ -88,9 +88,9 @@ function goToSettings() {
                 <FileSpreadsheet class="w-4 h-4" />
               </div>
               <div class="text-xs font-bold leading-tight">
-                <div>Manajer Ekspor Latar Belakang</div>
+                <div>Antrean Ekspor Excel</div>
                 <div class="text-[10px] text-slate-400 font-normal">
-                  {{ exportStore.jobs.length }} berkas diekspor
+                  {{ exportStore.jobs.length }} berkas
                 </div>
               </div>
             </div>
@@ -118,14 +118,14 @@ function goToSettings() {
           </div>
 
           <!-- Banner Informasi Folder Tujuan Ekspor -->
-          <div class="px-3.5 py-2.5 bg-indigo-50/70 border-b border-indigo-100 text-xs flex items-center justify-between gap-2">
+          <div class="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200 text-xs flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
-              <Folder class="w-4 h-4 text-indigo-600 shrink-0" />
+              <Folder class="w-4 h-4 text-slate-600 shrink-0" />
               <div class="min-w-0">
-                <div class="text-[10px] text-indigo-900/70 font-bold uppercase tracking-wider">
-                  Direktori Ekspor:
+                <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  Folder Tujuan:
                 </div>
-                <div class="text-[11px] font-mono text-indigo-950 font-medium truncate" :title="activeExportFolder">
+                <div class="text-[11px] font-mono text-slate-800 font-medium truncate" :title="activeExportFolder">
                   {{ activeExportFolder }}
                 </div>
               </div>
@@ -136,16 +136,16 @@ function goToSettings() {
                 v-if="dirStore.isTauri"
                 type="button"
                 @click="handleOpenFolder()"
-                class="px-2 py-1 rounded-lg bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                class="px-2 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition shadow-2xs"
                 title="Buka Folder di Finder / Explorer"
               >
-                <FolderOpen class="w-3.5 h-3.5 text-indigo-600" />
+                <FolderOpen class="w-3.5 h-3.5 text-slate-600" />
                 <span>Buka</span>
               </button>
               <button
                 type="button"
                 @click="goToSettings"
-                class="p-1 rounded-lg text-slate-400 hover:text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
+                class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer"
                 title="Atur Direktori Penyimpanan"
               >
                 <Settings class="w-3.5 h-3.5" />
@@ -261,11 +261,11 @@ function goToSettings() {
       <button
         type="button"
         @click="exportStore.isWidgetOpen = !exportStore.isWidgetOpen"
-        class="flex items-center gap-2 px-3.5 py-2 rounded-2xl shadow-xl border transition-all cursor-pointer group"
+        class="flex items-center gap-2 px-3.5 py-2 rounded-xl shadow-lg border transition cursor-pointer"
         :class="[
           activeProcessingJobs.length > 0
-            ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 animate-pulse'
-            : 'bg-slate-900 hover:bg-slate-800 text-white border-slate-700 hover:scale-105',
+            ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700'
+            : 'bg-slate-900 hover:bg-slate-800 text-white border-slate-700',
         ]"
       >
         <div class="relative">

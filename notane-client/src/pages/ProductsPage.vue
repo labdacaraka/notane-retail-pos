@@ -947,10 +947,10 @@ onUnmounted(() => {
             v-if="authStore.hasPermission(['products:import', 'master:write'])"
             @click="showImportModal = true"
             class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-2 transition active:scale-95 border border-purple-700 cursor-pointer"
-            title="Import data produk massal dari Excel/CSV, deteksi foto otomatis, harga outlet & member"
+            title="Import data produk massal dari Excel/CSV, harga outlet & member"
           >
             <Icon icon="streamline-ultimate-color:common-file-upload" class="w-4 h-4" />
-            <span>Import Produk Canggih</span>
+            <span>Impor Excel</span>
           </button>
 
           <button

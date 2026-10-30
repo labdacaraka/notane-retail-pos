@@ -334,17 +334,17 @@ function toggleOpenDrawer() {
           <div class="bg-amber-50/80 border border-amber-200 rounded-lg p-3 text-[11px] text-amber-900 space-y-1">
             <div class="font-bold flex items-center gap-1 text-amber-800">
               <Icon icon="fluent-color:warning-24" class="w-3.5 h-3.5" />
-              <span>Printer terbaca "Unsupported Device" atau Tidak Muncul?</span>
+              <span>Printer Tidak Muncul atau Gagal Terhubung?</span>
             </div>
             <ul class="list-disc list-inside space-y-0.5 text-slate-700 pl-0.5">
               <li>
-                <strong>BLE vs Bluetooth Classic:</strong> Browser (Chrome/Edge) menggunakan <em>Web Bluetooth (BLE)</em>. Printer model lama hanya mendukung <em>Bluetooth Classic SPP (RFCOMM)</em> sehingga browser menandainya sebagai <em>unsupported</em>.
+                <strong>Tipe Bluetooth:</strong> Peramban web hanya mendukung Bluetooth hemat energi (BLE). Sebagian printer thermal model lama menggunakan Bluetooth biasa (Classic).
               </li>
               <li>
-                <strong>Solusi Printer Classic SPP:</strong> Gunakan tab <strong>Kabel USB / Serial</strong> di atas, atau sambungkan via USB ke komputer/laptop. Port Serial mendukung 100% semua printer thermal tanpa batasan protokol BLE.
+                <strong>Solusi Alternatif:</strong> Sambungkan printer menggunakan tab <strong>Kabel USB / Serial</strong> di atas. Jalur USB/Serial dapat langsung mendeteksi printer thermal tanpa kendala Bluetooth.
               </li>
               <li>
-                <strong>Sudah Dipasangkan (Paired) di OS:</strong> Putuskan koneksi dari aplikasi lain (misal Android/laptop lain) karena printer thermal bluetooth hanya bisa melayani 1 perangkat aktif dalam satu waktu.
+                <strong>Koneksi Terbagi:</strong> Pastikan printer tidak sedang tersambung ke perangkat atau aplikasi lain, karena printer bluetooth umumnya hanya bisa melayani 1 perangkat aktif.
               </li>
             </ul>
           </div>

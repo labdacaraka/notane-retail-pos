@@ -159,7 +159,7 @@ const getRoleLabel = (type: string) => {
           <span>Lisensi & Pembaruan</span>
           <span
             v-if="licenseStore.updateInfo?.has_update"
-            class="px-1.5 py-0.2 bg-emerald-500 text-white text-[9px] rounded-full font-black animate-pulse"
+            class="px-1.5 py-0.5 bg-emerald-600 text-white text-[9px] rounded-full font-bold"
           >
             Ada Pembaruan
           </span>

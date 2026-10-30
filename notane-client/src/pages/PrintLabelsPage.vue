@@ -818,20 +818,15 @@ async function handlePrintLabels() {
     <!-- Header Page Toolbar (Non-Printable) -->
     <div class="no-print space-y-4 mb-5">
       <!-- Title & Main Control Bar -->
-      <div class="bg-white border border-slate-300 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="bg-white border border-slate-300 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div class="flex items-center gap-3.5">
-          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shadow-sm shrink-0">
+          <div class="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
             <Icon icon="streamline-ultimate-color:tags-1" class="w-7 h-7" />
           </div>
           <div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-black text-slate-900 tracking-tight">Cetak Label Harga Produk</h2>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-                Multi-Outlet Price Sync
-              </span>
-            </div>
+            <h2 class="text-lg font-bold text-slate-900 tracking-tight">Cetak Label Harga Produk</h2>
             <p class="text-xs text-slate-500 mt-0.5">
-              Cetak label harga rak display dan sticker barcode kemasan secara masal dengan sinkronisasi harga terkini outlet.
+              Cetak label harga rak display dan stiker barcode kemasan sesuai harga aktif cabang outlet.
             </p>
           </div>
         </div>
@@ -889,16 +884,16 @@ async function handlePrintLabels() {
       </div>
 
       <!-- Pemilihan Outlet & Info Sinkronisasi Harga -->
-      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+          <div class="w-9 h-9 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
             <Building2 class="w-5 h-5" />
           </div>
           <div>
-            <div class="font-bold text-blue-950 flex items-center gap-1.5">
+            <div class="font-bold text-slate-800 flex items-center gap-1.5">
               <span>Pilih Target Outlet / Cabang:</span>
             </div>
-            <p class="text-[11px] text-blue-700 mt-0.5">
+            <p class="text-[11px] text-slate-500 mt-0.5">
               Harga jual produk yang tercetak pada label otomatis mencocokkan harga aktif pada outlet ini.
             </p>
           </div>
@@ -907,7 +902,7 @@ async function handlePrintLabels() {
         <div class="flex items-center gap-2 shrink-0">
           <select
             v-model="selectedOutletId"
-            class="px-3 py-2 rounded-xl border border-blue-300 bg-white font-bold text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+            class="px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-xs text-slate-800 focus:outline-none focus:border-slate-500 shadow-2xs"
           >
             <option v-for="out in outlets" :key="out.id" :value="out.id">
               {{ out.name }} ({{ out.code }})

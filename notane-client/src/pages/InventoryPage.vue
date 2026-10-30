@@ -1499,14 +1499,14 @@ onUnmounted(() => {
       >
         <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh]">
           <!-- Modal Header -->
-          <div class="px-6 py-4 bg-gradient-to-r from-emerald-800 to-teal-800 text-white flex items-center justify-between">
+          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-xl bg-white/10 border border-white/20">
-                <Icon icon="fluent-color:arrow-sync-24" class="w-6 h-6" />
+              <div class="p-2 rounded-xl bg-slate-800 border border-slate-700">
+                <Icon icon="fluent:arrow-sync-24-regular" class="w-6 h-6 text-emerald-400" />
               </div>
               <div>
-                <h3 class="font-extrabold text-base">Buat Formulir Transfer Stok Antar Outlet</h3>
-                <p class="text-emerald-100 text-xs mt-0.5">Memindahkan persediaan fisik antar cabang/gudang dan otomatis menjurnal akun CoA masing-masing.</p>
+                <h3 class="font-bold text-base">Transfer Stok Antar Outlet</h3>
+                <p class="text-slate-400 text-xs mt-0.5">Pindahkan stok fisik ke cabang/gudang lain dan perbarui pencatatan persediaan.</p>
               </div>
             </div>
             <button
@@ -1868,15 +1868,15 @@ onUnmounted(() => {
       >
         <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
           <!-- Modal Header -->
-          <div class="px-6 py-4 bg-gradient-to-r from-emerald-800 to-teal-800 text-white flex items-center justify-between">
+          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-xl bg-white/10 border border-white/20">
-                <PackageCheck class="w-6 h-6 text-emerald-300" />
+              <div class="p-2 rounded-xl bg-slate-800 border border-slate-700">
+                <PackageCheck class="w-6 h-6 text-emerald-400" />
               </div>
               <div>
-                <h3 class="font-extrabold text-base">Penerimaan & Verifikasi Fisik Barang Transfer</h3>
-                <p class="text-emerald-100 text-xs mt-0.5">
-                  Verifikasi kuantitas fisik barang yang tiba di outlet tujuan sebelum dimasukkan ke stok.
+                <h3 class="font-bold text-base">Penerimaan Barang Transfer</h3>
+                <p class="text-slate-400 text-xs mt-0.5">
+                  Verifikasi fisik kuantitas barang yang tiba sebelum masuk ke stok outlet tujuan.
                 </p>
               </div>
             </div>

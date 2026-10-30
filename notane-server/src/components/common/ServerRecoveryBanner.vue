@@ -91,22 +91,22 @@ onUnmounted(() => {
     >
       <div
         v-if="isDisconnected"
-        class="pointer-events-auto bg-gradient-to-r from-rose-700 via-rose-600 to-amber-600 text-white px-4 py-2.5 shadow-xl border-b-2 border-rose-800"
+        class="pointer-events-auto bg-rose-800 text-white px-4 py-2.5 shadow-xl border-b border-rose-950"
       >
         <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 animate-pulse">
+            <div class="w-8 h-8 rounded-lg bg-rose-900 flex items-center justify-center shrink-0">
               <WifiOff class="w-4 h-4 text-white" />
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <span class="text-xs font-black tracking-wide uppercase bg-rose-900/60 px-2 py-0.5 rounded text-rose-100 font-mono">
-                  Mode Siaga Darurat
+                <span class="text-xs font-bold tracking-wide uppercase bg-rose-950/80 px-2 py-0.5 rounded text-rose-200 font-mono">
+                  Koneksi Terputus
                 </span>
-                <h4 class="text-xs font-bold text-white">Koneksi ke Pusat Data Terputus</h4>
+                <h4 class="text-xs font-bold text-white">Terputus dari Server Toko</h4>
               </div>
               <p class="text-[11px] text-rose-100/90 mt-0.5">
-                Jangan panik. Sistem kasir sedang mencoba menyambung kembali otomatis dalam <strong class="font-mono text-amber-200">{{ countdown }} detik</strong>...
+                Mencoba menyambung ulang otomatis dalam <strong class="font-mono text-amber-200">{{ countdown }} detik</strong>...
               </p>
             </div>
           </div>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import { Percent, Tag, X, Check } from 'lucide-vue-next'
+import { Percent, Tag, X, Check, Zap } from 'lucide-vue-next'
 import { formatCurrency, formatQty } from '@/utils/formatters'
 import type { CartItem } from '@/types'
 
@@ -108,7 +108,7 @@ function handleKeyDown(e: KeyboardEvent) {
         aria-modal="true"
       >
         <!-- Modal Header -->
-        <div class="px-5 py-3.5 bg-gradient-to-r from-amber-600 to-amber-700 flex items-center justify-between text-white shadow-xs">
+        <div class="px-5 py-3.5 bg-amber-700 flex items-center justify-between text-white shadow-xs">
           <div class="flex items-center gap-2 font-bold text-sm">
             <Tag class="w-4 h-4 text-amber-200" />
             <span>Atur Diskon Kasir / Item</span>
@@ -142,9 +142,9 @@ function handleKeyDown(e: KeyboardEvent) {
             <!-- Flash Sale Program Info Alert -->
             <div
               v-if="item.is_flash_sale || (item.flash_sale_discount || 0) > 0"
-              class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300/80 rounded-lg p-2.5 flex items-start gap-2 text-xs"
+              class="bg-amber-50 border border-amber-300 rounded-lg p-2.5 flex items-start gap-2 text-xs"
             >
-              <span class="text-base leading-none">⚡</span>
+              <Zap class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div class="flex-1 min-w-0">
                 <div class="font-bold text-amber-900 flex items-center gap-1.5">
                   <span>Program Flash Sale Aktif</span>

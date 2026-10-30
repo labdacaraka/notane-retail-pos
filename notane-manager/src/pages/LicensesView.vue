@@ -29,6 +29,7 @@ import {
   Sparkles,
   Cpu,
   Unlink,
+  Shield,
 } from 'lucide-vue-next'
 import { z } from 'zod'
 
@@ -850,14 +851,14 @@ async function confirmDelete(lic: License) {
               </label>
             </div>
             <p v-if="form.features.includes('remove_branding')" class="mt-2 text-[11px] text-purple-300/90 bg-purple-950/40 border border-purple-500/30 p-2.5 rounded-xl flex items-start gap-2">
-              <Sparkles class="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-              <span><strong>Mode White-Label:</strong> Seluruh logo, identitas visual, dan atribusi "Notane Retail POS" akan dihapus secara total dari aplikasi kasir client, customer display, dan back-office.</span>
+              <Shield class="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+              <span><strong>White-Label:</strong> Menghilangkan logo dan atribusi Notane dari aplikasi kasir, layar pelanggan, dan back-office.</span>
             </p>
           </div>
 
           <!-- Custom License Key (Optional) -->
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Custom License Key (Opsional, kosongkan untuk auto-generate)</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Nomor Lisensi Kustom (Opsional, kosongkan jika ingin dibuat otomatis)</label>
             <input
               v-model="form.custom_key"
               type="text"

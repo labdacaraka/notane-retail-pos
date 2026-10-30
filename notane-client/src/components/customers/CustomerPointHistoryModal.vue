@@ -186,9 +186,9 @@ function formatDate(isoStr: string) {
       class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
     >
       <!-- HEADER -->
-      <div class="px-6 py-4 border-b border-slate-200 bg-linear-to-r from-amber-500/10 via-amber-500/5 to-transparent flex items-center justify-between">
+      <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20">
+          <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
             <Coins class="w-5 h-5" />
           </div>
           <div>

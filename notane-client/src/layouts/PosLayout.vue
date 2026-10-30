@@ -148,10 +148,10 @@ onUnmounted(() => {
     <!-- Impersonation Active Banner -->
     <div
       v-if="authStore.isImpersonating"
-      class="bg-gradient-to-r from-purple-800 via-indigo-800 to-purple-900 text-white px-4 py-2 flex items-center justify-between shadow-md z-40 text-xs shrink-0 border-b border-purple-950"
+      class="bg-purple-950 text-white px-4 py-2 flex items-center justify-between shadow-md z-40 text-xs shrink-0 border-b border-purple-900"
     >
       <div class="flex items-center gap-2.5 font-medium">
-        <span class="p-1 rounded-md bg-purple-600/60 border border-purple-400/40 text-white animate-pulse">
+        <span class="p-1 rounded-md bg-purple-800 text-white">
           <Icon icon="fluent-color:people-sync-24" class="w-4 h-4" />
         </span>
         <span>
@@ -232,7 +232,7 @@ onUnmounted(() => {
               <span
                 class="w-2 h-2 rounded-full"
                 :class="{
-                  'bg-emerald-500 animate-pulse': networkStore.connectionStatus === 'CONNECTED',
+                  'bg-emerald-500': networkStore.connectionStatus === 'CONNECTED',
                   'bg-rose-500': networkStore.connectionStatus === 'DISCONNECTED' || networkStore.connectionStatus === 'ERROR',
                   'bg-amber-500 animate-ping': networkStore.connectionStatus === 'CONNECTING'
                 }"

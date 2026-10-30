@@ -90,19 +90,19 @@ async function handleApplyUpdate() {
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
       
       <!-- Modal Header -->
-      <div class="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between">
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/20">
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
             <ShieldCheck class="w-5 h-5 text-emerald-400" />
           </div>
           <div>
-            <h3 class="font-extrabold text-base tracking-tight flex items-center gap-2">
-              <span>Pusat Lisensi & Pembaruan Sistem</span>
+            <h3 class="font-bold text-base tracking-tight flex items-center gap-2">
+              <span>Lisensi & Pembaruan Sistem</span>
               <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">
                 v{{ licenseStore.versionInfo.version }}
               </span>
             </h3>
-            <p class="text-xs text-slate-300">
+            <p class="text-xs text-slate-400">
               Informasi lisensi toko dan status pembaruan
             </p>
           </div>
@@ -360,12 +360,12 @@ async function handleApplyUpdate() {
               <span>Aktivasi / Perbarui Sertifikat Lisensi</span>
             </div>
             <p class="text-[11px] text-slate-500">
-              Tempelkan Payload Token dan Signature kriptografi Ed25519 yang diberikan oleh Provider Notane Retail POS:
+              Masukkan Kode Lisensi dan Kunci Tanda Tangan yang diberikan oleh tim Notane:
             </p>
 
             <div class="space-y-2">
               <div>
-                <label class="block text-[10px] font-bold text-slate-600 mb-1">Payload Token Lisensi (JSON)</label>
+                <label class="block text-[10px] font-bold text-slate-600 mb-1">Kode Lisensi (JSON / Teks)</label>
                 <textarea
                   v-model="tokenInput"
                   rows="2"
@@ -375,7 +375,7 @@ async function handleApplyUpdate() {
               </div>
 
               <div>
-                <label class="block text-[10px] font-bold text-slate-600 mb-1">Signature Kriptografi (Ed25519 Hex)</label>
+                <label class="block text-[10px] font-bold text-slate-600 mb-1">Kunci Tanda Tangan Lisensi (Signature Hex)</label>
                 <input
                   v-model="signatureInput"
                   type="text"

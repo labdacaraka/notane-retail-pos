@@ -122,7 +122,7 @@ const hubSections = computed(() => {
         },
         {
           title: 'Parameter Retail',
-          desc: 'Satuan UoM pecahan/desimal, kategori barang, merek & distributor',
+          desc: 'Satuan barang (termasuk desimal/timbangan), kategori, merek & distributor',
           icon: 'fluent-color:settings-24',
           path: '/admin/parameters',
           color: 'from-teal-400 to-emerald-600',
@@ -136,38 +136,38 @@ const hubSections = computed(() => {
       tiles: [
         {
           title: 'Transaksi Penjualan',
-          desc: 'Rekapitulasi penjualan kasir, riwayat faktur POS, cetak ulang struk thermal & void',
+          desc: 'Riwayat penjualan kasir, cetak ulang struk, dan pembatalan nota (void)',
           icon: 'fluent-color:receipt-24',
           path: '/admin/sales',
           color: 'from-amber-400 to-amber-600',
-          badge: 'Sales Audit',
+          badge: 'Penjualan',
           permission: ['sales:read', 'report:view'],
         },
         {
           title: 'Pengadaan & Pembelian',
-          desc: 'Penerimaan faktur masuk (GRN), tagihan hutang supplier, PO & data pemasok',
+          desc: 'Penerimaan barang masuk, tagihan supplier, pesanan pembelian & data pemasok',
           icon: 'streamline-ultimate-color:delivery-truck-cargo',
           path: '/admin/purchases',
           color: 'from-blue-500 to-indigo-600',
-          badge: 'Procurement',
+          badge: 'Pembelian',
           permission: ['purchasing:read', 'purchasing:write'],
         },
         {
           title: 'Layar Kasir POS',
-          desc: 'Buka terminal register kasir penjualan keyboard-driven F1-F12',
+          desc: 'Buka transaksi kasir penjualan POS',
           icon: 'streamline-ultimate-color:shopping-cart-full',
           path: '/',
           color: 'from-emerald-400 to-teal-600',
-          badge: 'Front-Office POS',
+          badge: 'Kasir',
           permission: ['sales:create', 'pos:checkout'],
         },
         {
           title: 'Stok & Stock Opname',
-          desc: 'Kartu stok, mutasi gudang, stock opname fisik & penyesuaian selisih',
+          desc: 'Kartu stok, mutasi gudang, opname fisik barang & penyesuaian selisih',
           icon: 'streamline-ultimate-color:warehouse-storage-2',
           path: '/admin/inventory',
           color: 'from-orange-500 to-amber-600',
-          badge: 'Warehouse & Opname',
+          badge: 'Gudang',
           permission: ['inventory:read', 'inventory:write'],
         },
         {
@@ -200,7 +200,7 @@ const hubSections = computed(() => {
           icon: 'fluent-color:document-text-24',
           path: '/admin/receipt-settings',
           color: 'from-purple-500 to-indigo-600',
-          badge: 'Thermal Receipt',
+          badge: 'Struk Kasir',
           permission: ['settings:read', 'settings:update', 'settings:manage'],
         },
       ],
@@ -210,30 +210,30 @@ const hubSections = computed(() => {
       tiles: [
         {
           title: 'Pengguna & Hak Akses',
-          desc: 'Manajemen akun staf, assignment role, dan konfigurasi matriks hak akses RBAC per modul',
+          desc: 'Kelola akun staf kasir, peran jabatan, dan izin akses fitur',
           icon: 'fluent-color:lock-shield-24',
           path: '/admin/users',
           color: 'from-indigo-500 to-purple-700',
-          badge: 'RBAC Security',
+          badge: 'Hak Akses',
           permission: ['users:read', 'users:manage'],
         },
         {
           title: 'Jurnal & Laba Rugi',
-          desc: 'Buku jurnal umum double-entry & laporan laba rugi real-time',
+          desc: 'Buku jurnal umum dan laporan laba rugi toko',
           icon: 'streamline-ultimate-color:accounting-calculator-1',
           path: '/admin/accounting',
           color: 'from-emerald-500 to-teal-700',
-          badge: 'Accounting Ledger',
+          badge: 'Akuntansi',
           permission: ['accounting:read', 'accounting:write'],
           requiredFeature: 'accounting',
         },
         {
-          title: 'Jejak Audit 360°',
-          desc: 'Perekaman log audit keamanan, otorisasi supervisor & aktivitas sistem',
+          title: 'Jejak Audit',
+          desc: 'Riwayat aktivitas kasir, izin supervisor, dan log sistem',
           icon: 'fluent-color:shield-checkmark-24',
           path: '/admin/audit-logs',
           color: 'from-slate-600 to-slate-800',
-          badge: 'Security Logs',
+          badge: 'Jejak Audit',
           permission: ['audit:read', 'report:view'],
           requiredFeature: 'audit_log',
         },
@@ -285,7 +285,7 @@ const hubSections = computed(() => {
           <div class="space-y-1">
             <div class="flex items-center gap-2 text-emerald-700 text-xs font-mono font-bold uppercase tracking-wider">
               <Icon icon="streamline-ultimate-color:shop-sign-bag" class="w-4 h-4" />
-              <span>Pusat Kendali Back-Office ERP</span>
+              <span>Menu Administrasi & Pengaturan</span>
             </div>
             <h1 class="text-2xl font-black text-slate-900 tracking-tight">
               <template v-if="storeBrandingStore.removeBranding">
@@ -296,7 +296,7 @@ const hubSections = computed(() => {
               </template>
             </h1>
             <p class="text-xs text-slate-600 max-w-xl">
-              Pilih modul navigasi di bawah ini untuk mengelola master data produk, member pelanggan, kupon promosi diskon, stok gudang, pembukuan akuntansi, dan audit trail.
+              Pilih menu di bawah ini untuk mengelola data produk, member pelanggan, kupon promosi, stok gudang, pembukuan akuntansi, dan jejak audit.
             </p>
           </div>
         </div>
@@ -306,7 +306,7 @@ const hubSections = computed(() => {
           class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-sm flex items-center gap-2.5 transition active:scale-95 border border-emerald-700 cursor-pointer"
         >
           <Icon icon="streamline-ultimate-color:shopping-cart-full" class="w-5 h-5" />
-          <span>Luncurkan Kasir POS (F1)</span>
+          <span>Buka Kasir POS (F1)</span>
           <ArrowUpRight class="w-4 h-4" />
         </button>
       </div>

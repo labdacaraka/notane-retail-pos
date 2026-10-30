@@ -115,14 +115,14 @@ onMounted(() => {
   <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
       <!-- Header -->
-      <div class="px-6 py-4 bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white flex items-center justify-between">
+      <div class="px-6 py-4 bg-amber-700 text-white flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
             <Icon icon="fluent:vault-24-filled" class="text-2xl" />
           </div>
           <div>
-            <h2 class="text-lg font-black tracking-wide">Setor Kas Laci (Cash Drop / Pick Up)</h2>
-            <p class="text-xs text-amber-100">Amankan uang kas berlebih ke brankas/supervisor toko</p>
+            <h2 class="text-lg font-bold tracking-wide">Setor Kas Laci (Cash Drop)</h2>
+            <p class="text-xs text-amber-100">Pindahkan uang kas berlebih dari laci ke brankas/supervisor</p>
           </div>
         </div>
         <button @click="closeModal" class="p-2 rounded-lg hover:bg-white/20 transition-colors text-white">
@@ -151,11 +151,11 @@ onMounted(() => {
         </div>
 
         <!-- Warning Limit Banner -->
-        <div v-if="summary?.should_drop" class="p-3.5 bg-amber-50 border-2 border-amber-400 rounded-xl flex items-start gap-3 text-xs text-amber-950 animate-pulse">
+        <div v-if="summary?.should_drop" class="p-3.5 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3 text-xs text-amber-950">
           <Icon icon="fluent:warning-24-filled" class="text-2xl text-amber-600 shrink-0" />
           <div>
-            <b class="text-amber-900 block text-sm">Peringatan: Kas Laci Telah Melampaui Batas!</b>
-            Uang fisik di laci saat ini ({{ formatRupiah(summary.current_drawer_cash) }}) telah melewati batas keamanan kasir ({{ formatRupiah(summary.max_drawer_limit) }}). Segera lakukan penyetoran ke supervisor untuk menjaga keamanan kas.
+            <b class="text-amber-900 block text-sm">Kas Laci Melebihi Batas</b>
+            Uang fisik di laci saat ini ({{ formatRupiah(summary.current_drawer_cash) }}) telah melewati batas keamanan kasir ({{ formatRupiah(summary.max_drawer_limit) }}). Lakukan penyetoran ke supervisor untuk menjaga keamanan kas.
           </div>
         </div>
 

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import {
-  Sparkles,
   Store,
   Building2,
   Database,
@@ -19,6 +18,8 @@ import {
   ShoppingBag,
   Check,
   RefreshCw,
+  Info,
+  FastForward,
 } from 'lucide-vue-next'
 import { useInitialSetupStore } from '@/stores/initialSetupStore'
 import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
@@ -240,21 +241,14 @@ async function handleSkipWithDefaults() {
       <div class="px-8 pt-7 pb-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
         <div class="flex items-center gap-3.5">
           <div
-            class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20"
+            class="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs"
           >
-            <Sparkles class="w-6 h-6 animate-pulse" />
+            <Store class="w-6 h-6" />
           </div>
           <div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-xl font-black text-slate-900 tracking-tight">Setup Awal Toko & Server</h2>
-              <span
-                class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 font-mono"
-              >
-                Initial Wizard
-              </span>
-            </div>
+            <h2 class="text-lg font-bold text-slate-900 tracking-tight">Setup Toko & Server</h2>
             <p class="text-xs text-slate-500 font-medium mt-0.5">
-              Panduan konfigurasi wajib untuk memulai sistem Notane Retail POS
+              Panduan konfigurasi awal untuk memulai sistem kasir Notane
             </p>
           </div>
         </div>
@@ -534,10 +528,10 @@ async function handleSkipWithDefaults() {
                 />
               </div>
 
-              <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900 flex items-start gap-2.5">
-                <Sparkles class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-start gap-2.5">
+                <Info class="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                 <p class="leading-relaxed">
-                  Nama dan slogan toko akan otomatis disinkronkan ke seluruh komputer kasir (LAN Client) secara real-time.
+                  Nama dan slogan toko akan otomatis disinkronkan ke seluruh komputer kasir (LAN Client).
                 </p>
               </div>
             </div>
@@ -552,7 +546,7 @@ async function handleSkipWithDefaults() {
               2. Cabang Utama & Kontak Lokasi Toko
             </h3>
             <p class="text-xs text-slate-500 mt-0.5">
-              Notane mendukung multi-cabang. Di sini kita menentukan identitas cabang pusat (Headquarter) pertama Anda.
+              Tentukan nama dan informasi cabang utama toko Anda.
             </p>
           </div>
 
@@ -635,7 +629,7 @@ async function handleSkipWithDefaults() {
               3. Inisialisasi Database: Data Bersih vs Data Contoh
             </h3>
             <p class="text-xs text-slate-500 mt-0.5">
-              Tentukan apakah Anda ingin memulai toko dengan database kosong bersih atau menyertakan data contoh demo.
+              Pilih apakah Anda ingin memulai dengan data kosong atau menyertakan contoh produk.
             </p>
           </div>
 
@@ -663,7 +657,7 @@ async function handleSkipWithDefaults() {
                 <div>
                   <h4 class="text-sm font-black text-slate-900">Database Bersih (Siap Jualan)</h4>
                   <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Menghapus seluruh produk dummy/contoh. Sistem akan bersih sehingga Anda siap menginput produk dan barcode asli toko Anda.
+                    Sistem siap untuk diisi produk dan barcode toko Anda secara langsung.
                   </p>
                 </div>
 
@@ -760,7 +754,7 @@ async function handleSkipWithDefaults() {
               4. Akun Administrator & Keamanan Jaringan
             </h3>
             <p class="text-xs text-slate-500 mt-0.5">
-              Atur kredensial akun pemilik toko dan kode rahasia pairing untuk menghubungkan komputer kasir.
+              Atur akun pemilik toko dan kode pairing untuk menghubungkan komputer kasir.
             </p>
           </div>
 
@@ -824,7 +818,7 @@ async function handleSkipWithDefaults() {
                   v-model="form.supervisor_pin"
                   type="password"
                   maxlength="6"
-                  placeholder="6 Digit PIN (Otorisasi Kasir)"
+                  placeholder="6 Digit PIN (Izin Supervisor)"
                   class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-xs tracking-widest font-mono"
                 />
               </div>
@@ -861,12 +855,12 @@ async function handleSkipWithDefaults() {
         <!-- ================= STEP 5: TINJAUAN & KONFIRMASI ================= -->
         <div v-if="currentStep === 5 && !isSuccessCelebration" class="space-y-6 animate-in fade-in duration-200">
           <div class="border-b border-slate-100 pb-3">
-            <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
-              <Sparkles class="w-5 h-5 text-indigo-600" />
-              5. Ringkasan & Konfirmasi Peluncuran
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <CheckCircle2 class="w-5 h-5 text-indigo-600" />
+              5. Ringkasan & Konfirmasi
             </h3>
             <p class="text-xs text-slate-500 mt-0.5">
-              Silakan periksa kembali konfigurasi awal sebelum diterapkan ke database Notane Server.
+              Periksa kembali konfigurasi sebelum disimpan ke database server.
             </p>
           </div>
 
@@ -905,7 +899,7 @@ async function handleSkipWithDefaults() {
             <!-- Review Card 2: Database & Akses -->
             <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
               <div class="flex items-center gap-2 text-xs font-black text-slate-700 uppercase tracking-wider">
-                <Database class="w-4 h-4 text-indigo-600" /> Database & Kredensial
+                <Database class="w-4 h-4 text-indigo-600" /> Database & Akun Toko
               </div>
               <div class="space-y-1.5 text-xs">
                 <div class="flex justify-between py-1 border-b border-slate-200/60">
@@ -950,7 +944,7 @@ async function handleSkipWithDefaults() {
             <div>
               <p class="font-bold">Semua Data Siap Diterapkan!</p>
               <p class="mt-0.5 text-emerald-800 leading-relaxed">
-                Klik tombol <strong>"Terapkan & Luncurkan Notane Server"</strong> di bawah untuk mengeksekusi konfigurasi ke database.
+                Klik tombol <strong>"Simpan & Terapkan Pengaturan"</strong> di bawah untuk mulai menggunakan Notane Server.
               </p>
             </div>
           </div>
@@ -1028,10 +1022,10 @@ async function handleSkipWithDefaults() {
             type="button"
             @click="handleSkipWithDefaults"
             :disabled="isSubmitting"
-            class="px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+            class="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
             title="Gunakan pengaturan toko bawaan tanpa mengisi wizard"
           >
-            <Sparkles class="w-3.5 h-3.5 text-indigo-600" />
+            <FastForward class="w-3.5 h-3.5 text-slate-600" />
             Lewati (Pakai Bawaan)
           </button>
 
@@ -1039,7 +1033,7 @@ async function handleSkipWithDefaults() {
             v-if="currentStep < totalSteps"
             type="button"
             @click="nextStep"
-            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5 cursor-pointer"
+            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             Lanjutkan
             <ArrowRight class="w-4 h-4" />
@@ -1050,11 +1044,11 @@ async function handleSkipWithDefaults() {
             type="button"
             @click="handleSubmitSetup"
             :disabled="isSubmitting"
-            class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-black transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2"
+            class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold transition shadow-xs flex items-center gap-2 cursor-pointer"
           >
             <RefreshCw v-if="isSubmitting" class="w-4 h-4 animate-spin" />
-            <Sparkles v-else class="w-4 h-4" />
-            {{ isSubmitting ? 'Menerapkan Konfigurasi...' : 'Terapkan & Luncurkan Notane Server' }}
+            <Check v-else class="w-4 h-4" />
+            {{ isSubmitting ? 'Menerapkan Konfigurasi...' : 'Simpan & Terapkan Pengaturan' }}
           </button>
         </div>
       </div>

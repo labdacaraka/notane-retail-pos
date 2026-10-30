@@ -197,14 +197,14 @@ function closeModal() {
   <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
       <!-- Header -->
-      <div class="px-6 py-4 bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 text-white flex items-center justify-between">
+      <div class="px-6 py-4 bg-rose-700 text-white flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
             <Icon icon="fluent:arrow-undo-24-filled" class="text-2xl" />
           </div>
           <div>
-            <h2 class="text-lg font-black tracking-wide">Retur Penjualan Konsumen</h2>
-            <p class="text-xs text-rose-100">Klaim barang cacat / tukar barang dengan persetujuan Supervisor</p>
+            <h2 class="text-lg font-bold tracking-tight">Retur Penjualan Konsumen</h2>
+            <p class="text-xs text-rose-100">Klaim barang cacat atau tukar barang dengan otorisasi Supervisor</p>
           </div>
         </div>
         <button @click="closeModal" class="p-2 rounded-lg hover:bg-white/20 transition-colors text-white">

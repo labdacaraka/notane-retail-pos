@@ -115,10 +115,10 @@ async function handleExitImpersonation() {
     <!-- Impersonation Active Banner -->
     <div
       v-if="authStore.isImpersonating"
-      class="bg-gradient-to-r from-purple-800 via-indigo-800 to-purple-900 text-white px-5 py-2 flex items-center justify-between shadow-md z-40 text-xs shrink-0 border-b border-purple-950"
+      class="bg-purple-950 text-white px-5 py-2 flex items-center justify-between shadow-md z-40 text-xs shrink-0 border-b border-purple-900"
     >
       <div class="flex items-center gap-2.5 font-medium">
-        <span class="p-1 rounded-md bg-purple-600/60 border border-purple-400/40 text-white animate-pulse">
+        <span class="p-1 rounded-md bg-purple-800 text-white">
           <Icon icon="fluent-color:people-sync-24" class="w-4 h-4" />
         </span>
         <span>
@@ -254,7 +254,7 @@ async function handleExitImpersonation() {
           <span>Pembaruan</span>
           <span
             v-if="licenseStore.updateInfo?.has_update && licenseStore.updateInfo?.component === 'client'"
-            class="px-1.5 py-0.2 rounded-full text-[9px] bg-cyan-600 text-white font-extrabold animate-pulse"
+            class="px-1.5 py-0.5 rounded-full text-[9px] bg-cyan-600 text-white font-bold"
           >
             Ada Versi Baru
           </span>

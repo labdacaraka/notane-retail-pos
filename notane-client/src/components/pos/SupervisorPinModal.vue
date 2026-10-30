@@ -540,9 +540,9 @@ onUnmounted(() => {
               type="button"
               @click="triggerFingerprintAuth"
               :disabled="isChecking"
-              class="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold text-xs shadow-md border border-emerald-600 flex items-center justify-center gap-2.5 transition active:scale-95 cursor-pointer disabled:opacity-50"
+              class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-2.5 transition active:scale-95 cursor-pointer disabled:opacity-50"
             >
-              <Fingerprint class="w-5 h-5 animate-pulse text-emerald-200" />
+              <Fingerprint class="w-5 h-5 text-emerald-100" />
               <span>Sentuh Sensor Sidik Jari / Touch ID</span>
             </button>
 
@@ -552,9 +552,9 @@ onUnmounted(() => {
               type="button"
               @click="triggerFaceScanner"
               :disabled="isChecking"
-              class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl font-bold text-xs shadow-md border border-blue-600 flex items-center justify-center gap-2.5 transition active:scale-95 cursor-pointer disabled:opacity-50"
+              class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-2.5 transition active:scale-95 cursor-pointer disabled:opacity-50"
             >
-              <Camera class="w-5 h-5 text-blue-200" />
+              <Camera class="w-5 h-5 text-indigo-100" />
               <span>Pindai Wajah Supervisor (Kamera)</span>
             </button>
 

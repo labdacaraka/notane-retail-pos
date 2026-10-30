@@ -518,7 +518,7 @@ const restartServer = async () => {
           <span>Pembaruan Server</span>
           <span
             v-if="licenseStore.updateInfo?.has_update"
-            class="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-extrabold animate-pulse"
+            class="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-bold"
           >
             Ada Versi Baru
           </span>
@@ -546,7 +546,7 @@ const restartServer = async () => {
             ? 'bg-rose-50 text-rose-800 border-rose-200'
             : 'bg-amber-50 text-amber-800 border-amber-200'"
         >
-          <span class="w-2.5 h-2.5 rounded-full" :class="isServerRunning ? 'bg-emerald-500 animate-pulse' : !isLicenseValid ? 'bg-rose-500' : 'bg-amber-500'"></span>
+          <span class="w-2.5 h-2.5 rounded-full" :class="isServerRunning ? 'bg-emerald-500' : !isLicenseValid ? 'bg-rose-500' : 'bg-amber-500'"></span>
           <span>{{ isServerRunning ? 'SERVER AKTIF' : !isLicenseValid ? 'BELUM DIAKTIVASI' : 'SERVER BERHENTI' }}</span>
         </div>
 
@@ -561,10 +561,10 @@ const restartServer = async () => {
       <div
         class="bg-white rounded-2xl p-6 border shadow-xs transition-all duration-300 relative overflow-hidden"
         :class="isServerRunning
-          ? 'border-emerald-300 bg-gradient-to-r from-emerald-50/40 via-white to-white'
+          ? 'border-emerald-200 bg-emerald-50/20'
           : !isLicenseValid
-          ? 'border-rose-300 bg-gradient-to-r from-rose-50/40 via-white to-white'
-          : 'border-amber-300 bg-gradient-to-r from-amber-50/40 via-white to-white'"
+          ? 'border-rose-200 bg-rose-50/20'
+          : 'border-amber-200 bg-amber-50/20'"
       >
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div class="flex items-start gap-4">
@@ -577,7 +577,7 @@ const restartServer = async () => {
                 : 'bg-amber-100 border-amber-200 text-amber-700'"
             >
               <Key v-if="!isLicenseValid && !isServerRunning" class="w-7 h-7" />
-              <Activity v-else class="w-7 h-7" :class="{ 'animate-pulse': isServerRunning }" />
+              <Activity v-else class="w-7 h-7" />
             </div>
             <div>
               <div class="flex items-center gap-2">
@@ -785,7 +785,7 @@ const restartServer = async () => {
                   <span class="bg-purple-200 text-purple-800 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">100% Bebas Branding</span>
                 </span>
                 <p class="text-purple-900/80 mt-0.5 text-[11px] leading-relaxed">
-                  Fitur <strong>White-Label</strong> diaktifkan pada lisensi ini. Seluruh logo, identitas visual, dan badge "Powered by Notane POS" disembunyikan sepenuhnya dari terminal kasir client, customer display, dan dashboard back-office.
+                  Fitur <strong>White-Label</strong> aktif. Logo dan atribut Notane tidak akan ditampilkan pada aplikasi kasir, layar pelanggan, maupun back-office.
                 </p>
               </div>
             </div>
@@ -794,9 +794,9 @@ const restartServer = async () => {
                 <img src="/logo.png" alt="Notane" class="w-4 h-4 object-contain rounded" />
               </div>
               <div class="text-xs text-indigo-950">
-                <span class="font-bold">Ketentuan Co-Branding:</span>
+                <span class="font-bold">Ketentuan Branding:</span>
                 <p class="text-indigo-900/80 mt-0.5 text-[11px] leading-relaxed">
-                  Logo dan nama toko Anda akan menjadi sorotan utama di seluruh register kasir, customer display, dan back-office. Badge subtil <strong>"Powered by Notane POS"</strong> tetap disematkan secara proporsional sebagai jaminan mutu dan lisensi sistem.
+                  Nama dan logo toko Anda akan tampil pada layar kasir, layar pelanggan, dan back-office, disertai keterangan "Powered by Notane POS".
                 </p>
               </div>
             </div>
@@ -957,7 +957,7 @@ const restartServer = async () => {
             </div>
           </div>
           <p class="text-[11px] text-slate-500 leading-relaxed">
-            Kode otentikasi wajib saat komputer kasir baru pertama kali menghubungkan diri ke server.
+            Kode keamanan saat komputer kasir baru pertama kali terhubung ke server.
           </p>
         </div>
 
@@ -975,7 +975,7 @@ const restartServer = async () => {
             <span class="text-xs font-bold text-slate-800">
               Pusat Data Siap
             </span>
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
           </div>
           <p class="text-[11px] text-slate-500 leading-relaxed">
             Menyimpan seluruh data penjualan, produk, dan laporan toko Anda secara aman di komputer ini.
@@ -1103,7 +1103,7 @@ const restartServer = async () => {
           <div class="flex items-center gap-2">
             <Users class="w-4 h-4 text-indigo-600" />
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Terminal Kasir yang Terhubung (Online Clients)
+              Terminal Kasir yang Terhubung
             </h3>
           </div>
           <div class="flex items-center gap-2">
@@ -1194,16 +1194,16 @@ const restartServer = async () => {
       class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
       @click.self="showPairingModal = false"
     >
-      <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
         <!-- Header Modal -->
-        <div class="px-6 py-4.5 bg-gradient-to-r from-amber-50 to-orange-50/60 border-b border-amber-200 flex items-center justify-between">
+        <div class="px-6 py-4.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shadow-xs">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center shadow-xs">
               <KeyRound class="w-5 h-5" />
             </div>
             <div>
-              <h3 class="text-sm font-black text-slate-900 tracking-tight">Ganti Kode Pairing Toko</h3>
-              <p class="text-xs text-slate-500">Otentikasi Keamanan Terminal Kasir LAN</p>
+              <h3 class="text-sm font-bold text-slate-900 tracking-tight">Ganti Kode Pairing Toko</h3>
+              <p class="text-xs text-slate-500">Kode penghubung komputer kasir ke server</p>
             </div>
           </div>
           <button

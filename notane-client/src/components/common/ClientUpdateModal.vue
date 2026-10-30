@@ -94,13 +94,13 @@ const isServerCompatible = computed(() => {
       class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]"
     >
       <!-- Modal Header -->
-      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-cyan-50/50 via-white to-slate-50">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-cyan-600 text-white flex items-center justify-center shadow-xs">
             <DownloadCloud class="w-5 h-5" />
           </div>
           <div>
-            <h3 class="font-extrabold text-slate-900 text-sm">Pembaruan Aplikasi Kasir</h3>
+            <h3 class="font-bold text-slate-900 text-sm">Pembaruan Aplikasi Kasir</h3>
             <p class="text-xs text-slate-500">Pemeriksaan versi aplikasi kasir dan kesesuaian dengan server toko</p>
           </div>
         </div>
@@ -273,7 +273,7 @@ const isServerCompatible = computed(() => {
             <CheckCircle2 class="w-8 h-8 text-emerald-500 mx-auto" />
             <h4 class="font-extrabold text-slate-900 text-sm">Aplikasi Kasir Sudah Versi Terbaru</h4>
             <p class="text-xs text-slate-500 max-w-sm mx-auto">
-              {{ licenseStore.updateInfo.message || 'Aplikasi kasir Anda sudah menggunakan versi paling mutakhir.' }}
+              {{ licenseStore.updateInfo.message || 'Aplikasi kasir sudah menggunakan versi terbaru.' }}
             </p>
           </div>
         </div>

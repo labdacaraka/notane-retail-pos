@@ -1,6 +1,6 @@
 [package]
 name = "notane-retail-server"
-version = "1.5.8"
+version = "1.5.9"
 description = "Sistem Server Notane Retail Host Engine"
 edition = "2021"
 default-run = "notane-retail-server"

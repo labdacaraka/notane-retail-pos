@@ -1125,7 +1125,7 @@ onMounted(async () => {
               <!-- Password fields: only for new user -->
               <template v-if="!editingUser">
                 <div class="border-t border-slate-100 pt-3">
-                  <p class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">Kredensial Akses</p>
+                  <p class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">Kata Sandi & PIN</p>
                   <div class="grid grid-cols-2 gap-4">
                     <div>
                       <label class="block text-xs font-bold text-slate-600 mb-1">Password <span class="text-rose-500">*</span></label>
@@ -1139,7 +1139,7 @@ onMounted(async () => {
                     </div>
                     <div class="col-span-2">
                       <label class="block text-xs font-bold text-slate-600 mb-1">PIN Supervisor (4-6 digit) <span class="text-rose-500">*</span></label>
-                      <input v-model="userForm.pin" type="password" placeholder="PIN numerik untuk otorisasi supervisor" maxlength="6"
+                      <input v-model="userForm.pin" type="password" placeholder="4-6 digit angka untuk izin supervisor" maxlength="6"
                         class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
                     </div>
                   </div>

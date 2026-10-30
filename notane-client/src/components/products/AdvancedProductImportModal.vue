@@ -509,20 +509,20 @@ function handleClose() {
       class="bg-white border border-slate-300 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-fadeIn"
     >
       <!-- 1. HEADER MODAL -->
-      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-50 to-emerald-50/40">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+          <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
             <FileSpreadsheet class="w-5 h-5" />
           </div>
           <div>
-            <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
-              <span>Sistem Import Produk Canggih</span>
-              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-300">
+            <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+              <span>Impor Data Produk dari Excel</span>
+              <span class="text-[10px] bg-slate-100 text-slate-700 font-mono font-bold px-2 py-0.5 rounded border border-slate-200">
                 Multi-Outlet & Multi-Harga
               </span>
             </h3>
             <p class="text-xs text-slate-500">
-              Input massal master produk, pencocokan foto otomatis, manajemen harga outlet, dan harga member.
+              Impor massal master produk, penetapan barcode, stok awal, dan daftar harga outlet.
             </p>
           </div>
         </div>
@@ -685,11 +685,11 @@ function handleClose() {
             </div>
           </div>
 
-          <!-- Petunjuk Cerdas Sistem Pencocokan Foto & Multi Harga -->
+          <!-- Petunjuk Format Data & Foto Produk -->
           <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
             <h4 class="font-extrabold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <Icon icon="fluent-color:lightbulb-24" class="w-4 h-4" />
-              <span>Cara Kerja Sistem Import Cerdas:</span>
+              <span>Panduan Pengisian Data & Foto:</span>
             </h4>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600">
               <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-1">

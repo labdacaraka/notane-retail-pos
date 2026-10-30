@@ -234,8 +234,8 @@ async function handleSaveCredentials() {
           <KeyRound class="w-5 h-5" />
         </div>
         <div>
-          <h2 class="text-sm font-bold text-white">Keamanan & Kredensial Administrator</h2>
-          <p class="text-xs text-slate-400">Ubah kata sandi akun master dan PIN keamanan quick unlock</p>
+          <h2 class="text-sm font-bold text-white">Keamanan Akun Administrator</h2>
+          <p class="text-xs text-slate-400">Ubah kata sandi akun dan PIN buka kunci cepat</p>
         </div>
       </div>
 
@@ -287,7 +287,7 @@ async function handleSaveCredentials() {
           class="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-purple-600/30 flex items-center gap-2"
         >
           <Save class="w-4 h-4" />
-          <span>{{ isUpdatingAuth ? 'Memperbarui...' : 'Perbarui Kredensial' }}</span>
+          <span>{{ isUpdatingAuth ? 'Menyimpan...' : 'Simpan Perubahan Akun' }}</span>
         </button>
       </div>
     </div>

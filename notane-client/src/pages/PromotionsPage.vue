@@ -404,10 +404,10 @@ onUnmounted(() => {
         <div>
           <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2.5">
             <Icon icon="streamline-ultimate-color:discount" class="w-6 h-6 drop-shadow-xs" />
-            <span>Master Promosi Retail (BOGO, Bundling & Tebus Murah)</span>
+            <span>Program Promosi Toko (Beli X Gratis Y, Bundling & Tebus Murah)</span>
           </h2>
           <p class="text-xs text-slate-500">
-            Kelola program promo Beli X Gratis Y, diskon minimum belanja, paket bundling hemat, dan tebus murah (PWP) ala ritel modern.
+            Kelola promo Beli X Gratis Y, diskon minimum belanja, paket bundling hemat, dan tebus murah di kasir.
           </p>
         </div>
 
@@ -529,9 +529,9 @@ onUnmounted(() => {
         <div class="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200">
           <Icon icon="streamline-ultimate-color:discount" class="w-8 h-8" />
         </div>
-        <h3 class="text-base font-bold text-slate-800">Belum Ada Program Promosi Retail</h3>
+        <h3 class="text-base font-bold text-slate-800">Belum Ada Program Promosi</h3>
         <p class="text-xs text-slate-400 max-w-md mx-auto">
-          Tingkatkan omset toko ritel Anda dengan program Beli 2 Gratis 1, diskon belanja grosir, atau promo tebus murah di kasir.
+          Buat promo Beli X Gratis Y, diskon belanja grosir, atau promo tebus murah untuk menarik transaksi di kasir.
         </p>
         <div v-if="authStore.hasPermission(['promotions:write', 'master:write'])" class="pt-2">
           <button

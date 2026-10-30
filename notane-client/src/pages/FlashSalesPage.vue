@@ -3,7 +3,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import PaginationBar from '@/components/common/PaginationBar.vue'
 import {
-  Zap,
   Plus,
   Search,
   Calendar,
@@ -429,37 +428,27 @@ onUnmounted(() => {
 
 <template>
   <AdminLayout>
-    <div class="p-6 space-y-5 max-w-7xl mx-auto select-none">
-      <!-- 1. Header Banner -->
-      <div class="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-wrap items-center justify-between gap-4">
-        <div class="absolute -right-10 -bottom-10 opacity-15 pointer-events-none">
-          <Zap class="w-64 h-64 text-white" />
-        </div>
-
-        <div class="space-y-1.5 z-10">
-          <div class="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-wider text-amber-100 border border-white/20 shadow-xs">
-            <Zap class="w-3.5 h-3.5 text-yellow-300 animate-bounce" />
-            <span>Retail Promotional Engine</span>
-          </div>
-          <h1 class="text-2xl font-black tracking-tight flex items-center gap-2.5">
-            <Icon icon="flat-color-icons:flash-on" class="w-7 h-7 drop-shadow-sm inline-block" />
-            <span>Program Flash Sale & Diskon Khusus</span>
-          </h1>
-          <p class="text-xs text-amber-100 max-w-2xl leading-relaxed">
-            Buat program diskon kilat berbasis periode dan jam tertentu, atur kuota barang & batasan per transaksi, serta tentukan cabang target dengan hierarki diskon standar retail modern.
+    <div class="p-6 space-y-4 max-w-7xl mx-auto select-none">
+      <!-- 1. Header Page Standar Back-Office -->
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2.5">
+            <Icon icon="flat-color-icons:flash-on" class="w-6 h-6 inline-block" />
+            <span>Program Flash Sale</span>
+          </h2>
+          <p class="text-xs text-slate-500">
+            Kelola promo harga khusus berdasarkan jadwal jam tayang, kuota produk, dan batasan per nota.
           </p>
         </div>
 
-        <div class="z-10 flex items-center gap-3">
-          <button
-            v-if="authStore.hasPermission(['promotions:write', 'master:write'])"
-            @click="openCreateModal"
-            class="bg-white hover:bg-amber-50 text-amber-900 font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition active:scale-95 cursor-pointer border border-white/60"
-          >
-            <Plus class="w-4 h-4 text-amber-600 font-black" />
-            <span>Buat Flash Sale Baru</span>
-          </button>
-        </div>
+        <button
+          v-if="authStore.hasPermission(['promotions:write', 'master:write'])"
+          @click="openCreateModal"
+          class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow-sm border border-emerald-700 flex items-center gap-2 transition active:scale-95 cursor-pointer"
+        >
+          <Plus class="w-4 h-4" />
+          <span>Buat Flash Sale Baru</span>
+        </button>
       </div>
 
       <!-- 2. Filter & Search Controls -->
@@ -545,7 +534,7 @@ onUnmounted(() => {
                   }"
                 >
                   <span class="w-1.5 h-1.5 rounded-full" :class="{
-                    'bg-emerald-500 animate-pulse': fs.is_active && (fs.is_running || fs.status_label === 'BERJALAN' || fs.status_label === 'MENUNGGU_JAM_AKTIF' || fs.status === 'ACTIVE'),
+                    'bg-emerald-500': fs.is_active && (fs.is_running || fs.status_label === 'BERJALAN' || fs.status_label === 'MENUNGGU_JAM_AKTIF' || fs.status === 'ACTIVE'),
                     'bg-blue-500': fs.is_active && (fs.status_label === 'AKAN_DATANG' || fs.status === 'UPCOMING'),
                     'bg-slate-400': fs.status_label === 'BERAKHIR' || fs.status === 'EXPIRED',
                     'bg-rose-500': !fs.is_active,
