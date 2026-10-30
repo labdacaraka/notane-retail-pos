@@ -25,6 +25,7 @@ import {
 } from 'lucide-vue-next'
 import { api } from '@/services/api'
 import { useLicenseStore } from '@/stores/licenseStore'
+import CopyableText from '@/components/common/CopyableText.vue'
 
 const licenseStore = useLicenseStore()
 
@@ -557,7 +558,9 @@ async function confirmDelete() {
                 >
                   <!-- Kode & Nama Outlet -->
                   <td class="py-3.5 px-4">
-                    <div class="font-mono font-bold text-amber-800 text-[11px]">{{ item.code }}</div>
+                    <div>
+                      <CopyableText :value="item.code" label="Kode Outlet" class="text-amber-800 font-bold" />
+                    </div>
                     <div class="font-extrabold text-slate-900 text-sm mt-0.5">{{ item.name }}</div>
                     <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
                       <div v-if="item.inventory_account_code" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10.5px] font-mono font-bold" :title="`Akun Persediaan: ${item.inventory_account_name || ''}`">

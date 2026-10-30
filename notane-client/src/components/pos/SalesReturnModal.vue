@@ -91,19 +91,25 @@ async function loadSupervisors() {
 }
 
 function toggleSelectItem(item: LookupSaleItem) {
-  if (selectedItems.value[item.id]) {
-    delete selectedItems.value[item.id]
+  const itemId = item.id || (item as any).sale_item_id
+  if (selectedItems.value[itemId]) {
+    delete selectedItems.value[itemId]
   } else {
-    const discPerUnit = item.quantity > 0 ? item.discount_amount / item.quantity : 0
-    const netPrice = Math.max(0, item.unit_price - discPerUnit)
-    selectedItems.value[item.id] = {
-      sale_item_id: item.id,
+    const qty = Number(item.quantity || (item as any).original_qty || 1)
+    const discAmount = Number(item.discount_amount || 0)
+    const unitPrice = Number(item.unit_price || 0)
+    const discPerUnit = qty > 0 ? discAmount / qty : 0
+    const netPrice = Math.max(0, unitPrice - discPerUnit)
+    const remainingQty = Number(item.remaining_returnable_qty ?? (item as any).max_returnable_qty ?? qty)
+
+    selectedItems.value[itemId] = {
+      sale_item_id: itemId,
       product_id: item.product_id,
       product_name: item.product_name,
       unit_code: item.unit_code,
-      max_qty: item.remaining_returnable_qty,
-      return_qty: Math.min(1, item.remaining_returnable_qty),
-      unit_price: item.unit_price,
+      max_qty: remainingQty,
+      return_qty: Math.min(1, remainingQty),
+      unit_price: unitPrice,
       discount_per_unit: discPerUnit,
       net_price: netPrice,
       condition: 'GOOD',
@@ -131,8 +137,8 @@ async function handleSubmitReturn() {
     return
   }
 
-  if (!supervisorPin.value.trim()) {
-    submitError.value = 'PIN Supervisor wajib diisi untuk otorisasi retur penjualan'
+  if (!supervisorPin.value.trim() && !supervisorAuthToken.value.trim()) {
+    submitError.value = 'Otorisasi Supervisor (Biometrik atau PIN) wajib dilakukan'
     return
   }
 
@@ -148,14 +154,10 @@ async function handleSubmitReturn() {
   submitError.value = ''
   submitSuccess.value = ''
 
-  if (!supervisorPin.value.trim() && !supervisorAuthToken.value.trim()) {
-    submitError.value = 'Otorisasi Supervisor (Biometrik atau PIN) wajib dilakukan'
-    return
-  }
-
   try {
+    const saleId = saleData.value.id || (saleData.value as any).sale_id
     const res = await api.post('/sales/returns', {
-      sale_id: saleData.value.id,
+      sale_id: saleId,
       refund_method: refundMethod.value,
       reason_code: reasonCode.value,
       notes: notes.value || undefined,

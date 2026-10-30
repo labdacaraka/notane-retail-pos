@@ -220,7 +220,7 @@ pub async fn resolve_effective_outlet_id(
 
         // 1. Jika ada open shift kasir untuk user ini, gunakan outlet dari shift tersebut
         if let Ok(Some(shift_outlet_id)) = sqlx::query_scalar::<_, Uuid>(
-            "SELECT outlet_id FROM cashier_shifts WHERE cashier_id = $1 AND status = 'OPEN' ORDER BY start_time DESC LIMIT 1",
+            "SELECT outlet_id FROM cashier_shifts WHERE user_id = $1 AND status = 'OPEN' ORDER BY opened_at DESC LIMIT 1",
         )
         .bind(user_id)
         .fetch_optional(pool)

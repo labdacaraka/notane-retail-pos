@@ -24,6 +24,18 @@
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 
+  /* Izinkan seleksi teks pada tabel, kode, input, dan konten yang dapat disalin */
+  table td,
+  table th,
+  code,
+  pre,
+  input,
+  textarea,
+  .select-text {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
   html.dark body {
     background-color: #0b1120;
     color: #f8fafc;

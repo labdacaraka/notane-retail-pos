@@ -36,6 +36,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useLocationStore } from '@/stores/locationStore'
 import { useExportStore } from '@/stores/exportStore'
 import { useDialog } from '@/composables/useDialog'
+import CopyableText from '@/components/common/CopyableText.vue'
 import { formatCurrency, formatQty } from '@/utils/formatters'
 
 const authStore = useAuthStore()
@@ -1178,13 +1179,12 @@ onUnmounted(() => {
                 </td>
                 <td class="py-3 px-4 font-sans text-slate-600">{{ prod.category_name }}</td>
                 <td class="py-3 px-4 text-slate-700">
-                  <div class="font-bold flex items-center gap-1.5">
-                    <span>{{ prod.sku }}</span>
+                  <div class="flex items-center gap-1.5">
+                    <CopyableText :value="prod.sku" label="SKU" />
                   </div>
                   <div class="flex items-center gap-1.5 mt-0.5">
-                    <span class="font-mono text-[11px] text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                      {{ prod.barcode || '-' }}
-                    </span>
+                    <CopyableText v-if="prod.barcode" :value="prod.barcode" label="Barcode" badge />
+                    <span v-else class="text-[11px] text-slate-400 font-mono">-</span>
                     <!-- Badge Multi-Barcode -->
                     <button
                       type="button"

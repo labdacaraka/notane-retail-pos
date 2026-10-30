@@ -24,6 +24,7 @@ import { useDialog } from '@/composables/useDialog'
 import { useLabelPrinterStore } from '@/stores/labelPrinterStore'
 import LabelPrinterSettingsModal from '@/components/common/LabelPrinterSettingsModal.vue'
 import PaginationBar from '@/components/common/PaginationBar.vue'
+import CopyableText from '@/components/common/CopyableText.vue'
 import { formatCurrency, formatQty } from '@/utils/formatters'
 
 const dialog = useDialog()
@@ -1105,10 +1106,11 @@ async function handlePrintLabels() {
                       <div class="font-bold text-slate-900 truncate max-w-[200px]" :title="prod.name">
                         {{ prod.name }}
                       </div>
-                      <div class="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
-                        <span>{{ prod.sku }}</span>
+                      <div class="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono" @click.stop>
+                        <CopyableText :value="prod.sku" label="SKU" />
                         <span>•</span>
-                        <span>{{ prod.barcode || '-' }}</span>
+                        <CopyableText v-if="prod.barcode" :value="prod.barcode" label="Barcode" />
+                        <span v-else>-</span>
                       </div>
                     </div>
                   </div>

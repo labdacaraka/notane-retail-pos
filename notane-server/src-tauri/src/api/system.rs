@@ -1609,9 +1609,9 @@ async fn perform_initial_setup(
                 .execute(&mut *tx)
                 .await;
 
-            // Hapus voucher demo jika belum ada klaim
+            // Hapus voucher demo jika belum ada transaksi penjualan
             let _ = sqlx::query(
-                "DELETE FROM vouchers WHERE code = 'HEMAT10K' AND NOT EXISTS (SELECT 1 FROM voucher_claims WHERE voucher_id = vouchers.id)",
+                "DELETE FROM vouchers WHERE code = 'HEMAT10K' AND used_count = 0 AND NOT EXISTS (SELECT 1 FROM sales WHERE voucher_id = vouchers.id)",
             )
             .execute(&mut *tx)
             .await;

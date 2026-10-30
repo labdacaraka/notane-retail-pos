@@ -372,6 +372,39 @@ async function handleCompletePayment() {
     }
   }
 
+  // Pre-flight Aggregated Stock Validation: Pastikan total kuantitas seluruh baris (reguler + hadiah) tidak melebihi stok fisik gudang
+  const aggregatedProductStocks = new Map<string, { totalBaseQty: number; name: string; baseUnitCode: string; stock: number }>()
+  for (const it of cartStore.items) {
+    const factor = Number(it.selected_unit?.conversion_factor) || 1
+    const baseQty = Number(it.quantity || 0) * factor
+    const rawStock = Number(
+      it.product_detail?.current_stock ??
+      it.current_stock ??
+      (it.product as any).stock_qty ??
+      0
+    )
+    const existing = aggregatedProductStocks.get(it.product.id)
+    if (existing) {
+      existing.totalBaseQty += baseQty
+      existing.stock = Math.max(existing.stock, rawStock)
+    } else {
+      aggregatedProductStocks.set(it.product.id, {
+        totalBaseQty: baseQty,
+        name: it.product.name,
+        baseUnitCode: it.selected_unit?.unit_code || 'PCS',
+        stock: rawStock,
+      })
+    }
+  }
+
+  for (const [_, prodCheck] of aggregatedProductStocks) {
+    if (prodCheck.totalBaseQty > prodCheck.stock) {
+      soundService.playOutOfStock()
+      errorMsg.value = `Total akumulasi '${prodCheck.name}' di keranjang (${prodCheck.totalBaseQty} ${prodCheck.baseUnitCode}) melebihi stok fisik gudang (${prodCheck.stock} ${prodCheck.baseUnitCode}). Silakan sesuaikan kuantitas terlebih dahulu.`
+      return
+    }
+  }
+
   isProcessing.value = true
   errorMsg.value = ''
 

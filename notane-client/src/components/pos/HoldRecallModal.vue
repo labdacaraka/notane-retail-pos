@@ -22,7 +22,7 @@ function handleRecall(orderId: string) {
 <template>
   <div
     v-if="show"
-    class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-fadeIn"
+    class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
   >
     <div class="bg-white border border-slate-300 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col text-slate-900">
       <!-- Header -->

@@ -18,6 +18,7 @@ import {
 import { Icon } from '@iconify/vue'
 import { api } from '@/services/api'
 import { useDialog } from '@/composables/useDialog'
+import CopyableText from '@/components/common/CopyableText.vue'
 
 const dialog = useDialog()
 
@@ -479,12 +480,12 @@ onUnmounted(() => {
                 </td>
 
                 <!-- Terminal & IP -->
-                <td class="py-3 px-3 whitespace-nowrap">
-                  <div class="text-[11px] font-mono text-slate-700">
-                    {{ item.log.terminal_id || 'CLIENT' }}
+                <td class="py-3 px-3 whitespace-nowrap" @click.stop>
+                  <div>
+                    <CopyableText :value="item.log.terminal_id || 'CLIENT'" label="Terminal" :bold="false" />
                   </div>
-                  <div class="text-[10px] text-slate-400 font-mono">
-                    {{ item.log.ip_address || '127.0.0.1' }}
+                  <div class="text-slate-400">
+                    <CopyableText :value="item.log.ip_address || '127.0.0.1'" label="Alamat IP" :bold="false" />
                   </div>
                 </td>
 

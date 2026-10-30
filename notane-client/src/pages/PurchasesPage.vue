@@ -32,6 +32,7 @@ import { useLocationStore } from '@/stores/locationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useExportStore } from '@/stores/exportStore'
 import { formatCurrency, formatQty, formatDate } from '@/utils/formatters'
+import CopyableText from '@/components/common/CopyableText.vue'
 
 const locationStore = useLocationStore()
 const authStore = useAuthStore()
@@ -1942,8 +1943,8 @@ async function handleDeleteSupplier(supp: any) {
               </thead>
               <tbody class="divide-y divide-slate-200">
                 <tr v-for="po in purchaseOrders" :key="po.id" class="hover:bg-indigo-50/30 transition">
-                  <td class="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                    {{ po.po_number }}
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <CopyableText :value="po.po_number" label="No. PO" />
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="font-bold text-slate-800 flex items-center gap-1.5">
@@ -2195,14 +2196,15 @@ async function handleDeleteSupplier(supp: any) {
                   :key="grn.id"
                   class="hover:bg-emerald-50/30 transition group"
                 >
-                  <td class="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                    <span class="text-emerald-700">{{ grn.grn_number }}</span>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <CopyableText :value="grn.grn_number" label="No. GRN" class="text-emerald-700" />
                   </td>
-                  <td class="px-4 py-3 font-mono text-slate-700 whitespace-nowrap font-bold">
-                    {{ grn.delivery_order_number }}
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <CopyableText :value="grn.delivery_order_number" label="No. Surat Jalan" />
                   </td>
-                  <td class="px-4 py-3 font-mono text-indigo-700 whitespace-nowrap font-semibold">
-                    {{ grn.po_number || '-' }}
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <CopyableText v-if="grn.po_number" :value="grn.po_number" label="No. PO" class="text-indigo-700" />
+                    <span v-else class="text-slate-400">-</span>
                   </td>
                   <td class="px-4 py-3 font-bold text-slate-800">
                     {{ grn.supplier_name }}
@@ -2417,18 +2419,18 @@ async function handleDeleteSupplier(supp: any) {
                   :key="inv.id"
                   class="hover:bg-blue-50/40 transition group"
                 >
-                  <td class="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                    {{ inv.invoice_number }}
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <CopyableText :value="inv.invoice_number" label="No. Faktur" />
                   </td>
-                  <td class="px-4 py-3 font-mono text-slate-600 font-bold">
-                    {{ inv.supplier_invoice_number }}
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <CopyableText :value="inv.supplier_invoice_number" label="Faktur Supplier" />
                   </td>
                   <td class="px-4 py-3 font-mono text-slate-600 whitespace-nowrap">
                     <div v-if="inv.grn_number" class="text-emerald-700 font-bold text-[11px]">
-                      {{ inv.grn_number }}
+                      <CopyableText :value="inv.grn_number" label="No. GRN" />
                     </div>
                     <div v-if="inv.po_number" class="text-indigo-600 text-[10px]">
-                      PO: {{ inv.po_number }}
+                      <CopyableText :value="inv.po_number" label="No. PO" />
                     </div>
                     <span v-if="!inv.grn_number && !inv.po_number" class="text-slate-400">-</span>
                   </td>
@@ -2640,8 +2642,8 @@ async function handleDeleteSupplier(supp: any) {
               </thead>
               <tbody class="divide-y divide-slate-200">
                 <tr v-for="ret in returns" :key="ret.id" class="hover:bg-rose-50/20 transition">
-                  <td class="px-4 py-3 font-mono font-bold text-rose-900 whitespace-nowrap">
-                    {{ ret.return_number }}
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <CopyableText :value="ret.return_number" label="No. Retur" class="text-rose-900" />
                   </td>
                   <td class="px-4 py-3 text-slate-600 whitespace-nowrap font-mono">
                     {{ formatDate(ret.return_date) }}

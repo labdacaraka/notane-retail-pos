@@ -298,13 +298,14 @@ async fn shift_z_report_handler(
 
     let payment_rows = sqlx::query(
         "SELECT 
-            payment_method, 
+            COALESCE(pm.name, 'Lainnya') as payment_method, 
             COUNT(*)::bigint as count,
-            COALESCE(SUM(amount), 0) as total_amount 
+            COALESCE(SUM(sp.amount), 0) as total_amount 
         FROM sale_payments sp
         JOIN sales s ON sp.sale_id = s.id
+        LEFT JOIN payment_methods pm ON sp.payment_method_id = pm.id
         WHERE s.shift_id = $1 AND s.status = 'COMPLETED'
-        GROUP BY payment_method",
+        GROUP BY pm.name",
     )
     .bind(shift_id)
     .fetch_all(&pool)

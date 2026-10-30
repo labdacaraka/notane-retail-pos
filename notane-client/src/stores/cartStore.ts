@@ -314,15 +314,27 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   function getMaxAllowedQuantity(item: CartItem): number {
-    const stock = Number(
+    const rawStock = Number(
       item.product_detail?.current_stock ??
       item.current_stock ??
       (item.product as any).stock_qty ??
       0
     )
+    let otherAllocatedStock = 0
+    if (!item.is_auto_gift) {
+      // Hitung stok yang sudah digunakan oleh hadiah promosi otomatis untuk produk yang sama
+      const giftItems = items.value.filter(
+        (it) => it.is_auto_gift && it.product.id === item.product.id
+      )
+      for (const g of giftItems) {
+        const gFactor = Number(g.selected_unit?.conversion_factor) || 1
+        otherAllocatedStock += Number(g.quantity || 0) * gFactor
+      }
+    }
+    const availableStock = Math.max(0, rawStock - otherAllocatedStock)
     const factor = Number(item.selected_unit?.conversion_factor) || 1
-    if (factor <= 0) return Math.max(0, stock)
-    const maxQty = stock / factor
+    if (factor <= 0) return availableStock
+    const maxQty = availableStock / factor
     return item.product.is_weight_embedded
       ? Number(Math.max(0, maxQty).toFixed(3))
       : Math.max(0, Math.floor(maxQty))
@@ -342,22 +354,38 @@ export const useCartStore = defineStore('cart', () => {
       selling_price: detail.product.base_selling_price,
     }
 
-    const availableStock = Number(detail.current_stock ?? 0)
+    const rawStock = Number(detail.current_stock ?? 0)
+    // Hitung stok yang sudah dialokasikan untuk hadiah promosi gratis dari produk yang sama
+    const allocatedGiftQty = items.value
+      .filter((it) => it.is_auto_gift && it.product.id === detail.product.id)
+      .reduce((sum, g) => {
+        const gFactor = Number(g.selected_unit?.conversion_factor) || 1
+        return sum + Number(g.quantity || 0) * gFactor
+      }, 0)
+    const effectiveStock = Math.max(0, rawStock - allocatedGiftQty)
+
     const factor = Number(baseUnit.conversion_factor) || 1
     const maxAllowedForUnit = factor > 0
-      ? (detail.product.is_weight_embedded ? Number((availableStock / factor).toFixed(3)) : Math.floor(availableStock / factor))
-      : availableStock
+      ? (detail.product.is_weight_embedded ? Number((effectiveStock / factor).toFixed(3)) : Math.floor(effectiveStock / factor))
+      : effectiveStock
 
-    if (availableStock <= 0) {
+    if (rawStock <= 0) {
       soundService.playOutOfStock()
       throw new Error(`Stok produk '${detail.product.name}' habis (0 ${detail.base_unit_code})`)
     }
 
+    if (effectiveStock <= 0) {
+      soundService.playOutOfStock()
+      throw new Error(
+        `Sisa stok produk '${detail.product.name}' tidak mencukupi untuk pembelian reguler (total stok ${rawStock} ${detail.base_unit_code}, ${allocatedGiftQty} ${detail.base_unit_code} sudah dialokasikan sebagai hadiah promosi gratis)`
+      )
+    }
+
     const qtyToAdd = Number(quantity) > 0 ? Number(quantity) : 1
 
-    // Check if item already exists in cart with same product & unit
+    // Check if item already exists in cart with same product & unit (HANYA ITEM REGULER NON-HADIAH)
     const existingIndex = items.value.findIndex(
-      (it) => it.product.id === detail.product.id && (
+      (it) => !it.is_auto_gift && it.product.id === detail.product.id && (
         !it.selected_unit?.unit_id || !baseUnit.unit_id || it.selected_unit.unit_id === baseUnit.unit_id
       )
     )
@@ -366,14 +394,14 @@ export const useCartStore = defineStore('cart', () => {
       const currentQty = Number(items.value[existingIndex].quantity) || 0
       const newQty = Number((currentQty + qtyToAdd).toFixed(3))
       items.value[existingIndex].product_detail = detail
-      items.value[existingIndex].current_stock = availableStock
+      items.value[existingIndex].current_stock = rawStock
 
       if (newQty > maxAllowedForUnit) {
         items.value[existingIndex].quantity = maxAllowedForUnit
         recalculateTiers(items.value[existingIndex])
         soundService.playOutOfStock()
         throw new Error(
-          `Stok '${detail.product.name}' tidak mencukupi untuk menambah ${qtyToAdd} ${baseUnit.unit_code}. Maksimal stok: ${maxAllowedForUnit} ${baseUnit.unit_code} (sudah di keranjang: ${maxAllowedForUnit} ${baseUnit.unit_code})`
+          `Stok '${detail.product.name}' tidak mencukupi untuk menambah ${qtyToAdd} ${baseUnit.unit_code}. Maksimal stok: ${maxAllowedForUnit} ${baseUnit.unit_code} (sudah di keranjang: ${currentQty} ${baseUnit.unit_code})`
         )
       }
 
@@ -384,7 +412,7 @@ export const useCartStore = defineStore('cart', () => {
       if (qtyToAdd > maxAllowedForUnit) {
         soundService.playOutOfStock()
         throw new Error(
-          `Stok '${detail.product.name}' tidak mencukupi. Stok tersedia: ${maxAllowedForUnit} ${baseUnit.unit_code}, diminta: ${qtyToAdd} ${baseUnit.unit_code}`
+          `Stok '${detail.product.name}' tidak mencukupi. Stok tersedia untuk dibeli: ${maxAllowedForUnit} ${baseUnit.unit_code}, diminta: ${qtyToAdd} ${baseUnit.unit_code}`
         )
       }
 
@@ -404,7 +432,8 @@ export const useCartStore = defineStore('cart', () => {
         tax_amount: tax,
         subtotal: gross + tax,
         product_detail: detail,
-        current_stock: availableStock,
+        current_stock: rawStock,
+        is_auto_gift: false,
       }
 
       items.value.unshift(newItem)
@@ -426,7 +455,7 @@ export const useCartStore = defineStore('cart', () => {
         await scanBarcode(code)
         return
       } catch (err: any) {
-        if (err.message && err.message.includes('Stok')) {
+        if (err.message && (err.message.includes('Stok') || err.message.includes('stok'))) {
           throw err
         }
         console.warn('Scan barcode failed for product add, using direct fallback:', err)
@@ -434,13 +463,28 @@ export const useCartStore = defineStore('cart', () => {
     }
 
     // Direct add fallback
-    const stock = Number(prod.stock_qty ?? 0)
-    if (stock <= 0) {
+    const rawStock = Number(prod.stock_qty ?? 0)
+    const allocatedGiftQty = items.value
+      .filter((it) => it.is_auto_gift && it.product.id === prod.id)
+      .reduce((sum, g) => {
+        const gFactor = Number(g.selected_unit?.conversion_factor) || 1
+        return sum + Number(g.quantity || 0) * gFactor
+      }, 0)
+    const effectiveStock = Math.max(0, rawStock - allocatedGiftQty)
+
+    if (rawStock <= 0) {
       soundService.playOutOfStock()
       throw new Error(`Stok produk '${prod.name}' habis (0 ${prod.unit_code || 'PCS'})`)
     }
 
-    const existingIndex = items.value.findIndex((it) => it.product.id === prod.id)
+    if (effectiveStock <= 0) {
+      soundService.playOutOfStock()
+      throw new Error(
+        `Sisa stok produk '${prod.name}' tidak mencukupi untuk pembelian reguler (total stok ${rawStock} ${prod.unit_code || 'PCS'}, ${allocatedGiftQty} sudah dialokasikan sebagai hadiah promosi gratis)`
+      )
+    }
+
+    const existingIndex = items.value.findIndex((it) => !it.is_auto_gift && it.product.id === prod.id)
     if (existingIndex >= 0) {
       const currentQty = Number(items.value[existingIndex].quantity) || 0
       const newQty = Number((currentQty + qtyToAdd).toFixed(3))
@@ -452,9 +496,9 @@ export const useCartStore = defineStore('cart', () => {
       return
     }
 
-    if (qtyToAdd > stock) {
+    if (qtyToAdd > effectiveStock) {
       soundService.playOutOfStock()
-      throw new Error(`Stok produk '${prod.name}' tidak mencukupi (Tersedia: ${stock}, diminta: ${qtyToAdd})`)
+      throw new Error(`Stok produk '${prod.name}' tidak mencukupi (Tersedia untuk dibeli: ${effectiveStock}, diminta: ${qtyToAdd})`)
     }
 
     const price = Number(prod.base_selling_price || prod.selling_price || 0)
@@ -481,7 +525,8 @@ export const useCartStore = defineStore('cart', () => {
       discount_amount: 0,
       tax_amount: tax,
       subtotal: gross + tax,
-      current_stock: stock,
+      current_stock: rawStock,
+      is_auto_gift: false,
     }
 
     items.value.unshift(newItem)
@@ -491,6 +536,7 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   function recalculateTiers(item: CartItem) {
+    if (item.is_auto_gift) return
     const normalBasePrice = Number(
       item.selected_unit.selling_price ||
       item.product_detail?.product.base_selling_price ||

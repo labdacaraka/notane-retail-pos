@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import PaginationBar from '@/components/common/PaginationBar.vue'
 import SearchableSelect from '@/components/common/SearchableSelect.vue'
+import CopyableText from '@/components/common/CopyableText.vue'
 import {
   TrendingUp,
   Building2,
@@ -3214,7 +3215,9 @@ onMounted(async () => {
               <template v-for="jrn in journalEntries" :key="jrn.entry.id">
                 <tr class="bg-slate-50/70 font-mono font-bold hover:bg-slate-100/60 transition">
                   <td class="py-3 px-4 text-slate-900">
-                    <div class="font-extrabold text-sky-800">{{ jrn.entry.journal_number }}</div>
+                    <div class="font-extrabold text-sky-800">
+                      <CopyableText :text="jrn.entry.journal_number" label="Nomor Jurnal" />
+                    </div>
                     <div class="text-[10px] text-slate-500 font-normal">{{ formatDate(jrn.entry.journal_date) }}</div>
                   </td>
                   <td class="py-3 px-4">
@@ -4511,7 +4514,9 @@ onMounted(async () => {
                 class="hover:bg-emerald-50/40 transition"
                 :class="{ 'opacity-50': !coa.is_active }"
               >
-                <td class="py-3 px-4 font-bold text-sky-700">{{ coa.code }}</td>
+                <td class="py-3 px-4 font-bold text-sky-700">
+                  <CopyableText :text="coa.code" label="Kode Akun" />
+                </td>
                 <td class="py-3 px-4 font-sans font-semibold text-slate-900">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span>{{ coa.name }}</span>
@@ -7247,7 +7252,9 @@ onMounted(async () => {
                     </tr>
                     <template v-for="jrn in journalEntries" :key="jrn.entry?.id || jrn.id">
                       <tr class="bg-slate-50/60 font-bold">
-                        <td class="py-2 px-3 text-emerald-800">{{ jrn.entry ? jrn.entry.journal_number : jrn.journal_number }}</td>
+                        <td class="py-2 px-3 text-emerald-800">
+                          <CopyableText :text="jrn.entry ? jrn.entry.journal_number : jrn.journal_number" label="Nomor Jurnal" />
+                        </td>
                         <td class="py-2 px-3">{{ formatDate(jrn.entry ? jrn.entry.journal_date : jrn.journal_date) }}</td>
                         <td class="py-2 px-3 font-sans">
                           <span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-200 text-slate-700 mr-1.5 uppercase font-mono">{{ jrn.entry ? jrn.entry.reference_type : jrn.reference_type }}</span>

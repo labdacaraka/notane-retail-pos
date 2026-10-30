@@ -27,6 +27,7 @@ import { api } from '@/services/api'
 import { useLocationStore } from '@/stores/locationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { formatCurrency, formatQty, formatDate } from '@/utils/formatters'
+import CopyableText from '@/components/common/CopyableText.vue'
 import { soundService } from '@/services/soundService'
 
 const locationStore = useLocationStore()
@@ -971,7 +972,9 @@ onUnmounted(() => {
               </thead>
               <tbody class="divide-y divide-slate-200">
                 <tr v-for="it in paginatedOpnameItems" :key="it.product_id" class="hover:bg-slate-50 transition">
-                  <td class="py-3 px-4 font-mono font-bold text-slate-700">{{ it.sku }}</td>
+                  <td class="py-3 px-4">
+                    <CopyableText :value="it.sku" label="SKU" />
+                  </td>
                   <td class="py-3 px-4 font-bold text-slate-900">{{ it.name }}</td>
                   <td class="py-3 px-4 text-right font-mono text-slate-600">{{ formatQty(it.system_qty) }}</td>
                   <td class="py-2 px-4 text-right">
@@ -1156,7 +1159,7 @@ onUnmounted(() => {
                 </tr>
                 <tr v-for="trf in transfers" :key="trf.id" class="hover:bg-slate-50 transition">
                   <td class="py-3 px-4">
-                    <div class="font-mono font-bold text-sky-800 text-xs">{{ trf.transfer_number }}</div>
+                    <CopyableText :value="trf.transfer_number" label="No. Dokumen" class="text-sky-800" />
                     <div class="text-[11px] text-slate-500 font-mono mt-0.5">
                       {{ formatDate(trf.transfer_date) }}
                     </div>
@@ -1894,7 +1897,9 @@ onUnmounted(() => {
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
               <div>
                 <span class="text-slate-400 font-mono uppercase text-[10px]">No. Dokumen Transfer</span>
-                <div class="font-mono font-bold text-sky-800 text-sm mt-0.5">{{ receiveForm.transfer_number }}</div>
+                <div class="mt-0.5">
+                  <CopyableText :value="receiveForm.transfer_number" label="No. Dokumen" size="sm" class="text-sky-800" />
+                </div>
               </div>
               <div>
                 <span class="text-slate-400 font-mono uppercase text-[10px]">Dari Outlet Asal</span>
@@ -2223,7 +2228,9 @@ onUnmounted(() => {
               <div class="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
                 <div>
                   <span class="text-slate-400 font-mono uppercase text-[10px]">No. Dokumen</span>
-                  <div class="font-mono font-bold text-sky-800 text-sm mt-0.5">{{ selectedTransferDetail.transfer_number }}</div>
+                  <div class="mt-0.5">
+                    <CopyableText :value="selectedTransferDetail.transfer_number" label="No. Dokumen" size="sm" class="text-sky-800" />
+                  </div>
                 </div>
                 <div>
                   <span class="text-slate-400 font-mono uppercase text-[10px]">Tanggal Kirim</span>

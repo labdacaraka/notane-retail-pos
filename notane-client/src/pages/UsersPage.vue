@@ -8,6 +8,7 @@ import PaginationBar from '@/components/common/PaginationBar.vue'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 import { useDialog } from '@/composables/useDialog'
+import CopyableText from '@/components/common/CopyableText.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -811,7 +812,10 @@ onMounted(async () => {
                           <Icon icon="fluent-color:camera-24" class="w-3.5 h-3.5" />
                         </span>
                       </div>
-                      <div class="text-xs text-slate-400 font-mono">@{{ user.username }}</div>
+                      <div class="text-xs text-slate-400 font-mono flex items-center">
+                        <span class="text-slate-400 mr-0.5">@</span>
+                        <CopyableText :value="user.username" label="Username" :bold="false" />
+                      </div>
                     </div>
                   </div>
                 </td>

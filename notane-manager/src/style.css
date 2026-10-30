@@ -27,6 +27,17 @@
   code, pre, .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
+
+  table td,
+  table th,
+  code,
+  pre,
+  input,
+  textarea,
+  .select-text {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
 }
 
 /* Custom Scrollbar */

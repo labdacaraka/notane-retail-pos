@@ -1282,18 +1282,7 @@ pub async fn process_stock_adjustment(
             .map_err(|e| format!("Gagal membaca outlet aktif pengguna: {}", e))?;
 
             match user_outlet {
-                Some(oid) => {
-                    let default_wh = sqlx::query_scalar::<_, Option<Uuid>>(
-                        "SELECT default_warehouse_id FROM outlets WHERE id = $1"
-                    )
-                    .bind(oid)
-                    .fetch_optional(pool)
-                    .await
-                    .unwrap_or(None)
-                    .flatten();
-
-                    default_wh.unwrap_or(oid)
-                }
+                Some(oid) => oid,
                 None => {
                     let fallback_outlet = sqlx::query_scalar::<_, Option<Uuid>>(
                         "SELECT outlet_id FROM user_outlets WHERE user_id = $1 LIMIT 1"

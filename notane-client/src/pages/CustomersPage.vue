@@ -32,6 +32,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDialog } from '@/composables/useDialog'
 import { formatCurrency, formatQty } from '@/utils/formatters'
 import CustomerPointHistoryModal from '@/components/customers/CustomerPointHistoryModal.vue'
+import CopyableText from '@/components/common/CopyableText.vue'
 import type { LoyaltySettings } from '@/types'
 
 const authStore = useAuthStore()
@@ -601,7 +602,9 @@ onMounted(() => {
                   <td colspan="7" class="p-8 text-center text-slate-500">Tidak ada pelanggan ditemukan</td>
                 </tr>
                 <tr v-for="c in customers" :key="c.id" class="hover:bg-emerald-50/40 transition">
-                  <td class="p-3.5 font-mono font-bold text-emerald-700">{{ c.code }}</td>
+                  <td class="p-3.5">
+                    <CopyableText :value="c.code" label="Kode Member" class="text-emerald-700 font-bold" />
+                  </td>
                   <td class="p-3.5 font-bold text-slate-900">{{ c.name }}</td>
                   <td class="p-3.5">
                     <span
@@ -618,8 +621,9 @@ onMounted(() => {
                   </td>
                   <td class="p-3.5 space-y-0.5">
                     <div class="flex items-center gap-1.5 text-slate-800 font-medium">
-                      <Phone class="w-3 h-3 text-slate-500" />
-                      <span>{{ c.phone || '-' }}</span>
+                      <Phone class="w-3 h-3 text-slate-500 shrink-0" />
+                      <CopyableText v-if="c.phone" :value="c.phone" label="No. Telepon" :mono="false" :bold="false" />
+                      <span v-else class="text-slate-400">-</span>
                     </div>
                     <div v-if="c.email" class="flex items-center gap-1.5 text-slate-500 text-[11px]">
                       <Mail class="w-3 h-3 text-slate-400" />

@@ -33,6 +33,7 @@ import {
 import { useNetworkStore } from '@/stores/networkStore'
 import { useLicenseStore } from '@/stores/licenseStore'
 import { useStoreBrandingStore } from '@/stores/storeBrandingStore'
+import CopyableText from '@/components/common/CopyableText.vue'
 import { useInitialSetupStore } from '@/stores/initialSetupStore'
 import LicenseUpdateModal from '@/components/common/LicenseUpdateModal.vue'
 import InitialSetupWizardModal from '@/components/common/InitialSetupWizardModal.vue'
@@ -1157,13 +1158,15 @@ const restartServer = async () => {
                   <Laptop class="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                   <div class="flex flex-col">
                     <span class="font-extrabold">{{ cl.device_name }}</span>
-                    <span v-if="cl.device_id && cl.device_id !== cl.device_name" class="text-[10px] text-slate-400 font-mono font-normal">
-                      ID: {{ cl.device_id }}
+                    <span v-if="cl.device_id && cl.device_id !== cl.device_name" class="text-[10px] text-slate-400 font-mono font-normal flex items-center gap-1">
+                      ID: <CopyableText :value="cl.device_id" label="ID Perangkat" />
                     </span>
                   </div>
                 </td>
                 <td class="py-3 px-4 text-slate-600 font-mono">{{ cl.device_type }}</td>
-                <td class="py-3 px-4 text-sky-700 font-mono font-bold">{{ cl.client_ip }}</td>
+                <td class="py-3 px-4 text-sky-700 font-mono font-bold">
+                  <CopyableText :value="cl.client_ip" label="Alamat IP Client" />
+                </td>
                 <td class="py-3 px-4 text-slate-500">{{ new Date(cl.connected_at).toLocaleTimeString('id-ID') }}</td>
                 <td class="py-3 px-4 text-center">
                   <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">

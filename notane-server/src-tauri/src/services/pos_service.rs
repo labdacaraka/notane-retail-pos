@@ -2390,7 +2390,15 @@ pub async fn list_sales(
     }
     if let Some(st) = &q.status {
         if !st.trim().is_empty() && st != "ALL" {
-            filter_sql.push_str(&format!(" AND s.status = '{}'", st.trim()));
+            if st == "RETURNED" {
+                filter_sql.push_str(" AND s.return_status IN ('PARTIAL', 'FULL')");
+            } else if st == "RETURN_PARTIAL" {
+                filter_sql.push_str(" AND s.return_status = 'PARTIAL'");
+            } else if st == "RETURN_FULL" {
+                filter_sql.push_str(" AND s.return_status = 'FULL'");
+            } else {
+                filter_sql.push_str(&format!(" AND s.status = '{}'", st.trim()));
+            }
         }
     }
     if let Some(s) = &q.search {
@@ -2477,6 +2485,8 @@ pub async fn list_sales(
             "change_amount": r.get::<Decimal, _>("change_amount"),
             "total_cost_amount": r.get::<Decimal, _>("total_cost_amount"),
             "status": r.get::<String, _>("status"),
+            "return_status": r.try_get::<String, _>("return_status").unwrap_or_else(|_| "NONE".to_string()),
+            "total_refund_amount": r.try_get::<Decimal, _>("total_refund_amount").unwrap_or(Decimal::ZERO),
             "notes": r.get::<Option<String>, _>("notes"),
             "created_at": r.get::<chrono::DateTime<chrono::Utc>, _>("created_at").to_rfc3339(),
         })
@@ -2519,7 +2529,12 @@ pub async fn get_sale_detail(
 
     let item_rows = sqlx::query(
         "SELECT si.*, p.name as product_name, p.sku as product_sku, p.barcode as product_barcode,
-                u.code as unit_code
+                u.code as unit_code,
+                COALESCE((
+                    SELECT SUM(sri.quantity)
+                    FROM sales_return_items sri
+                    WHERE sri.sale_item_id = si.id
+                ), 0) as returned_quantity
          FROM sale_items si
          JOIN products p ON si.product_id = p.id
          JOIN units u ON si.unit_id = u.id
@@ -2540,6 +2555,7 @@ pub async fn get_sale_detail(
             "unit_id": r.get::<Uuid, _>("unit_id"),
             "unit_code": r.get::<String, _>("unit_code"),
             "quantity": r.get::<Decimal, _>("quantity"),
+            "returned_quantity": r.try_get::<Decimal, _>("returned_quantity").unwrap_or(Decimal::ZERO),
             "unit_cost_price": r.get::<Decimal, _>("unit_cost_price"),
             "unit_selling_price": r.get::<Decimal, _>("unit_selling_price"),
             "discount_percent": r.get::<Decimal, _>("discount_percent"),
@@ -2616,6 +2632,41 @@ pub async fn get_sale_detail(
         })
         .collect();
 
+    let return_rows = sqlx::query(
+        r#"
+        SELECT sr.id, sr.return_number, sr.return_type, sr.refund_method, sr.total_refund_amount,
+               sr.notes, sr.created_at,
+               u.full_name as cashier_name,
+               spv.full_name as supervisor_name,
+               rc.description as reason_name
+        FROM sales_returns sr
+        LEFT JOIN users u ON sr.cashier_id = u.id
+        LEFT JOIN users spv ON sr.supervisor_id = spv.id
+        LEFT JOIN reason_codes rc ON sr.reason_id = rc.id
+        WHERE sr.sale_id = $1
+        ORDER BY sr.created_at DESC
+        "#,
+    )
+    .bind(sale_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let returns: Vec<serde_json::Value> = return_rows.into_iter().map(|r| {
+        serde_json::json!({
+            "id": r.get::<Uuid, _>("id"),
+            "return_number": r.get::<String, _>("return_number"),
+            "return_type": r.get::<String, _>("return_type"),
+            "refund_method": r.try_get::<String, _>("refund_method").unwrap_or_else(|_| "CASH".to_string()),
+            "total_refund_amount": r.get::<Decimal, _>("total_refund_amount"),
+            "notes": r.get::<Option<String>, _>("notes"),
+            "created_at": r.get::<chrono::DateTime<chrono::Utc>, _>("created_at").to_rfc3339(),
+            "cashier_name": r.get::<Option<String>, _>("cashier_name"),
+            "supervisor_name": r.get::<Option<String>, _>("supervisor_name"),
+            "reason_name": r.get::<Option<String>, _>("reason_name"),
+        })
+    }).collect();
+
     let sale_data = serde_json::json!({
         "id": sale_row.get::<Uuid, _>("id"),
         "invoice_number": sale_row.get::<String, _>("invoice_number"),
@@ -2638,6 +2689,8 @@ pub async fn get_sale_detail(
         "change_amount": sale_row.get::<Decimal, _>("change_amount"),
         "total_cost_amount": sale_row.get::<Decimal, _>("total_cost_amount"),
         "status": sale_row.get::<String, _>("status"),
+        "return_status": sale_row.try_get::<String, _>("return_status").unwrap_or_else(|_| "NONE".to_string()),
+        "total_refund_amount": sale_row.try_get::<Decimal, _>("total_refund_amount").unwrap_or(Decimal::ZERO),
         "notes": sale_row.get::<Option<String>, _>("notes"),
         "total_flash_sale_discount": sale_row.try_get::<Decimal, _>("total_flash_sale_discount").unwrap_or(Decimal::ZERO),
         "total_member_discount": sale_row.try_get::<Decimal, _>("total_member_discount").unwrap_or(Decimal::ZERO),
@@ -2646,6 +2699,7 @@ pub async fn get_sale_detail(
         "items": items,
         "payments": payments,
         "stock_batches": stock_batches,
+        "returns": returns,
     });
 
     Ok(sale_data)

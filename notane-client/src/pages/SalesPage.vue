@@ -29,6 +29,7 @@ import { useLocationStore } from '@/stores/locationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useExportStore } from '@/stores/exportStore'
 import SupervisorAuthSection from '@/components/pos/SupervisorAuthSection.vue'
+import CopyableText from '@/components/common/CopyableText.vue'
 import { formatCurrency, formatQty, formatDate } from '@/utils/formatters'
 
 const previewProofUrl = ref<string | null>(null)
@@ -585,6 +586,15 @@ async function confirmVoid() {
                 </button>
                 <button
                   type="button"
+                  @click="statusFilter = 'RETURNED'; handleFilterChange()"
+                  class="px-3 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1.5"
+                  :class="statusFilter === 'RETURNED' ? 'bg-white text-amber-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+                >
+                  <RotateCcw class="w-3.5 h-3.5 text-amber-600" />
+                  <span>Ada Retur</span>
+                </button>
+                <button
+                  type="button"
                   @click="statusFilter = 'VOID'; handleFilterChange()"
                   class="px-3 py-1 rounded-md font-bold transition cursor-pointer"
                   :class="statusFilter === 'VOID' ? 'bg-white text-rose-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
@@ -659,10 +669,10 @@ async function confirmVoid() {
                   :class="{ 'bg-rose-50/30 opacity-75': s.status === 'VOID' }"
                 >
                   <!-- No Faktur -->
-                  <td class="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                  <td class="px-4 py-3 whitespace-nowrap">
                     <div class="flex items-center gap-1.5">
                       <Receipt class="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>{{ s.invoice_number }}</span>
+                      <CopyableText :value="s.invoice_number" label="No. Faktur" />
                     </div>
                   </td>
 
@@ -700,30 +710,53 @@ async function confirmVoid() {
                   </td>
 
                   <!-- Total Tagihan -->
-                  <td class="px-4 py-3 text-right font-mono font-extrabold text-slate-900 whitespace-nowrap">
-                    {{ formatCurrency(s.total_amount) }}
+                  <td class="px-4 py-3 text-right font-mono font-extrabold whitespace-nowrap">
+                    <div class="text-slate-900">{{ formatCurrency(s.total_amount) }}</div>
+                    <div v-if="Number(s.total_refund_amount || 0) > 0" class="text-[10px] text-rose-600 font-bold">
+                      Retur: -{{ formatCurrency(s.total_refund_amount) }}
+                    </div>
                   </td>
 
                   <!-- Status -->
                   <td class="px-4 py-3 text-center whitespace-nowrap">
-                    <span
-                      v-if="s.status === 'COMPLETED'"
-                      class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300"
-                    >
-                      SELESAI
-                    </span>
-                    <span
-                      v-else-if="s.status === 'VOID'"
-                      class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300 line-through"
-                    >
-                      DIBATALKAN (VOID)
-                    </span>
-                    <span
-                      v-else
-                      class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-800 border border-slate-300"
-                    >
-                      {{ s.status }}
-                    </span>
+                    <div class="flex flex-col items-center gap-1">
+                      <span
+                        v-if="s.status === 'COMPLETED'"
+                        class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300"
+                      >
+                        SELESAI
+                      </span>
+                      <span
+                        v-else-if="s.status === 'VOID'"
+                        class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300 line-through"
+                      >
+                        DIBATALKAN (VOID)
+                      </span>
+                      <span
+                        v-else
+                        class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-800 border border-slate-300"
+                      >
+                        {{ s.status }}
+                      </span>
+
+                      <!-- Badge Status Retur Penjualan -->
+                      <span
+                        v-if="s.return_status === 'FULL'"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-600 text-white shadow-2xs tracking-wider"
+                        title="Seluruh barang dalam transaksi ini telah diretur"
+                      >
+                        <RotateCcw class="w-2.5 h-2.5" />
+                        RETUR TOTAL
+                      </span>
+                      <span
+                        v-else-if="s.return_status === 'PARTIAL'"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500 text-white shadow-2xs tracking-wider"
+                        title="Sebagian barang dalam transaksi ini telah diretur"
+                      >
+                        <RotateCcw class="w-2.5 h-2.5" />
+                        RETUR SEBAGIAN
+                      </span>
+                    </div>
                   </td>
 
                   <!-- Aksi -->
@@ -812,7 +845,7 @@ async function confirmVoid() {
               <div>
                 <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rincian Faktur Penjualan</div>
                 <div class="text-base font-black tracking-tight flex items-center gap-2">
-                  <span>{{ selectedSale?.invoice_number }}</span>
+                  <CopyableText :value="selectedSale?.invoice_number" label="No. Faktur" size="base" />
                   <span
                     v-if="selectedSale?.status === 'COMPLETED'"
                     class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-bold"
@@ -824,6 +857,20 @@ async function confirmVoid() {
                     class="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-400/30 font-bold line-through"
                   >
                     VOIDED
+                  </span>
+                  <span
+                    v-if="selectedSale?.return_status === 'FULL'"
+                    class="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-400/30 font-bold flex items-center gap-1"
+                  >
+                    <RotateCcw class="w-3 h-3" />
+                    <span>RETUR TOTAL</span>
+                  </span>
+                  <span
+                    v-else-if="selectedSale?.return_status === 'PARTIAL'"
+                    class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-bold flex items-center gap-1"
+                  >
+                    <RotateCcw class="w-3 h-3" />
+                    <span>RETUR SEBAGIAN</span>
                   </span>
                 </div>
               </div>
@@ -846,6 +893,39 @@ async function confirmVoid() {
             </div>
 
             <div v-else-if="selectedSale" class="space-y-5">
+              <!-- Return Notification Banner -->
+              <div
+                v-if="selectedSale.return_status && selectedSale.return_status !== 'NONE'"
+                class="p-4 rounded-xl border flex items-start justify-between gap-3 transition-all"
+                :class="selectedSale.return_status === 'FULL'
+                  ? 'bg-rose-50/90 border-rose-200 text-rose-900'
+                  : 'bg-amber-50/90 border-amber-200 text-amber-900'"
+              >
+                <div class="flex items-start gap-3">
+                  <div
+                    class="p-2 rounded-lg shrink-0 mt-0.5"
+                    :class="selectedSale.return_status === 'FULL' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'"
+                  >
+                    <RotateCcw class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div class="font-bold text-xs flex items-center gap-2">
+                      <span>{{ selectedSale.return_status === 'FULL' ? 'Faktur Ditretur Penuh (Full Return)' : 'Faktur Memiliki Retur Sebagian (Partial Return)' }}</span>
+                      <span
+                        class="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
+                        :class="selectedSale.return_status === 'FULL' ? 'bg-rose-200 text-rose-800' : 'bg-amber-200 text-amber-800'"
+                      >
+                        {{ selectedSale.returns?.length || 1 }}x Retur
+                      </span>
+                    </div>
+                    <p class="text-[11px] opacity-90 mt-1">
+                      Total pengembalian dana (refund) yang telah diserahkan ke pelanggan sebesar
+                      <strong class="font-mono">{{ formatRupiah(selectedSale.total_refund_amount || 0) }}</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <!-- Meta Info Grid -->
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <div>
@@ -917,7 +997,14 @@ async function confirmVoid() {
                           {{ it.product_barcode || it.product_sku || '-' }}
                         </td>
                         <td class="px-3 py-2.5 text-right font-bold text-slate-800">
-                          {{ formatQty(it.quantity) }} {{ it.unit_code }}
+                          <div>{{ formatQty(it.quantity) }} {{ it.unit_code }}</div>
+                          <div
+                            v-if="Number(it.returned_quantity || 0) > 0"
+                            class="text-[9px] text-rose-600 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5 inline-flex items-center gap-0.5 mt-1 font-bold"
+                          >
+                            <RotateCcw class="w-2.5 h-2.5" />
+                            <span>Diretur: {{ formatQty(it.returned_quantity) }}</span>
+                          </div>
                         </td>
                         <td class="px-3 py-2.5 text-right text-slate-600">
                           {{ formatRupiah(getItemCatalogPrice(it)) }}
@@ -937,6 +1024,94 @@ async function confirmVoid() {
                       </tr>
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              <!-- Riwayat Klaim Retur Konsumen Section -->
+              <div v-if="selectedSale.returns && selectedSale.returns.length > 0">
+                <div class="text-xs font-bold text-slate-800 mb-2 uppercase tracking-wide flex items-center justify-between">
+                  <span class="flex items-center gap-1.5 text-rose-700">
+                    <RotateCcw class="w-3.5 h-3.5" />
+                    <span>Riwayat Retur Pelanggan ({{ selectedSale.returns.length }})</span>
+                  </span>
+                  <span class="text-rose-600 font-bold font-mono">
+                    Total Refund: {{ formatRupiah(selectedSale.total_refund_amount || 0) }}
+                  </span>
+                </div>
+                <div class="border border-rose-200 rounded-xl overflow-hidden shadow-2xs divide-y divide-rose-100 bg-rose-50/20">
+                  <div
+                    v-for="(ret, rIdx) in selectedSale.returns"
+                    :key="ret.id || rIdx"
+                    class="p-3.5 space-y-2.5"
+                  >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <div class="flex items-center gap-2">
+                        <span class="font-mono font-bold text-slate-900 text-xs">
+                          {{ ret.return_number }}
+                        </span>
+                        <span
+                          class="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                          :class="ret.return_type === 'FULL' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'"
+                        >
+                          {{ ret.return_type === 'FULL' ? 'Retur Penuh' : 'Retur Sebagian' }}
+                        </span>
+                        <span class="text-[11px] text-slate-500 font-medium">
+                          {{ formatDate(ret.created_at) }}
+                        </span>
+                      </div>
+                      <div class="text-right">
+                        <span class="text-[10px] text-slate-400 uppercase font-bold mr-1">Metode:</span>
+                        <span class="text-xs font-bold text-slate-800">{{ ret.refund_method || 'CASH' }}</span>
+                        <span class="ml-2 font-mono font-black text-rose-700 text-xs">
+                          {{ formatRupiah(ret.refund_amount || ret.total_refund_amount || 0) }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div v-if="ret.notes || ret.reason_name || ret.reason_code" class="text-[11px] text-slate-600 bg-white/80 p-2 rounded-lg border border-rose-100">
+                      <span class="font-bold text-slate-700">Alasan:</span> {{ ret.reason_name || ret.reason_code || '-' }}
+                      <span v-if="ret.notes" class="text-slate-500"> — "{{ ret.notes }}"</span>
+                    </div>
+
+                    <!-- Items returned in this return batch -->
+                    <div v-if="ret.items && ret.items.length > 0" class="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                      <table class="w-full text-left text-[11px] text-slate-700">
+                        <thead class="bg-slate-50 text-[9px] font-bold text-slate-500 uppercase border-b border-slate-200">
+                          <tr>
+                            <th class="px-2.5 py-1.5">Barang yang Diretur</th>
+                            <th class="px-2.5 py-1.5 text-right">Qty Retur</th>
+                            <th class="px-2.5 py-1.5">Kondisi Fisik</th>
+                            <th class="px-2.5 py-1.5 text-right">Harga Satuan</th>
+                            <th class="px-2.5 py-1.5 text-right">Subtotal Refund</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 font-mono">
+                          <tr v-for="(rit, ritIdx) in ret.items" :key="ritIdx">
+                            <td class="px-2.5 py-1.5 font-sans font-medium text-slate-800">
+                              {{ rit.product_name }}
+                            </td>
+                            <td class="px-2.5 py-1.5 text-right font-bold text-rose-700">
+                              {{ formatQty(rit.quantity) }} {{ rit.unit_code }}
+                            </td>
+                            <td class="px-2.5 py-1.5 font-sans">
+                              <span
+                                class="text-[9px] px-1.5 py-0.5 rounded font-bold"
+                                :class="rit.condition === 'GOOD' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                              >
+                                {{ rit.condition === 'GOOD' ? 'Bagus (Restock)' : 'Rusak / Afkir (Damaged)' }}
+                              </span>
+                            </td>
+                            <td class="px-2.5 py-1.5 text-right text-slate-600">
+                              {{ formatRupiah(rit.unit_selling_price || rit.unit_price || 0) }}
+                            </td>
+                            <td class="px-2.5 py-1.5 text-right font-bold text-slate-900">
+                              {{ formatRupiah(rit.subtotal || (Number(rit.quantity) * Number(rit.unit_selling_price || rit.unit_price || 0))) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1033,6 +1208,25 @@ async function confirmVoid() {
                     <span>{{ formatRupiah(selectedSale.total_amount) }}</span>
                   </div>
 
+                  <!-- Retur Terbayar jika ada -->
+                  <div
+                    v-if="Number(selectedSale.total_refund_amount || 0) > 0"
+                    class="flex justify-between text-rose-700 text-xs font-bold pt-1.5 border-t border-rose-200"
+                  >
+                    <span class="font-sans flex items-center gap-1">
+                      <RotateCcw class="w-3.5 h-3.5" />
+                      <span>Total Retur (Refund):</span>
+                    </span>
+                    <span>-{{ formatRupiah(selectedSale.total_refund_amount) }}</span>
+                  </div>
+                  <div
+                    v-if="Number(selectedSale.total_refund_amount || 0) > 0"
+                    class="flex justify-between text-slate-900 font-extrabold text-sm"
+                  >
+                    <span class="font-sans">Sisa Penjualan Efektif:</span>
+                    <span class="text-emerald-700 font-mono">{{ formatRupiah(Math.max(0, Number(selectedSale.total_amount) - Number(selectedSale.total_refund_amount))) }}</span>
+                  </div>
+
                   <!-- Total Hemat Badge -->
                   <div
                     v-if="Number(selectedSale.total_savings_amount || selectedSale.discount_amount || 0) > 0"
@@ -1106,7 +1300,9 @@ async function confirmVoid() {
               </div>
               <div>
                 <h3 class="text-base font-black text-slate-900">Batalkan Transaksi (Void)</h3>
-                <p class="text-xs text-slate-500 font-mono">{{ saleToVoid?.invoice_number }}</p>
+                <div class="mt-0.5">
+                  <CopyableText :value="saleToVoid?.invoice_number" label="No. Faktur" />
+                </div>
               </div>
             </div>
 

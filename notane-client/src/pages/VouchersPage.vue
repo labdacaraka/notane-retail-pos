@@ -16,6 +16,7 @@ import {
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 import { useDialog } from '@/composables/useDialog'
+import CopyableText from '@/components/common/CopyableText.vue'
 import { formatCurrency, formatPercent, parseDecimal, formatDate } from '@/utils/formatters'
 
 const authStore = useAuthStore()
@@ -352,9 +353,11 @@ onUnmounted(() => {
               <td colspan="9" class="p-8 text-center text-slate-500">Tidak ada voucher ditemukan</td>
             </tr>
             <tr v-for="v in paginatedVouchers" :key="v.id" class="hover:bg-emerald-50/40 transition">
-              <td class="p-3.5 font-mono font-bold text-amber-800 flex items-center gap-1.5">
-                <Ticket class="w-3.5 h-3.5 text-amber-600" />
-                <span>{{ v.code }}</span>
+              <td class="p-3.5 whitespace-nowrap">
+                <div class="flex items-center gap-1.5">
+                  <Ticket class="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <CopyableText :value="v.code" label="Kode Voucher" class="text-amber-800" />
+                </div>
               </td>
               <td class="p-3.5 font-medium text-slate-900 max-w-xs truncate">{{ v.description || '-' }}</td>
               <td class="p-3.5">

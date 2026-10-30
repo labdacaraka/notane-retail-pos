@@ -480,10 +480,10 @@ pub async fn create_dividend(
         r#"
         INSERT INTO journal_entries (
             id, journal_number, journal_date, reference_type, reference_id,
-            notes, is_posted, is_balanced, is_closing_entry, created_by
+            description, total_debit, total_credit, is_closing_entry, created_by
         ) VALUES (
             $1, $2, $3, 'DIVIDEND_DISTRIBUTION', $4,
-            $5, TRUE, TRUE, FALSE, $6
+            $5, $6, $6, FALSE, $7
         )
         "#,
     )
@@ -492,6 +492,7 @@ pub async fn create_dividend(
     .bind(req.distribution_date)
     .bind(dist_id)
     .bind(&journal_notes)
+    .bind(req.total_amount)
     .bind(user_id)
     .execute(&mut *tx)
     .await
@@ -554,16 +555,21 @@ pub async fn create_dividend(
     );
     let _ = sqlx::query(
         r#"
-        INSERT INTO system_audit_logs (
-            id, user_id, action, module, description, target_id, created_at
+        INSERT INTO audit_logs (
+            user_id, action, entity_name, entity_id, new_values, created_at
         ) VALUES (
-            gen_random_uuid(), $1, 'DIVIDEND_DISTRIBUTION', 'accounting', $2, $3, CURRENT_TIMESTAMP
+            $1, 'DIVIDEND_DISTRIBUTION', 'dividend_distributions', $2, $3, CURRENT_TIMESTAMP
         )
         "#,
     )
     .bind(user_id)
-    .bind(&audit_desc)
     .bind(dist_id.to_string())
+    .bind(serde_json::json!({
+        "distribution_number": dist_number,
+        "amount": req.total_amount,
+        "recipient": req.recipient_name.trim(),
+        "notes": audit_desc
+    }))
     .execute(&mut *tx)
     .await;
 
@@ -627,16 +633,21 @@ pub async fn cancel_dividend(
     );
     let _ = sqlx::query(
         r#"
-        INSERT INTO system_audit_logs (
-            id, user_id, action, module, description, target_id, created_at
+        INSERT INTO audit_logs (
+            user_id, action, entity_name, entity_id, new_values, created_at
         ) VALUES (
-            gen_random_uuid(), $1, 'DIVIDEND_CANCELLED', 'accounting', $2, $3, CURRENT_TIMESTAMP
+            $1, 'DIVIDEND_CANCELLED', 'dividend_distributions', $2, $3, CURRENT_TIMESTAMP
         )
         "#,
     )
     .bind(user_id)
-    .bind(&audit_desc)
     .bind(id.to_string())
+    .bind(serde_json::json!({
+        "distribution_number": dist_num,
+        "amount": total_amount,
+        "recipient": recipient,
+        "notes": audit_desc
+    }))
     .execute(&mut *tx)
     .await;
 

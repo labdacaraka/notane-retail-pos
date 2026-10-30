@@ -221,19 +221,22 @@ async fn create_cash_drop_handler(
     if let (Some(debit_acc), Some(credit_acc)) = (coa_brankas, coa_kas_laci) {
         let journal_id = Uuid::new_v4();
         let journal_number = format!("JRN-CD-{}", chrono::Utc::now().format("%Y%m%d%H%M%S"));
+        let journal_desc = format!("Setor Kas Laci (Cash Drop) {} oleh Kasir", drop_number);
         let journal_res = sqlx::query(
             r#"
-            INSERT INTO general_journals (
-                id, journal_number, reference_type, reference_id, transaction_date, description, total_amount, created_by
+            INSERT INTO journal_entries (
+                id, journal_number, journal_date, reference_type, reference_id,
+                description, total_debit, total_credit, is_closing_entry, created_by
             ) VALUES (
-                $1, $2, 'CASH_DROP', $3, CURRENT_TIMESTAMP, $4, $5, $6
+                $1, $2, CURRENT_DATE, 'CASH_DROP', $3,
+                $4, $5, $5, FALSE, $6
             )
             "#,
         )
         .bind(journal_id)
         .bind(&journal_number)
         .bind(drop_record.id)
-        .bind(format!("Setor Kas Laci (Cash Drop) {} oleh Kasir", drop_number))
+        .bind(&journal_desc)
         .bind(payload.amount)
         .bind(cashier_id)
         .execute(&mut *tx)
@@ -242,16 +245,18 @@ async fn create_cash_drop_handler(
         if journal_res.is_ok() {
             let _ = sqlx::query(
                 r#"
-                INSERT INTO journal_entries (
-                    journal_id, coa_id, debit_amount, credit_amount, description
+                INSERT INTO journal_lines (
+                    id, journal_id, account_id, debit, credit, memo, outlet_id, created_by
                 ) VALUES
-                ($1, $2, $3, 0, 'Setor Kas ke Brankas/Supervisor'),
-                ($1, $4, 0, $3, 'Pengurangan Kas Laci Kasir')
+                (gen_random_uuid(), $1, $2, $3, 0, 'Setor Kas ke Bank / Rekening Penampung', $4, $5),
+                (gen_random_uuid(), $1, $6, 0, $3, 'Pengurangan Kas Laci Kasir', $4, $5)
                 "#,
             )
             .bind(journal_id)
             .bind(debit_acc)
             .bind(payload.amount)
+            .bind(shift.outlet_id)
+            .bind(cashier_id)
             .bind(credit_acc)
             .execute(&mut *tx)
             .await;
@@ -306,8 +311,8 @@ async fn list_cash_drops_handler(
         r#"
         SELECT 
             cd.id, cd.drop_number, cd.shift_id, cd.outlet_id,
-            cd.cashier_id, u_cashier.name as cashier_name,
-            cd.supervisor_id, u_spv.name as supervisor_name,
+            cd.cashier_id, u_cashier.full_name as cashier_name,
+            cd.supervisor_id, u_spv.full_name as supervisor_name,
             cd.amount, cd.notes, cd.created_at
         FROM cash_drops cd
         LEFT JOIN users u_cashier ON cd.cashier_id = u_cashier.id
@@ -436,8 +441,8 @@ async fn get_current_shift_cash_drops_handler(
         r#"
         SELECT 
             cd.id, cd.drop_number, cd.shift_id, cd.outlet_id,
-            cd.cashier_id, u_cashier.name as cashier_name,
-            cd.supervisor_id, u_spv.name as supervisor_name,
+            cd.cashier_id, u_cashier.full_name as cashier_name,
+            cd.supervisor_id, u_spv.full_name as supervisor_name,
             cd.amount, cd.notes, cd.created_at
         FROM cash_drops cd
         LEFT JOIN users u_cashier ON cd.cashier_id = u_cashier.id

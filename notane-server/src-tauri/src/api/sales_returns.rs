@@ -64,10 +64,12 @@ pub struct CreateReturnItemPayload {
 #[derive(Debug, Deserialize)]
 pub struct CreateSalesReturnPayload {
     pub sale_id: Uuid,
-    pub supervisor_id: Uuid,
+    pub supervisor_id: Option<Uuid>,
     pub supervisor_pin: Option<String>,
     pub supervisor_auth_token: Option<String>,
     pub return_type: Option<String>, // REFUND, EXCHANGE
+    pub refund_method: Option<String>, // CASH, STORE_CREDIT
+    pub reason_code: Option<String>,
     pub reason_id: Option<Uuid>,
     pub notes: Option<String>,
     pub items: Vec<CreateReturnItemPayload>,
@@ -87,14 +89,24 @@ pub async fn lookup_sale_by_invoice_handler(
         r#"
         SELECT 
             s.id, s.invoice_number, s.status, s.subtotal, s.discount_amount, s.tax_amount,
-            s.total_amount, s.paid_amount, s.payment_method, s.created_at,
+            s.total_amount, s.paid_amount,
+            COALESCE(pm.name, 'Tunai') as payment_method,
+            s.created_at,
             s.outlet_id, o.name as outlet_name,
             s.customer_id, c.name as customer_name, c.phone as customer_phone,
-            s.cashier_id, u.full_name as cashier_name
+            s.created_by as cashier_id, u.full_name as cashier_name
         FROM sales s
         LEFT JOIN outlets o ON s.outlet_id = o.id
         LEFT JOIN customers c ON s.customer_id = c.id
-        LEFT JOIN users u ON s.cashier_id = u.id
+        LEFT JOIN users u ON s.created_by = u.id
+        LEFT JOIN LATERAL (
+            SELECT pm.name
+            FROM sale_payments sp
+            JOIN payment_methods pm ON sp.payment_method_id = pm.id
+            WHERE sp.sale_id = s.id
+            ORDER BY sp.created_at ASC
+            LIMIT 1
+        ) pm ON true
         WHERE UPPER(s.invoice_number) = $1
         "#,
     )
@@ -128,13 +140,14 @@ pub async fn lookup_sale_by_invoice_handler(
         r#"
         SELECT 
             si.id as sale_item_id, si.product_id, p.name as product_name, p.sku, p.barcode,
-            p.unit_code, si.quantity as original_qty, si.unit_price, si.discount_amount, si.subtotal,
+            u.code as unit_code, si.quantity as original_qty, si.unit_selling_price as unit_price, si.discount_amount, si.subtotal,
             COALESCE(SUM(sri.quantity), 0) as already_returned_qty
         FROM sale_items si
         JOIN products p ON si.product_id = p.id
+        LEFT JOIN units u ON si.unit_id = u.id
         LEFT JOIN sales_return_items sri ON si.id = sri.sale_item_id
         WHERE si.sale_id = $1
-        GROUP BY si.id, si.product_id, p.name, p.sku, p.barcode, p.unit_code, si.quantity, si.unit_price, si.discount_amount, si.subtotal
+        GROUP BY si.id, si.product_id, p.name, p.sku, p.barcode, u.code, si.quantity, si.unit_selling_price, si.discount_amount, si.subtotal, si.created_at
         ORDER BY si.created_at ASC
         "#,
     )
@@ -150,17 +163,21 @@ pub async fn lookup_sale_by_invoice_handler(
         let max_returnable_qty = (original_qty - already_returned_qty).max(Decimal::ZERO);
 
         items.push(json!({
+            "id": row.get::<Uuid, _>("sale_item_id"),
             "sale_item_id": row.get::<Uuid, _>("sale_item_id"),
             "product_id": row.get::<Uuid, _>("product_id"),
             "product_name": row.get::<String, _>("product_name"),
             "sku": row.get::<String, _>("sku"),
             "barcode": row.get::<Option<String>, _>("barcode"),
-            "unit_code": row.get::<Option<String>, _>("unit_code"),
+            "unit_code": row.get::<Option<String>, _>("unit_code").unwrap_or_else(|| "PCS".to_string()),
+            "quantity": original_qty,
             "original_qty": original_qty,
             "unit_price": row.get::<Decimal, _>("unit_price"),
             "discount_amount": row.get::<Decimal, _>("discount_amount"),
             "subtotal": row.get::<Decimal, _>("subtotal"),
+            "returned_quantity": already_returned_qty,
             "already_returned_qty": already_returned_qty,
+            "remaining_returnable_qty": max_returnable_qty,
             "max_returnable_qty": max_returnable_qty
         }));
     }
@@ -168,6 +185,7 @@ pub async fn lookup_sale_by_invoice_handler(
     Ok(Json(json!({
         "success": true,
         "data": {
+            "id": sale_id,
             "sale_id": sale_id,
             "invoice_number": sale_row.get::<String, _>("invoice_number"),
             "status": status,
@@ -202,20 +220,20 @@ pub async fn create_sales_return_handler(
     }
 
     // 1. Verifikasi Otorisasi Supervisor (Biometrik atau PIN)
-    if let Err(e) = verify_supervisor_auth(
+    let verified_spv_id = verify_supervisor_auth(
         &pool,
-        Some(payload.supervisor_id),
+        payload.supervisor_id,
         payload.supervisor_pin.as_deref(),
         payload.supervisor_auth_token.as_deref(),
         "SALES_RETURN",
     )
     .await
-    {
-        return Err((
+    .map_err(|e| {
+        (
             StatusCode::FORBIDDEN,
             Json(json!({ "success": false, "message": format!("Otorisasi Supervisor gagal: {}", e) })),
-        ));
-    }
+        )
+    })?;
 
     // 2. Mulai transaksi database
     let mut tx = pool.begin().await.map_err(|e| {
@@ -223,14 +241,18 @@ pub async fn create_sales_return_handler(
     })?;
 
     // Ambil data sale asli
-    let sale_row = sqlx::query("SELECT id, outlet_id, status FROM sales WHERE id = $1 FOR UPDATE")
+    let sale_row = sqlx::query("SELECT id, invoice_number, outlet_id, status FROM sales WHERE id = $1 FOR UPDATE")
         .bind(payload.sale_id)
         .fetch_optional(&mut *tx)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))))?;
 
-    let (sale_outlet_id, sale_status) = match sale_row {
-        Some(r) => (r.get::<Option<Uuid>, _>("outlet_id"), r.get::<String, _>("status")),
+    let (sale_outlet_id, sale_status, sale_invoice_number) = match sale_row {
+        Some(r) => (
+            r.get::<Option<Uuid>, _>("outlet_id"),
+            r.get::<String, _>("status"),
+            r.get::<String, _>("invoice_number"),
+        ),
         None => {
             return Err((
                 StatusCode::NOT_FOUND,
@@ -271,7 +293,7 @@ pub async fn create_sales_return_handler(
         let item_info = sqlx::query(
             r#"
             SELECT 
-                si.quantity as original_qty, si.unit_price, si.discount_amount, p.cost_price,
+                si.quantity as original_qty, si.unit_selling_price as unit_price, si.discount_amount, p.cost_price,
                 COALESCE((SELECT SUM(sri.quantity) FROM sales_return_items sri WHERE sri.sale_item_id = si.id), 0) as already_returned
             FROM sale_items si
             JOIN products p ON si.product_id = p.id
@@ -329,13 +351,27 @@ pub async fn create_sales_return_handler(
         ));
     }
 
+    // Lookup reason_id by reason_code jika reason_id belum terisi
+    let mut resolved_reason_id = payload.reason_id;
+    if resolved_reason_id.is_none() {
+        if let Some(ref rcode) = payload.reason_code {
+            resolved_reason_id = sqlx::query_scalar("SELECT id FROM reason_codes WHERE code = $1 LIMIT 1")
+                .bind(rcode)
+                .fetch_optional(&mut *tx)
+                .await
+                .unwrap_or(None);
+        }
+    }
+
+    let refund_method = payload.refund_method.unwrap_or_else(|| "CASH".to_string()).to_uppercase();
+
     // 4. Masukkan header sales_returns
     sqlx::query(
         r#"
         INSERT INTO sales_returns (
             id, return_number, sale_id, outlet_id, shift_id, cashier_id, supervisor_id,
-            return_type, total_refund_amount, reason_id, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            return_type, refund_method, refund_amount, total_refund_amount, reason_id, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         "#,
     )
     .bind(return_id)
@@ -344,17 +380,20 @@ pub async fn create_sales_return_handler(
     .bind(sale_outlet_id)
     .bind(active_shift_id)
     .bind(cashier_id)
-    .bind(payload.supervisor_id)
+    .bind(verified_spv_id)
     .bind(&return_type)
+    .bind(&refund_method)
     .bind(total_refund_amount)
-    .bind(payload.reason_id)
+    .bind(total_refund_amount)
+    .bind(resolved_reason_id)
     .bind(&payload.notes)
     .execute(&mut *tx)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))))?;
 
     // 5. Masukkan rincian item & perbarui stok
-    for (it, unit_price, disc_amount, subtotal, _cost_price) in return_items_data {
+    let mut total_restocked_cogs = Decimal::ZERO;
+    for (it, unit_price, disc_amount, subtotal, cost_price) in return_items_data {
         let restock = it.restock.unwrap_or(true);
         let condition = it.condition.trim().to_uppercase();
 
@@ -379,107 +418,285 @@ pub async fn create_sales_return_handler(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": e.to_string() }))))?;
 
-        // Jika kondisi baik dan restock true, kembalikan stok fisik
+        // Jika kondisi baik dan restock true, kembalikan stok fisik & akumulasi HPP yang dipulihkan
         if restock && condition == "GOOD" {
+            total_restocked_cogs += it.quantity * cost_price;
+
             if let Some(oid) = sale_outlet_id {
-                let _ = sqlx::query(
+                let updated_stock: (Decimal,) = sqlx::query_as(
                     r#"
                     INSERT INTO warehouse_stocks (warehouse_id, product_id, quantity)
                     VALUES ($1, $2, $3)
                     ON CONFLICT (warehouse_id, product_id)
                     DO UPDATE SET quantity = warehouse_stocks.quantity + $3, updated_at = CURRENT_TIMESTAMP
+                    RETURNING quantity
                     "#,
                 )
                 .bind(oid)
                 .bind(it.product_id)
                 .bind(it.quantity)
-                .execute(&mut *tx)
-                .await;
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal memulihkan stok toko: {}", e) }))))?;
 
-                let _ = sqlx::query(
+                let new_balance = updated_stock.0;
+
+                sqlx::query(
                     r#"
-                    INSERT INTO stock_movements (
-                        product_id, warehouse_id, reference_type, reference_id,
-                        quantity_in, quantity_out, notes
-                    ) VALUES ($1, $2, 'RETURN_IN', $3, $4, 0, $5)
+                    INSERT INTO stock_mutations (
+                        warehouse_id, product_id, reference_type, reference_id,
+                        qty_in, qty_out, balance, cost_price, notes, created_at, updated_at, created_by, updated_by
+                    ) VALUES (
+                        $1, $2, 'SALES_RETURN', $3, $4, 0, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $8, $8
+                    )
                     "#,
                 )
-                .bind(it.product_id)
                 .bind(oid)
+                .bind(it.product_id)
                 .bind(return_id)
                 .bind(it.quantity)
-                .bind(format!("Retur Penjualan Konsumen {}", return_number))
+                .bind(new_balance)
+                .bind(cost_price)
+                .bind(format!("Retur Penjualan Konsumen {} Faktur {}", return_number, sale_invoice_number))
+                .bind(cashier_id)
                 .execute(&mut *tx)
-                .await;
+                .await
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal mencatat mutasi stok retur: {}", e) }))))?;
+
+                // Kembalikan sisa kuantitas batch fisik jika item dialokasikan dari batch
+                let allocated_batch: Option<(Uuid,)> = sqlx::query_as(
+                    "SELECT batch_id FROM sale_item_stock_batches WHERE sale_item_id = $1 AND batch_id IS NOT NULL LIMIT 1"
+                )
+                .bind(it.sale_item_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .unwrap_or(None);
+
+                if let Some((b_id,)) = allocated_batch {
+                    let _ = sqlx::query("UPDATE product_stock_batches SET remaining_qty = remaining_qty + $1 WHERE id = $2")
+                        .bind(it.quantity)
+                        .bind(b_id)
+                        .execute(&mut *tx)
+                        .await;
+                }
             }
         }
     }
 
-    // 6. Pencatatan Jurnal Akuntansi Retur Penjualan
-    // Debit: 4103 (Retur Penjualan)
-    // Credit: 1101 (Kas Toko)
-    let journal_id = Uuid::new_v4();
-    let journal_number = format!("JRN-{}", Utc::now().format("%Y%m%d%H%M%S"));
-
-    let _ = sqlx::query(
+    // 6. Update status transaksi penjualan (sales)
+    // Hitung akumulasi retur pada transaksi penjualan ini
+    let (total_sold_qty, total_returned_qty): (Decimal, Decimal) = sqlx::query_as(
         r#"
-        INSERT INTO general_journals (
-            id, journal_number, reference_type, reference_id,
-            transaction_date, description, total_amount, created_by
-        ) VALUES ($1, $2, 'SALES_RETURN', $3, CURRENT_TIMESTAMP, $4, $5, $6)
-        "#,
+        SELECT 
+            COALESCE(SUM(si.quantity), 0) as total_sold_qty,
+            COALESCE((
+                SELECT SUM(sri.quantity) 
+                FROM sales_return_items sri 
+                JOIN sale_items si2 ON sri.sale_item_id = si2.id 
+                WHERE si2.sale_id = $1
+            ), 0) as total_returned_qty
+        FROM sale_items si
+        WHERE si.sale_id = $1
+        "#
     )
-    .bind(journal_id)
-    .bind(&journal_number)
-    .bind(return_id)
-    .bind(format!("Retur Penjualan Konsumen {} ({})", return_number, return_type))
-    .bind(total_refund_amount)
-    .bind(cashier_id)
+    .bind(payload.sale_id)
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap_or((Decimal::ZERO, Decimal::ZERO));
+
+    let return_status = if total_returned_qty >= total_sold_qty && total_sold_qty > Decimal::ZERO {
+        "FULL"
+    } else if total_returned_qty > Decimal::ZERO {
+        "PARTIAL"
+    } else {
+        "NONE"
+    };
+
+    let accumulated_refund: Decimal = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(total_refund_amount), 0) FROM sales_returns WHERE sale_id = $1"
+    )
+    .bind(payload.sale_id)
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap_or(total_refund_amount);
+
+    sqlx::query(
+        "UPDATE sales SET return_status = $1, total_refund_amount = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3"
+    )
+    .bind(return_status)
+    .bind(accumulated_refund)
+    .bind(payload.sale_id)
     .execute(&mut *tx)
-    .await;
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal memperbarui status transaksi penjualan: {}", e) }))))?;
 
-    // Ambil COA 4103 (Retur Penjualan) dan 1101 (Kas Toko)
-    let coa_return: Option<Uuid> = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '4103' LIMIT 1")
-        .fetch_optional(&mut *tx)
+    // 7. Pencatatan Jurnal Akuntansi Retur Penjualan (Double-Entry Bookkeeping Standar)
+    // A. Pengembalian Dana Konsumen:
+    //    Debet:  4107 Retur Penjualan Konsumen (Sales Returns - Kontra Pendapatan)
+    //    Kredit: 1101 Kas Operasional Laci Kasir (CASH) / 1102 Bank / Piutang (STORE_CREDIT)
+    // B. Pemulihan Nilai Persediaan & HPP (Khusus item fisik BAIK yang direstok):
+    //    Debet:  1201 Persediaan Barang Dagang Retail
+    //    Kredit: 5101 Beban Pokok Penjualan (HPP / COGS)
+    let journal_id = Uuid::new_v4();
+    let journal_number = format!("JRN-RET-{}", Utc::now().format("%Y%m%d%H%M%S"));
+
+    let journal_desc = format!(
+        "Retur Penjualan {} Faktur {} ({}, Refund: {})",
+        return_number,
+        sale_invoice_number,
+        refund_method,
+        total_refund_amount
+    );
+
+    let total_debit = total_refund_amount + total_restocked_cogs;
+    let total_credit = total_debit;
+
+    if total_debit > Decimal::ZERO {
+        // Ambil akun COA terkait
+        let coa_return_opt: Option<Uuid> = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '4107' LIMIT 1")
+            .fetch_optional(&mut *tx)
+            .await
+            .unwrap_or(None);
+
+        let acc_return: Uuid = match coa_return_opt {
+            Some(id) => id,
+            None => sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '4101' LIMIT 1")
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Akun COA Penjualan tidak ditemukan: {}", e) }))))?,
+        };
+
+        let acc_cash: Uuid = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '1101' LIMIT 1")
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Akun 1101 Kas Toko tidak ditemukan: {}", e) }))))?;
+
+        let acc_bank: Uuid = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '1102' LIMIT 1")
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Akun 1102 Bank tidak ditemukan: {}", e) }))))?;
+
+        let acc_refund_source = if refund_method == "CASH" {
+            acc_cash
+        } else {
+            acc_bank
+        };
+
+        // Header journal_entries
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entries (
+                id, journal_number, journal_date, reference_type, reference_id, description,
+                total_debit, total_credit, is_closing_entry, created_at, updated_at, created_by, updated_by
+            ) VALUES (
+                $1, $2, CURRENT_DATE, 'SALES_RETURN', $3, $4, $5, $6, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $7, $7
+            )
+            "#,
+        )
+        .bind(journal_id)
+        .bind(&journal_number)
+        .bind(return_id)
+        .bind(&journal_desc)
+        .bind(total_debit)
+        .bind(total_credit)
+        .bind(cashier_id)
+        .execute(&mut *tx)
         .await
-        .unwrap_or(None);
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal mencatat header jurnal retur: {}", e) }))))?;
 
-    let coa_cash: Option<Uuid> = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '1101' LIMIT 1")
-        .fetch_optional(&mut *tx)
-        .await
-        .unwrap_or(None);
-
-    if let (Some(c_ret), Some(c_csh)) = (coa_return, coa_cash) {
+        // 1. Debet Retur Penjualan (Kontra Pendapatan)
         if total_refund_amount > Decimal::ZERO {
-            // Debit Retur Penjualan
-            let _ = sqlx::query(
+            sqlx::query(
                 r#"
-                INSERT INTO journal_entries (
-                    journal_id, coa_id, debit_amount, credit_amount, description
-                ) VALUES ($1, $2, $3, 0, $4)
+                INSERT INTO journal_lines (
+                    id, journal_id, account_id, debit, credit, memo, outlet_id, created_at, updated_at, created_by, updated_by
+                ) VALUES (
+                    gen_random_uuid(), $1, $2, $3, 0, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6, $6
+                )
                 "#,
             )
             .bind(journal_id)
-            .bind(c_ret)
+            .bind(acc_return)
             .bind(total_refund_amount)
-            .bind(format!("Beban Retur Penjualan {}", return_number))
+            .bind(format!("Retur Penjualan Konsumen {} (Faktur {})", return_number, sale_invoice_number))
+            .bind(sale_outlet_id)
+            .bind(cashier_id)
             .execute(&mut *tx)
-            .await;
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal mencatat baris debet retur: {}", e) }))))?;
 
-            // Credit Kas
-            let _ = sqlx::query(
+            // 2. Kredit Kas Laci / Bank
+            sqlx::query(
                 r#"
-                INSERT INTO journal_entries (
-                    journal_id, coa_id, debit_amount, credit_amount, description
-                ) VALUES ($1, $2, 0, $3, $4)
+                INSERT INTO journal_lines (
+                    id, journal_id, account_id, debit, credit, memo, outlet_id, created_at, updated_at, created_by, updated_by
+                ) VALUES (
+                    gen_random_uuid(), $1, $2, 0, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6, $6
+                )
                 "#,
             )
             .bind(journal_id)
-            .bind(c_csh)
+            .bind(acc_refund_source)
             .bind(total_refund_amount)
-            .bind(format!("Pengembalian Dana Kas Retur {}", return_number))
+            .bind(format!("Pengeluaran Refund {} Retur {}", refund_method, return_number))
+            .bind(sale_outlet_id)
+            .bind(cashier_id)
             .execute(&mut *tx)
-            .await;
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal mencatat baris kredit kas retur: {}", e) }))))?;
+        }
+
+        // 3. Debet Persediaan & Kredit HPP jika ada barang yang direstok
+        if total_restocked_cogs > Decimal::ZERO {
+            let acc_inv: Uuid = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '1201' LIMIT 1")
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Akun COA 1201 Persediaan Barang tidak ditemukan: {}", e) }))))?;
+
+            let acc_cogs: Uuid = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '5101' LIMIT 1")
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Akun COA 5101 HPP tidak ditemukan: {}", e) }))))?;
+
+            // Debet Persediaan Barang Dagang
+            sqlx::query(
+                r#"
+                INSERT INTO journal_lines (
+                    id, journal_id, account_id, debit, credit, memo, outlet_id, created_at, updated_at, created_by, updated_by
+                ) VALUES (
+                    gen_random_uuid(), $1, $2, $3, 0, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6, $6
+                )
+                "#,
+            )
+            .bind(journal_id)
+            .bind(acc_inv)
+            .bind(total_restocked_cogs)
+            .bind(format!("Pemulihan Persediaan Masuk Retur {}", return_number))
+            .bind(sale_outlet_id)
+            .bind(cashier_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal mencatat baris debet persediaan retur: {}", e) }))))?;
+
+            // Kredit Beban Pokok Penjualan (HPP)
+            sqlx::query(
+                r#"
+                INSERT INTO journal_lines (
+                    id, journal_id, account_id, debit, credit, memo, outlet_id, created_at, updated_at, created_by, updated_by
+                ) VALUES (
+                    gen_random_uuid(), $1, $2, 0, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6, $6
+                )
+                "#,
+            )
+            .bind(journal_id)
+            .bind(acc_cogs)
+            .bind(total_restocked_cogs)
+            .bind(format!("Kredit Balik HPP Barang Retur {}", return_number))
+            .bind(sale_outlet_id)
+            .bind(cashier_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal mencatat baris kredit HPP retur: {}", e) }))))?;
         }
     }
 
@@ -626,11 +843,12 @@ pub async fn get_sales_return_detail_handler(
     let items_rows = sqlx::query(
         r#"
         SELECT 
-            sri.id, sri.product_id, p.name as product_name, p.sku, p.barcode, p.unit_code,
+            sri.id, sri.product_id, p.name as product_name, p.sku, p.barcode, u.code as unit_code,
             sri.quantity, sri.unit_price, sri.discount_amount, sri.subtotal,
             sri.condition, sri.restock
         FROM sales_return_items sri
         JOIN products p ON sri.product_id = p.id
+        LEFT JOIN units u ON p.base_unit_id = u.id
         WHERE sri.sales_return_id = $1
         "#,
     )

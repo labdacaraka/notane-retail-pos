@@ -516,31 +516,40 @@ impl LicenseService {
         }
 
         // 3. Fallback jika masih ada sisa tabel legacy database lama
-        if let Ok(Some(r)) = sqlx::query(
-            "SELECT license_token, signature, last_monotonic_time, created_at FROM app_licenses ORDER BY id DESC LIMIT 1"
+        let has_legacy_table: bool = sqlx::query_scalar(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'app_licenses')"
         )
-        .fetch_optional(pool)
+        .fetch_one(pool)
         .await
-        {
-            let token: String = r.get("license_token");
-            let sig: String = r.get("signature");
-            let mono: i64 = r.get("last_monotonic_time");
-            let act_at: DateTime<Utc> = r.get("created_at");
+        .unwrap_or(false);
 
-            let legacy_vault = EncryptedLicenseVault {
-                license_token: token,
-                signature: sig,
-                last_monotonic_time: mono,
-                activated_at: act_at,
-                last_sync_at: None,
-                last_sync_status: Some("INITIALIZED".to_string()),
-                consecutive_failures: 0,
-            };
+        if has_legacy_table {
+            if let Ok(Some(r)) = sqlx::query(
+                "SELECT license_token, signature, last_monotonic_time, created_at FROM app_licenses ORDER BY id DESC LIMIT 1"
+            )
+            .fetch_optional(pool)
+            .await
+            {
+                let token: String = r.get("license_token");
+                let sig: String = r.get("signature");
+                let mono: i64 = r.get("last_monotonic_time");
+                let act_at: DateTime<Utc> = r.get("created_at");
 
-            let _ = Self::save_license_vault_with_db(&legacy_vault, Some(pool)).await;
-            let _ = sqlx::query("DROP TABLE IF EXISTS app_licenses CASCADE").execute(pool).await;
+                let legacy_vault = EncryptedLicenseVault {
+                    license_token: token,
+                    signature: sig,
+                    last_monotonic_time: mono,
+                    activated_at: act_at,
+                    last_sync_at: None,
+                    last_sync_status: Some("INITIALIZED".to_string()),
+                    consecutive_failures: 0,
+                };
 
-            return Ok(Some(legacy_vault));
+                let _ = Self::save_license_vault_with_db(&legacy_vault, Some(pool)).await;
+                let _ = sqlx::query("DROP TABLE IF EXISTS app_licenses CASCADE").execute(pool).await;
+
+                return Ok(Some(legacy_vault));
+            }
         }
 
         Ok(None)

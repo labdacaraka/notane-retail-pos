@@ -34,6 +34,7 @@ import { useLocationStore } from '@/stores/locationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useExportStore } from '@/stores/exportStore'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import CopyableText from '@/components/common/CopyableText.vue'
 import type {
   ExpenseTransaction,
   ExpenseCategory,
@@ -823,9 +824,9 @@ async function handleSaveCategory() {
                   :class="{ 'opacity-60 bg-rose-50/20': item.status === 'CANCELLED' }"
                 >
                   <!-- No. Transaksi & Shift Tag -->
-                  <td class="py-3 px-4 font-mono font-bold text-slate-900">
+                  <td class="py-3 px-4">
                     <div class="flex items-center gap-1.5">
-                      <span>{{ item.transaction_no }}</span>
+                      <CopyableText :value="item.transaction_no" label="No. Transaksi" />
                       <span
                         v-if="item.shift_id"
                         class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded border border-emerald-200"
@@ -834,8 +835,8 @@ async function handleSaveCategory() {
                         Laci Kasir
                       </span>
                     </div>
-                    <div v-if="item.reference_no" class="text-[10px] text-slate-400 font-normal">
-                      Ref: {{ item.reference_no }}
+                    <div v-if="item.reference_no" class="text-[10px] text-slate-400 font-normal mt-0.5">
+                      Ref: <CopyableText :value="item.reference_no" label="No. Referensi" :bold="false" />
                     </div>
                   </td>
 

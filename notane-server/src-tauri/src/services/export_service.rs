@@ -451,18 +451,18 @@ async fn export_goods_receipts_streaming(
 
     loop {
         let query = format!(
-            "SELECT gr.grn_number, gr.delivery_order_number, gr.received_date, gr.status, gr.notes,
+            "SELECT gr.grn_number, gr.delivery_order_number, gr.receive_date as received_date, gr.status, gr.notes,
                     COALESCE(po.po_number, '-') as po_number,
                     COALESCE(sup.name, '-') as supplier_name,
                     COALESCE(o.name, '-') as outlet_name,
                     COALESCE(u.full_name, '-') as received_by_name,
-                    COALESCE((SELECT SUM(gri.received_quantity) FROM goods_receipt_items gri WHERE gri.goods_receipt_id = gr.id), 0) as total_received_qty,
-                    COALESCE((SELECT SUM(gri.rejected_quantity) FROM goods_receipt_items gri WHERE gri.goods_receipt_id = gr.id), 0) as total_rejected_qty
+                    COALESCE(gr.total_received_qty, 0) as total_received_qty,
+                    COALESCE((SELECT SUM(GREATEST(0, gri.ordered_qty - gri.received_qty)) FROM goods_receipt_items gri WHERE gri.goods_receipt_id = gr.id), 0) as total_rejected_qty
              FROM goods_receipts gr
-             LEFT JOIN purchase_orders po ON gr.purchase_order_id = po.id
+             LEFT JOIN purchase_orders po ON gr.po_id = po.id
              LEFT JOIN suppliers sup ON gr.supplier_id = sup.id
              LEFT JOIN outlets o ON gr.outlet_id = o.id
-             LEFT JOIN users u ON gr.received_by = u.id
+             LEFT JOIN users u ON gr.created_by = u.id
              {}
              ORDER BY gr.created_at DESC
              LIMIT {} OFFSET {}",
@@ -478,7 +478,7 @@ async fn export_goods_receipts_streaming(
             let grn_num: String = r.get("grn_number");
             let do_num: Option<String> = r.get("delivery_order_number");
             let po_num: String = r.get("po_number");
-            let rec_date: chrono::DateTime<Utc> = r.get("received_date");
+            let rec_date: chrono::NaiveDate = r.get("received_date");
             let sup_name: String = r.get("supplier_name");
             let out_name: String = r.get("outlet_name");
             let staff: String = r.get("received_by_name");
@@ -560,11 +560,12 @@ async fn export_purchase_invoices_streaming(
     loop {
         let query = format!(
             "SELECT p.invoice_number, p.supplier_invoice_number, p.invoice_date, p.due_date,
-                    p.subtotal, p.discount_amount, p.tax_amount, p.total_amount, p.payment_status, p.notes,
+                    p.subtotal, p.discount_amount, p.tax_amount, p.total_amount, p.payment_status,
+                    '-' as notes,
                     COALESCE(gr.grn_number, '-') as grn_number,
                     COALESCE(sup.name, '-') as supplier_name,
                     COALESCE(o.name, '-') as outlet_name
-             FROM purchases p
+             FROM purchase_invoices p
              LEFT JOIN goods_receipts gr ON p.goods_receipt_id = gr.id
              LEFT JOIN suppliers sup ON p.supplier_id = sup.id
              LEFT JOIN outlets o ON p.outlet_id = o.id
@@ -583,8 +584,8 @@ async fn export_purchase_invoices_streaming(
             let inv_num: String = r.get("invoice_number");
             let sup_inv: Option<String> = r.get("supplier_invoice_number");
             let grn_num: String = r.get("grn_number");
-            let inv_date: chrono::DateTime<Utc> = r.get("invoice_date");
-            let due_date: Option<chrono::DateTime<Utc>> = r.get("due_date");
+            let inv_date: chrono::NaiveDate = r.get("invoice_date");
+            let due_date: Option<chrono::NaiveDate> = r.get("due_date");
             let sup_name: String = r.get("supplier_name");
             let out_name: String = r.get("outlet_name");
             let subtotal: Decimal = r.get("subtotal");
@@ -665,7 +666,7 @@ async fn export_purchase_returns_streaming(
                     COALESCE(sup.name, '-') as supplier_name,
                     COALESCE(o.name, '-') as outlet_name
              FROM purchase_returns pr
-             LEFT JOIN purchases p ON pr.purchase_id = p.id
+             LEFT JOIN purchase_invoices p ON pr.invoice_id = p.id
              LEFT JOIN suppliers sup ON pr.supplier_id = sup.id
              LEFT JOIN outlets o ON pr.outlet_id = o.id
              {}
@@ -682,7 +683,7 @@ async fn export_purchase_returns_streaming(
         for r in &rows {
             let ret_num: String = r.get("return_number");
             let inv_num: String = r.get("invoice_number");
-            let ret_date: chrono::DateTime<Utc> = r.get("return_date");
+            let ret_date: chrono::NaiveDate = r.get("return_date");
             let sup_name: String = r.get("supplier_name");
             let out_name: String = r.get("outlet_name");
             let reason: Option<String> = r.get("reason");
