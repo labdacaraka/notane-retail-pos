@@ -331,6 +331,7 @@ async function handleReprint(sale: any) {
       total_savings_amount: detail.total_savings_amount,
       discount_amount: detail.discount_amount,
       tax_amount: detail.tax_amount,
+      rounding_amount: detail.rounding_amount,
       total_amount: detail.total_amount,
       paid_amount: detail.paid_amount,
       change_amount: detail.change_amount,
@@ -712,6 +713,14 @@ async function confirmVoid() {
                   <!-- Total Tagihan -->
                   <td class="px-4 py-3 text-right font-mono font-extrabold whitespace-nowrap">
                     <div class="text-slate-900">{{ formatCurrency(s.total_amount) }}</div>
+                    <div
+                      v-if="Number(s.rounding_amount || 0) !== 0"
+                      class="text-[10px] font-bold"
+                      :class="Number(s.rounding_amount) < 0 ? 'text-emerald-600' : 'text-slate-500'"
+                      :title="Number(s.rounding_amount) < 0 ? 'Pembulatan ke bawah' : 'Pembulatan ke atas'"
+                    >
+                      Bulat: {{ Number(s.rounding_amount) < 0 ? '-' : '+' }}{{ formatCurrency(Math.abs(Number(s.rounding_amount))) }}
+                    </div>
                     <div v-if="Number(s.total_refund_amount || 0) > 0" class="text-[10px] text-rose-600 font-bold">
                       Retur: -{{ formatCurrency(s.total_refund_amount) }}
                     </div>
@@ -830,13 +839,21 @@ async function confirmVoid() {
       </div>
 
       <!-- 4. Modal Detail Faktur -->
-      <div
-        v-if="showDetailModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showDetailModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
-          <!-- Modal Header -->
+      <Teleport to="body">
+        <div
+          v-if="showDetailModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showDetailModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
+              <!-- Modal Header -->
           <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
@@ -1200,6 +1217,18 @@ async function confirmVoid() {
                     <span class="font-bold">+{{ formatRupiah(selectedSale.tax_amount) }}</span>
                   </div>
 
+                  <!-- Pembulatan Kas -->
+                  <div
+                    v-if="Number(selectedSale.rounding_amount || 0) !== 0"
+                    class="flex justify-between"
+                    :class="Number(selectedSale.rounding_amount) < 0 ? 'text-emerald-700 font-medium' : 'text-slate-700 font-medium'"
+                  >
+                    <span>{{ Number(selectedSale.rounding_amount) < 0 ? 'Pembulatan (Diskon):' : 'Pembulatan Kas:' }}</span>
+                    <span class="font-bold">
+                      {{ Number(selectedSale.rounding_amount) < 0 ? '-' : '+' }}{{ formatRupiah(Math.abs(Number(selectedSale.rounding_amount))) }}
+                    </span>
+                  </div>
+
                   <div class="h-px bg-amber-200 my-1"></div>
 
                   <!-- Total Tagihan -->
@@ -1285,15 +1314,25 @@ async function confirmVoid() {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- 5. Modal Konfirmasi Void Transaksi -->
-      <div
-        v-if="showVoidModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showVoidModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          <div class="p-6">
+      <Teleport to="body">
+        <div
+          v-if="showVoidModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showVoidModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-md overflow-hidden text-left pointer-events-auto my-8">
+              <div class="p-6">
             <div class="flex items-center gap-3.5 mb-4">
               <div class="w-11 h-11 rounded-xl bg-rose-50 border border-rose-300 flex items-center justify-center shrink-0">
                 <RotateCcw class="w-6 h-6 text-rose-600" />
@@ -1380,48 +1419,60 @@ async function confirmVoid() {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- Preview Bukti Pembayaran Modal -->
-      <div
-        v-if="previewProofUrl"
-        class="fixed inset-0 z-60 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
-        @click="previewProofUrl = null"
-      >
+      <Teleport to="body">
         <div
-          class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200"
-          @click.stop
+          v-if="previewProofUrl"
+          class="fixed inset-0 z-60 overflow-y-auto"
         >
-          <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <div class="flex items-center gap-2 text-slate-800 font-bold text-xs">
-              <ImageIcon class="w-4 h-4 text-sky-600" />
-              <span>Foto Bukti Struk Pembayaran</span>
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs transition-opacity"
+            @click="previewProofUrl = null"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div
+              class="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-left pointer-events-auto my-8"
+              @click.stop
+            >
+              <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                  <ImageIcon class="w-4 h-4 text-sky-600" />
+                  <span>Foto Bukti Struk Pembayaran</span>
+                </div>
+                <button
+                  type="button"
+                  @click="previewProofUrl = null"
+                  class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+                >
+                  <X class="w-4 h-4" />
+                </button>
+              </div>
+              <div class="p-4 bg-slate-100 flex items-center justify-center max-h-[70vh] overflow-auto">
+                <img
+                  :src="previewProofUrl"
+                  alt="Bukti Struk Pembayaran"
+                  class="max-w-full max-h-[60vh] object-contain rounded-xl shadow-md border border-slate-300"
+                />
+              </div>
+              <div class="p-3 bg-slate-50 border-t border-slate-200 text-right">
+                <button
+                  type="button"
+                  @click="previewProofUrl = null"
+                  class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              @click="previewProofUrl = null"
-              class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer"
-            >
-              <X class="w-4 h-4" />
-            </button>
-          </div>
-          <div class="p-4 bg-slate-100 flex items-center justify-center max-h-[70vh] overflow-auto">
-            <img
-              :src="previewProofUrl"
-              alt="Bukti Struk Pembayaran"
-              class="max-w-full max-h-[60vh] object-contain rounded-xl shadow-md border border-slate-300"
-            />
-          </div>
-          <div class="p-3 bg-slate-50 border-t border-slate-200 text-right">
-            <button
-              type="button"
-              @click="previewProofUrl = null"
-              class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition cursor-pointer"
-            >
-              Tutup
-            </button>
           </div>
         </div>
-      </div>
+      </Teleport>
     </div>
   </AdminLayout>
 </template>

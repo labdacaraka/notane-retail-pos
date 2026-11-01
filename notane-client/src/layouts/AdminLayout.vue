@@ -33,8 +33,10 @@ const isConnectionConfigPage = computed(() => route.path === '/admin/client-conn
 // 1. Grup Menu Operasional & Master Data Bisnis
 const rawOperationalMenus = [
   { path: '/admin', name: 'Dashboard Hub', icon: 'fluent-color:apps-24' },
+  { path: '/admin/analytics', name: 'Statistik & Analisis', icon: 'fluent-color:data-pie-24', permission: ['analytics:read', 'report:read', 'report:view', 'sales:read', 'accounting:read'], requiredFeature: 'analytics' },
   { path: '/admin/outlets', name: 'Master Outlet', icon: 'fluent-color:building-store-24', permission: ['outlets:read', 'outlets:manage', 'master:read'] },
   { path: '/admin/sales', name: 'Penjualan', icon: 'fluent-color:receipt-24', permission: ['sales:read', 'report:view'] },
+  { path: '/admin/shifts', name: 'Shift & Kasir', icon: 'fluent-color:clock-24', permission: ['shift:read', 'sales:read', 'report:view'] },
   { path: '/admin/purchases', name: 'Pembelian', icon: 'streamline-ultimate-color:delivery-truck-cargo', permission: ['purchasing:read', 'purchasing:write'] },
   { path: '/admin/products', name: 'Master Produk', icon: 'streamline-ultimate-color:warehouse-cart-packages-2', permission: ['products:read', 'master:read'] },
   { path: '/admin/price-labels', name: 'Cetak Label Harga', icon: 'streamline-ultimate-color:tags-1', permission: ['products:read', 'master:read'], requiredFeature: 'label_printing' },
@@ -42,9 +44,11 @@ const rawOperationalMenus = [
   { path: '/admin/vouchers', name: 'Voucher & Promo', icon: 'fluent-color:gift-card-24', permission: ['vouchers:read', 'vouchers:manage', 'master:read'], requiredFeature: 'promotions' },
   { path: '/admin/flash-sales', name: 'Flash Sale', icon: 'flat-color-icons:flash-on', permission: ['promotions:read', 'master:read'], requiredFeature: 'promotions' },
   { path: '/admin/promotions', name: 'Promosi Retail', icon: 'streamline-ultimate-color:discount', permission: ['promotions:read', 'master:read'], requiredFeature: 'promotions' },
+  { path: '/admin/display-banners', name: 'Banner Layar Pelanggan', icon: 'fluent-color:image-24', permission: ['display_banners:read', 'master:read'], requiredFeature: 'customer_display' },
   { path: '/admin/inventory', name: 'Stok & Opname', icon: 'streamline-ultimate-color:warehouse-storage-2', permission: ['inventory:read', 'inventory:write'] },
   { path: '/admin/accounting', name: 'Jurnal & Laba Rugi', icon: 'streamline-ultimate-color:accounting-calculator-1', permission: ['accounting:read', 'accounting:write'], requiredFeature: 'accounting' },
   { path: '/admin/expenses', name: 'Biaya & Pengeluaran', icon: 'streamline-ultimate-color:money-bag-dollar', permission: ['expenses:read', 'expenses:categories', 'accounting:read'], requiredFeature: 'expenses' },
+  { path: '/admin/other-income', name: 'Pendapatan Lain', icon: 'flat-color-icons:paid', permission: ['other_income:read', 'other_income:categories', 'accounting:read'], requiredFeature: 'other_income' },
 ]
 
 const operationalMenus = computed(() => {

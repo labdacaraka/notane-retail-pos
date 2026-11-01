@@ -9,7 +9,11 @@ export const FEATURE_ALIASES: Record<string, string[]> = {
   membership: ['membership', 'customers', 'loyalty', 'customer_loyalty', 'member'],
   promotions: ['promotions', 'promotions_engine', 'vouchers', 'flash_sales', 'discounts', 'promo'],
   expenses: ['expenses', 'petty_cash', 'expense', 'operational_expenses'],
+  other_income: ['other_income', 'other_incomes', 'non_operating_income'],
   accounting: ['accounting', 'ledger', 'accounting_ledger', 'general_ledger'],
+  analytics: ['analytics', 'business_analytics', 'statistics', 'dashboard_analytics', 'reports'],
+  customer_display: ['customer_display', 'display_banners', 'customer_display_banners', 'promotion_banners'],
+  display_banners: ['display_banners', 'customer_display', 'customer_display_banners', 'promotion_banners'],
   audit_log: ['audit_log', 'audit_logs', 'audit_trail', 'security_logs', 'audit'],
   multi_outlet: ['multi_outlet', 'outlets', 'branch_management'],
   inventory_batch: ['inventory_batch', 'batch_tracking', 'fefo'],
@@ -176,11 +180,7 @@ export const useLicenseStore = defineStore('license', {
         return false
       }
 
-      // 1. Lisensi tier ENTERPRISE atau ULTIMATE otomatis membuka semua fitur modul backoffice
-      const tier = (this.licenseInfo.tier || '').trim().toUpperCase()
-      if (tier === 'ENTERPRISE' || tier === 'ULTIMATE' || tier === 'ALL') {
-        return true
-      }
+      // Periksa daftar fitur aktif yang diberikan oleh tier lisensi (atau wildcard *)
 
       const feats = this.licenseInfo.features || []
       if (feats.some((f) => f === '*' || f.toLowerCase() === 'all')) {

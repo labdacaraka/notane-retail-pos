@@ -24,6 +24,14 @@ pub struct CashierShift {
     pub outlet_name: Option<String>,
     #[sqlx(default)]
     pub outlet_code: Option<String>,
+    #[sqlx(default)]
+    pub cash_sales: Option<Decimal>,
+    #[sqlx(default)]
+    pub shift_expenses: Option<Decimal>,
+    #[sqlx(default)]
+    pub shift_cash_drops: Option<Decimal>,
+    #[sqlx(default)]
+    pub shift_sales_returns: Option<Decimal>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -89,4 +97,14 @@ pub struct ShiftSummaryResponse {
 
     // Rincian Lengkap per Metode Pembayaran (Dynamic Breakdown)
     pub payment_breakdowns: Vec<ShiftPaymentBreakdown>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ListShiftsQuery {
+    pub outlet_id: Option<Uuid>,
+    pub status: Option<String>,
+    pub user_id: Option<Uuid>,
+    pub search: Option<String>,
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
 }

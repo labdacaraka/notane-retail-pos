@@ -753,13 +753,22 @@ onUnmounted(() => {
       </div>
 
       <!-- 7. Modal Form: Tambah / Edit Promosi Standar Back-Office -->
-      <div
-        v-if="showModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs select-none"
-      >
-        <div class="bg-white rounded-xl shadow-2xl border border-slate-300 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
-          <!-- Header Modal Standar -->
-          <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+      <Teleport to="body">
+        <div
+          v-if="showModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-xl shadow-2xl border border-slate-300 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden text-left pointer-events-auto my-8">
+              <!-- Header Modal Standar -->
+              <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <div class="flex items-center gap-2.5">
               <Icon icon="streamline-ultimate-color:discount" class="w-5 h-5" />
               <h3 class="font-bold text-sm text-slate-900">
@@ -1052,6 +1061,8 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
     </div>
   </AdminLayout>
 </template>

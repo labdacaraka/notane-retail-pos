@@ -1076,9 +1076,13 @@ onMounted(async () => {
     <!-- MODAL: CREATE/EDIT USER -->
     <!-- ================================================================== -->
     <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showUserModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div v-if="showUserModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <!-- Dedicated Fixed Backdrop -->
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" @click="showUserModal = false"></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg text-left pointer-events-auto my-8">
             <!-- Header -->
             <div class="flex items-center gap-3 p-5 border-b border-slate-100">
               <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
@@ -1256,12 +1260,18 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-      </Transition>
+      </div>
+    </Teleport>
 
-      <!-- MODAL: RESET PASSWORD -->
-      <Transition name="modal">
-        <div v-if="showResetPwdModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+    <!-- MODAL: RESET PASSWORD -->
+    <Teleport to="body">
+      <div v-if="showResetPwdModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <!-- Dedicated Fixed Backdrop -->
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" @click="showResetPwdModal = false"></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md text-left pointer-events-auto my-8">
             <div class="flex items-center gap-3 p-5 border-b border-slate-100">
               <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
                 <Icon icon="fluent-color:person-key-24" class="w-5 h-5" />
@@ -1301,12 +1311,18 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-      </Transition>
+      </div>
+    </Teleport>
 
-      <!-- MODAL: GANTI PIN PENGGUNA -->
-      <Transition name="modal">
-        <div v-if="showChangePinModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+    <!-- MODAL: GANTI PIN PENGGUNA -->
+    <Teleport to="body">
+      <div v-if="showChangePinModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <!-- Dedicated Fixed Backdrop -->
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" @click="showChangePinModal = false"></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md text-left pointer-events-auto my-8">
             <div class="flex items-center gap-3 p-5 border-b border-slate-100">
               <div class="w-10 h-10 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center shadow-xs">
                 <Icon icon="streamline-ultimate-color:dial-pad" class="w-6 h-6" />
@@ -1357,12 +1373,18 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-      </Transition>
+      </div>
+    </Teleport>
 
-      <!-- MODAL: CREATE/EDIT ROLE -->
-      <Transition name="modal">
-        <div v-if="showRoleModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+    <!-- MODAL: CREATE/EDIT ROLE -->
+    <Teleport to="body">
+      <div v-if="showRoleModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <!-- Dedicated Fixed Backdrop -->
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" @click="showRoleModal = false"></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md text-left pointer-events-auto my-8">
             <div class="flex items-center gap-3 p-5 border-b border-slate-100">
               <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
                 <Icon icon="fluent-color:shield-checkmark-24" class="w-5 h-5" />
@@ -1403,7 +1425,7 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-      </Transition>
+      </div>
     </Teleport>
     </div>
   </AdminLayout>

@@ -632,7 +632,7 @@ impl LicenseService {
                     days_remaining: None,
                     grace_days_remaining: None,
                     features: vec![],
-                    message: "Sertifikat lisensi lokal terdeteksi rusak atau dimodifikasi secara ilegal.".to_string(),
+                    message: "Berkas lisensi di komputer ini tidak dapat dibaca atau rusak. Silakan aktivasi ulang lisensi.".to_string(),
                     provider_server_url: provider_url,
                     last_sync_at: None,
                     sync_status: None,
@@ -658,7 +658,7 @@ impl LicenseService {
                 days_remaining: None,
                 grace_days_remaining: None,
                 features: vec![],
-                message: "Lisensi ini terdaftar untuk mesin perangkat keras lain (Node-Locked). Hubungi provider untuk transfer perangkat.".to_string(),
+                message: "Lisensi ini terdaftar untuk komputer lain. Hubungi penyedia untuk memindahkan lisensi ke komputer ini.".to_string(),
                 provider_server_url: provider_url,
                 last_sync_at: None,
                 sync_status: None,
@@ -685,7 +685,7 @@ impl LicenseService {
                 days_remaining: None,
                 grace_days_remaining: None,
                 features: vec![],
-                message: "Terdeteksi manipulasi jam sistem operasi (Clock Rollback). Sinkronkan jam komputer Anda ke waktu internet.".to_string(),
+                message: "Tanggal atau jam komputer tidak sesuai. Harap sesuaikan tanggal dan jam komputer Anda ke waktu saat ini.".to_string(),
                 provider_server_url: provider_url,
                 last_sync_at: None,
                 sync_status: None,
@@ -759,7 +759,7 @@ impl LicenseService {
                     days_remaining: Some(0),
                     grace_days_remaining: Some(grace_days_left),
                     features: payload.features,
-                    message: format!("PERINGATAN: Masa aktif lisensi telah habis! Masa tenggang darurat tersisa {} hari.", grace_days_left),
+                    message: format!("Masa aktif lisensi telah habis. Masa tenggang tersisa {} hari.", grace_days_left),
                     provider_server_url: provider_url,
                     last_sync_at,
                     sync_status: Some(sync_status),
@@ -780,7 +780,7 @@ impl LicenseService {
                     days_remaining: Some(days_remaining),
                     grace_days_remaining: Some(0),
                     features: vec![],
-                    message: "Lisensi telah kedaluwarsa sepenuhnya. Layanan terkunci. Silakan perpanjang langganan lisensi Anda.".to_string(),
+                    message: "Masa aktif lisensi telah habis. Silakan perpanjang lisensi toko Anda.".to_string(),
                     provider_server_url: provider_url,
                     last_sync_at,
                     sync_status: Some(sync_status),
@@ -792,7 +792,7 @@ impl LicenseService {
             // Sertifikat lisensi valid. Sekarang evaluasi toleransi jaringan offline provider:
             if sync_status == "PROVIDER_UNREACHABLE" {
                 if days_since_sync <= grace_limit_days {
-                    // TETAP AKTIF NORMAL! Server provider mati/down, namun aplikasi tetap bisa digunakan penuh
+                    // TETAP AKTIF NORMAL! Server provider belum terhubung, namun aplikasi tetap bisa digunakan penuh
                     LicenseInfoResponse {
                         status: LicenseState::Active,
                         is_valid: true,
@@ -806,7 +806,7 @@ impl LicenseService {
                         days_remaining: Some(days_remaining),
                         grace_days_remaining: None,
                         features: payload.features,
-                        message: format!("Lisensi Aktif (Mode Offline Aman: Server lisensi belum terhubung sejak {} hari lalu. Sisa toleransi offline: {} hari).", days_since_sync, offline_grace_left),
+                        message: format!("Lisensi Aktif (Mode Offline: Belum terhubung ke internet sejak {} hari lalu. Sisa toleransi: {} hari).", days_since_sync, offline_grace_left),
                         provider_server_url: provider_url,
                         last_sync_at,
                         sync_status: Some("PROVIDER_UNREACHABLE".to_string()),
@@ -814,7 +814,7 @@ impl LicenseService {
                         offline_grace_days_remaining: Some(offline_grace_left),
                     }
                 } else if days_since_sync <= grace_limit_days + 3 {
-                    // Toleransi offline terlewati: Peringatan grace period darurat
+                    // Toleransi offline terlewati: Peringatan grace period
                     LicenseInfoResponse {
                         status: LicenseState::GracePeriod,
                         is_valid: true,
@@ -828,7 +828,7 @@ impl LicenseService {
                         days_remaining: Some(days_remaining),
                         grace_days_remaining: Some((grace_limit_days + 3 - days_since_sync).max(0)),
                         features: payload.features,
-                        message: format!("PERINGATAN: Server gagal terhubung ke Provider lisensi selama {} hari (batas toleransi {} hari). Sambungkan koneksi internet sebelum layanan terkunci.", days_since_sync, grace_limit_days),
+                        message: format!("Aplikasi belum terhubung ke internet selama {} hari (batas toleransi {} hari). Silakan hubungkan komputer ke internet untuk memverifikasi lisensi.", days_since_sync, grace_limit_days),
                         provider_server_url: provider_url,
                         last_sync_at,
                         sync_status: Some("PROVIDER_UNREACHABLE".to_string()),
@@ -836,7 +836,6 @@ impl LicenseService {
                         offline_grace_days_remaining: Some(0),
                     }
                 } else {
-                    // Melebihi seluruh toleransi: Kunci lisensi untuk mencegah manipulasi hosts file / freeze permanen
                     LicenseInfoResponse {
                         status: LicenseState::Expired,
                         is_valid: false,
@@ -850,7 +849,7 @@ impl LicenseService {
                         days_remaining: Some(days_remaining),
                         grace_days_remaining: Some(0),
                         features: vec![],
-                        message: format!("Lisensi Terkunci: Server POS tidak dapat memverifikasi lisensi ke Provider selama lebih dari {} hari. Silakan periksa jaringan internet toko Anda.", days_since_sync),
+                        message: format!("Lisensi belum terverifikasi: Komputer tidak terhubung ke internet selama lebih dari {} hari. Silakan hubungkan kembali ke internet.", days_since_sync),
                         provider_server_url: provider_url,
                         last_sync_at,
                         sync_status: Some("PROVIDER_UNREACHABLE".to_string()),
@@ -873,7 +872,7 @@ impl LicenseService {
                     days_remaining: Some(days_remaining),
                     grace_days_remaining: None,
                     features: payload.features,
-                    message: format!("Lisensi Aktif Terverifikasi (Sisa {} hari).", days_remaining),
+                    message: format!("Lisensi Aktif (Sisa {} hari).", days_remaining),
                     provider_server_url: provider_url,
                     last_sync_at,
                     sync_status: Some(sync_status),
@@ -1064,7 +1063,7 @@ impl LicenseService {
                         status: "ONLINE_VERIFIED".to_string(),
                         http_status: Some(status_code),
                         latency_ms: Some(latency_ms as u128),
-                        message: format!("Sinkronisasi lisensi resmi berhasil ({} ms)", latency_ms),
+                        message: format!("Pembaruan lisensi berhasil ({} ms)", latency_ms),
                         provider_url,
                         license_info: lic_info,
                     })
@@ -1145,11 +1144,11 @@ impl LicenseService {
             }
             Err(e) => {
                 let err_detail = if e.is_timeout() {
-                    "Koneksi timeout (server provider tidak merespons dalam 6 detik)".to_string()
+                    "Koneksi timeout (server lisensi tidak merespons dalam 6 detik)".to_string()
                 } else if e.is_connect() {
-                    format!("Gagal terhubung ke {} (Connection refused / Host unreachable)", provider_url)
+                    "Gagal terhubung ke server lisensi (koneksi terputus atau server tidak dapat dijangkau)".to_string()
                 } else {
-                    format!("Gangguan koneksi ke provider: {}", e)
+                    format!("Gangguan koneksi ke server lisensi: {}", e)
                 };
 
                 vault.last_sync_status = Some("PROVIDER_UNREACHABLE".to_string());
@@ -1185,7 +1184,7 @@ impl LicenseService {
                     status: "PROVIDER_UNREACHABLE".to_string(),
                     http_status: None,
                     latency_ms: None,
-                    message: "Server provider lisensi sedang tidak dapat dijangkau. Lisensi toko Anda tetap aktif aman dalam mode offline.".to_string(),
+                    message: "Server lisensi sedang tidak dapat dijangkau. Toko Anda tetap dapat beroperasi dalam mode offline.".to_string(),
                     provider_url,
                     license_info: lic_info,
                 })
@@ -1240,6 +1239,37 @@ impl LicenseService {
         if !lic.is_valid {
             return false;
         }
-        lic.features.iter().any(|f| f == "*" || f.eq_ignore_ascii_case("all") || f.eq_ignore_ascii_case(feature_name))
+
+        // Periksa daftar fitur aktif yang diberikan oleh tier lisensi (atau wildcard *)
+
+        let req = feature_name.trim().to_lowercase();
+        lic.features.iter().any(|f| {
+            let feat = f.trim().to_lowercase();
+            if feat == "*" || feat == "all" || feat == req {
+                return true;
+            }
+
+            match req.as_str() {
+                "analytics" => ["analytics", "business_analytics", "reports", "statistics"].contains(&feat.as_str()),
+                "other_income" => ["other_income", "other_incomes", "non_operating_income"].contains(&feat.as_str()),
+                "customer_display" | "display_banners" => [
+                    "customer_display",
+                    "display_banners",
+                    "customer_display_banners",
+                    "promotion_banners",
+                ]
+                .contains(&feat.as_str()),
+                "membership" => ["membership", "customers", "loyalty", "customer_loyalty", "member"].contains(&feat.as_str()),
+                "promotions" => ["promotions", "promotions_engine", "vouchers", "flash_sales", "discounts", "promo"].contains(&feat.as_str()),
+                "expenses" => ["expenses", "petty_cash", "expense", "operational_expenses"].contains(&feat.as_str()),
+                "accounting" => ["accounting", "ledger", "accounting_ledger", "general_ledger"].contains(&feat.as_str()),
+                "audit_log" => ["audit_log", "audit_logs", "audit_trail", "security_logs", "audit"].contains(&feat.as_str()),
+                "multi_outlet" => ["multi_outlet", "outlets", "branch_management"].contains(&feat.as_str()),
+                "inventory_batch" => ["inventory_batch", "batch_tracking", "fefo"].contains(&feat.as_str()),
+                "label_printing" => ["label_printing", "price_labels", "print_labels", "label_printer", "barcode_labels", "label"].contains(&feat.as_str()),
+                "remove_branding" => ["remove_branding", "white_label", "custom_branding"].contains(&feat.as_str()),
+                _ => false,
+            }
+        })
     }
 }

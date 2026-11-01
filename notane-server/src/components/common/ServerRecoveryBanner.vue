@@ -119,7 +119,7 @@ onUnmounted(() => {
               class="px-3.5 py-1.5 bg-white text-rose-700 hover:bg-rose-50 font-bold text-xs rounded-lg shadow-sm transition flex items-center gap-1.5 active:scale-95 disabled:opacity-60 cursor-pointer"
             >
               <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isReconnecting }" />
-              <span>{{ isReconnecting ? 'Menghubungkan...' : '⚡ Sambungkan Sekarang' }}</span>
+              <span>{{ isReconnecting ? 'Menghubungkan...' : 'Sambungkan Sekarang' }}</span>
             </button>
           </div>
         </div>
@@ -141,7 +141,7 @@ onUnmounted(() => {
       >
         <div class="max-w-4xl mx-auto flex items-center justify-center gap-2 text-xs font-bold">
           <ShieldCheck class="w-4 h-4 text-emerald-200" />
-          <span>✅ Pusat Data & Server Kasir Berhasil Terhubung Kembali Secara Normal!</span>
+          <span>Server kasir berhasil terhubung kembali.</span>
         </div>
       </div>
     </transition>

@@ -13,4 +13,6 @@ pub mod bank_service;
 pub mod dividend_service;
 pub mod export_service;
 pub mod backup_service;
+pub mod other_income_service;
+pub mod analytics_service;
 

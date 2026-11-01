@@ -66,31 +66,43 @@ const selectedSupervisor = computed(() => {
   return supervisors.value.find((s) => s.id === selectedSupervisorId.value)
 })
 
+const hasSupervisorBiometric = computed(() => {
+  if (selectedSupervisor.value) {
+    return !!selectedSupervisor.value.has_biometric
+  }
+  return supervisors.value.some((s) => s.has_biometric)
+})
+
+const hasSupervisorFace = computed(() => {
+  if (selectedSupervisor.value) {
+    return !!selectedSupervisor.value.has_face_recognition
+  }
+  return supervisors.value.some((s) => s.has_face_recognition)
+})
+
 const isBiometricAvailable = computed(() => {
-  return biometricSettings.value.supervisor_biometric_mode !== 'OFF'
+  return (
+    biometricSettings.value.supervisor_biometric_mode !== 'OFF' ||
+    hasSupervisorBiometric.value ||
+    hasSupervisorFace.value
+  )
 })
 
 const canUseFingerprint = computed(() => {
   return (
-    ['FINGERPRINT', 'ANY'].includes(biometricSettings.value.supervisor_biometric_mode) &&
-    (!selectedSupervisor.value || selectedSupervisor.value.has_biometric !== false)
+    ['FINGERPRINT', 'ANY'].includes(biometricSettings.value.supervisor_biometric_mode) ||
+    hasSupervisorBiometric.value
   )
 })
 
 const canUseFace = computed(() => {
   return (
-    ['FACE_RECOGNITION', 'ANY'].includes(biometricSettings.value.supervisor_biometric_mode) &&
-    (!selectedSupervisor.value || selectedSupervisor.value.has_face_recognition !== false)
+    ['FACE_RECOGNITION', 'ANY'].includes(biometricSettings.value.supervisor_biometric_mode) ||
+    hasSupervisorFace.value
   )
 })
 
-const isPinDisabled = computed(() => {
-  return (
-    biometricSettings.value.supervisor_biometric_policy === 'STRICT' &&
-    selectedSupervisor.value &&
-    (selectedSupervisor.value.has_biometric || selectedSupervisor.value.has_face_recognition)
-  )
-})
+const isPinDisabled = computed(() => false)
 
 const supervisorExtraParams = computed(() => {
   const params: Record<string, any> = {}
@@ -125,7 +137,11 @@ async function loadData() {
     biometricSettings.value = bioSettings
 
     // Tentukan mode awal
-    if (biometricSettings.value.supervisor_biometric_mode !== 'OFF') {
+    if (
+      biometricSettings.value.supervisor_biometric_mode !== 'OFF' ||
+      hasSupervisorBiometric.value ||
+      hasSupervisorFace.value
+    ) {
       authMode.value = 'BIOMETRIC'
     } else {
       authMode.value = 'PIN'
@@ -148,8 +164,13 @@ function onSupervisorsLoaded(items: SupervisorOption[]) {
 
 function onSupervisorChanged(val: string, item: SupervisorOption) {
   selectedSupervisorId.value = val || ''
-  if (item && !supervisors.value.some((s) => s.id === item.id)) {
-    supervisors.value.push(item)
+  if (item) {
+    const existingIdx = supervisors.value.findIndex((s) => s.id === item.id)
+    if (existingIdx >= 0) {
+      supervisors.value[existingIdx] = { ...supervisors.value[existingIdx], ...item }
+    } else {
+      supervisors.value.push(item)
+    }
   }
   clearPin()
 }

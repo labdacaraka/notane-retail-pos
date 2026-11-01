@@ -86,13 +86,22 @@ const isServerCompatible = computed(() => {
 </script>
 
 <template>
-  <div
-    v-if="isOpen"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in"
-  >
+  <Teleport to="body">
     <div
-      class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]"
+      v-if="isOpen"
+      class="fixed inset-0 z-50 overflow-y-auto animate-in fade-in"
     >
+      <!-- Dedicated Fixed Backdrop -->
+      <div
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        @click="emit('close')"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+        <div
+          class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8"
+        >
       <!-- Modal Header -->
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
         <div class="flex items-center gap-3">
@@ -299,4 +308,6 @@ const isServerCompatible = computed(() => {
       </div>
     </div>
   </div>
+</div>
+</Teleport>
 </template>

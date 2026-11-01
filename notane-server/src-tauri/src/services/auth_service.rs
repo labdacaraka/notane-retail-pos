@@ -292,7 +292,7 @@ pub async fn verify_supervisor_biometric(
     req: SupervisorBiometricApproveRequest,
 ) -> Result<SupervisorPinResponse, String> {
     // 1. Ambil setting biometrik aktif dari receipt_settings
-    let (bio_mode, _bio_policy, face_threshold) = sqlx::query_as::<_, (String, String, rust_decimal::Decimal)>(
+    let (_bio_mode, _bio_policy, face_threshold) = sqlx::query_as::<_, (String, String, rust_decimal::Decimal)>(
         "SELECT supervisor_biometric_mode, supervisor_biometric_policy, face_match_threshold 
          FROM receipt_settings ORDER BY created_at ASC LIMIT 1"
     )
@@ -300,18 +300,6 @@ pub async fn verify_supervisor_biometric(
     .await
     .unwrap_or(None)
     .unwrap_or_else(|| ("ANY".to_string(), "OPTIONAL".to_string(), rust_decimal::Decimal::from(75)));
-
-    if bio_mode == "OFF" {
-        return Err("Autentikasi biometrik supervisor dinonaktifkan di pengaturan sistem toko".to_string());
-    }
-
-    if bio_mode == "FINGERPRINT" && req.biometric_type != "FINGERPRINT" {
-        return Err("Sistem saat ini hanya mengizinkan biometrik sidik jari untuk supervisor".to_string());
-    }
-
-    if bio_mode == "FACE_RECOGNITION" && req.biometric_type != "FACE" {
-        return Err("Sistem saat ini hanya mengizinkan pemindai wajah untuk supervisor".to_string());
-    }
 
     if let Some(spv_id) = req.supervisor_id {
         let spv = sqlx::query_as::<_, User>(
@@ -506,12 +494,7 @@ pub async fn verify_supervisor_auth(
         }
     }
 
-    // 3. Jika kebijakan STRICT dan mode bukan OFF, tolak PIN manual
-    if bio_mode != "OFF" && bio_policy == "STRICT" {
-        return Err("Kebijakan sistem toko mewajibkan otorisasi biometrik supervisor (PIN keypad dinonaktifkan)".to_string());
-    }
-
-    // 4. Jika supervisor_pin diberikan
+    // 3. Jika supervisor_pin diberikan, perbolehkan otorisasi via PIN
     if let Some(pin) = supervisor_pin {
         if !pin.trim().is_empty() {
             let spv_res = verify_supervisor_pin(
@@ -525,6 +508,11 @@ pub async fn verify_supervisor_auth(
             .await?;
             return Ok(spv_res.supervisor_id);
         }
+    }
+
+    // 4. Jika kebijakan STRICT dan tidak ada token otorisasi
+    if bio_mode != "OFF" && bio_policy == "STRICT" {
+        return Err("Kebijakan sistem toko mewajibkan otorisasi biometrik supervisor".to_string());
     }
 
     Err("Otorisasi supervisor (Biometrik atau PIN) wajib dilakukan untuk melanjutkan".to_string())

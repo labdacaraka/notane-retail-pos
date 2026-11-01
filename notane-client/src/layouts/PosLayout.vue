@@ -9,6 +9,7 @@ import { useLocationStore } from '@/stores/locationStore'
 import { useNetworkStore } from '@/stores/networkStore'
 import { usePrinterStore } from '@/stores/printerStore'
 import ShiftModal from '@/components/pos/ShiftModal.vue'
+import ShiftHistoryModal from '@/components/pos/ShiftHistoryModal.vue'
 import NetworkConnectionModal from '@/components/common/NetworkConnectionModal.vue'
 import PrinterSettingsModal from '@/components/pos/PrinterSettingsModal.vue'
 import UserProfileSecurityModal from '@/components/common/UserProfileSecurityModal.vue'
@@ -447,6 +448,21 @@ onUnmounted(() => {
                   <div class="text-[10px] text-slate-500 mt-0.5">Rekap fisik kas & akhiri sesi kasir</div>
                 </div>
               </button>
+
+              <!-- Action: Riwayat Shift Saya -->
+              <button
+                type="button"
+                @click="showShiftMenu = false; shiftStore.openShiftHistoryModal()"
+                class="w-full flex items-center gap-2.5 p-2 rounded-lg text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition cursor-pointer text-left group shadow-2xs"
+              >
+                <div class="w-7 h-7 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+                  <Icon icon="fluent:history-20-filled" class="w-4 h-4" />
+                </div>
+                <div>
+                  <div class="font-bold text-slate-900 leading-tight">Riwayat Shift Saya</div>
+                  <div class="text-[10px] text-slate-500 mt-0.5">Daftar riwayat sesi shift Anda & cetak Z-Report</div>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -518,9 +534,9 @@ onUnmounted(() => {
           <!-- Back-Office Navigation -->
           <button
             type="button"
-            @click="router.push('/admin/products')"
+            @click="router.push('/admin')"
             class="h-7 px-2 rounded-lg flex items-center gap-1 text-slate-700 hover:bg-white hover:shadow-2xs transition cursor-pointer text-xs font-bold border border-transparent hover:border-slate-200/70"
-            title="Akses Dashboard Back-Office Administrator"
+            title="Akses Dashboard Utama Back-Office"
           >
             <Icon icon="streamline-ultimate-color:layout-dashboard" class="w-3.5 h-3.5" />
             <span class="hidden xl:inline text-[11px]">Back-Office</span>
@@ -575,6 +591,16 @@ onUnmounted(() => {
                   <span>Term: <strong class="text-slate-800">{{ authStore.terminalId }}</strong></span>
                 </div>
               </div>
+
+              <!-- Action: Dashboard Back-Office -->
+              <button
+                type="button"
+                @click="showUserMenu = false; router.push('/admin')"
+                class="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-700 transition cursor-pointer text-left"
+              >
+                <Icon icon="streamline-ultimate-color:layout-dashboard" class="w-4 h-4" />
+                <span>Dashboard Back-Office</span>
+              </button>
 
               <!-- Action: Ubah Password & PIN Kasir -->
               <button
@@ -643,6 +669,12 @@ onUnmounted(() => {
       :mode="shiftStore.shiftModalMode"
       @close="shiftStore.closeShiftModal()"
       @success="shiftStore.checkCurrentShift()"
+    />
+
+    <!-- Shift History Modal -->
+    <ShiftHistoryModal
+      :show="shiftStore.showShiftHistoryModal"
+      @close="shiftStore.closeShiftHistoryModal()"
     />
 
     <!-- Network Connection Modal -->

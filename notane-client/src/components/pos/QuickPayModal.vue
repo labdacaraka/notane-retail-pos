@@ -159,22 +159,38 @@ const roundingMode = computed(() => {
 const cashRoundingAdjustment = computed(() => {
   if (activeMethod.value !== 'CASH') return 0
   const bill = Math.round(remainingBill.value * 100) / 100
-  if (roundingMode.value === 'ROUND_100_DOWN') {
-    return bill % 100
-  } else if (roundingMode.value === 'ROUND_500_DOWN') {
-    return bill % 500
+  if (bill <= 0) return 0
+
+  const mode = roundingMode.value
+  if (mode === 'ROUND_100_DOWN') {
+    const remainder = bill % 100
+    return remainder > 0 ? -remainder : 0
+  } else if (mode === 'ROUND_500_DOWN' || mode === 'FLOOR_500') {
+    const remainder = bill % 500
+    return remainder > 0 ? -remainder : 0
+  } else if (mode === 'ROUND_100_UP') {
+    const remainder = bill % 100
+    return remainder > 0 ? (100 - remainder) : 0
+  } else if (mode === 'ROUND_500_UP' || mode === 'CEIL_500') {
+    const remainder = bill % 500
+    return remainder > 0 ? (500 - remainder) : 0
+  } else if (mode === 'ROUND_100') {
+    const remainder = bill % 100
+    if (remainder > 0) {
+      return remainder >= 50 ? (100 - remainder) : -remainder
+    }
   } else {
     // Mode NONE: jika ada pecahan koma desimal uang tunai (misal Rp 15.234,50), bulatkan ke rupiah utuh
     const decimalFraction = bill - Math.floor(bill)
     if (decimalFraction > 0) {
-      return Number(decimalFraction.toFixed(2))
+      return -Number(decimalFraction.toFixed(2))
     }
   }
   return 0
 })
 
 const effectivePayableBill = computed(() => {
-  return Math.max(0, Math.round(remainingBill.value - cashRoundingAdjustment.value))
+  return Math.max(0, Math.round(remainingBill.value + cashRoundingAdjustment.value))
 })
 
 const rawChangeAmount = computed(() => {
@@ -212,6 +228,13 @@ const totalPaid = computed(() => {
     return ptsPaid + remainingBill.value
   }
   return ptsPaid
+})
+
+const payableTarget = computed(() => {
+  if (activeMethod.value === 'CASH') {
+    return Math.round(effectivePayableBill.value) + appliedPointsRupiah.value
+  }
+  return cartStore.grandTotal
 })
 
 const receiptConfig = computed(() => {
@@ -353,12 +376,9 @@ async function handleCompletePayment() {
     })
   }
 
-  const payableTarget = activeMethod.value === 'CASH'
-    ? Math.round(effectivePayableBill.value) + appliedPointsRupiah.value
-    : cartStore.grandTotal
   const total = finalPayments.reduce((sum, p) => sum + p.amount, 0)
-  if (total < payableTarget) {
-    errorMsg.value = `Total pembayaran masih kurang dari total belanja (Kurang: ${formatCurrency(payableTarget - total)})`
+  if (total < payableTarget.value) {
+    errorMsg.value = `Total pembayaran masih kurang dari total belanja (Kurang: ${formatCurrency(payableTarget.value - total)})`
     return
   }
 
@@ -432,7 +452,7 @@ async function handleCompletePayment() {
         payment_proof_url: p.payment_proof_url,
       })),
       notes: `Kasir: ${authStore.user?.full_name}`,
-      rounding_amount: activeMethod.value === 'CASH' && cashRoundingAdjustment.value > 0 ? Number(cashRoundingAdjustment.value.toFixed(2)) : undefined,
+      rounding_amount: activeMethod.value === 'CASH' && cashRoundingAdjustment.value !== 0 ? Number(cashRoundingAdjustment.value.toFixed(2)) : undefined,
     }
 
     const res = await api.post('/sales/checkout', payload)
@@ -734,7 +754,7 @@ onUnmounted(() => {
         <div v-if="remainingBill > 0" class="space-y-3">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Metode Pembayaran Sisa Tagihan ({{ formatCurrency(remainingBill) }})
+              Metode Pembayaran Sisa Tagihan ({{ formatCurrency(activeMethod === 'CASH' ? effectivePayableBill : remainingBill) }})
             </span>
           </div>
 
@@ -772,7 +792,7 @@ onUnmounted(() => {
           <div v-if="activeMethod === 'CASH'" class="space-y-3 pt-1">
             <div class="flex items-center justify-between">
               <label class="block text-xs font-bold text-slate-700">Uang Tunai Diterima (Rp)</label>
-              <span class="text-[11px] text-slate-500 font-medium">Wajib: {{ formatCurrency(remainingBill) }}</span>
+              <span class="text-[11px] text-slate-500 font-medium">Wajib: {{ formatCurrency(effectivePayableBill) }}</span>
             </div>
             <input
               v-model.number="cashAmount"
@@ -815,15 +835,17 @@ onUnmounted(() => {
             </div>
 
             <!-- Cash Rounding Policy Badge -->
-            <div v-if="cashRoundingAdjustment > 0" class="p-2.5 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between text-xs">
-              <div class="flex items-center gap-1.5 text-purple-900 font-semibold">
+            <div v-if="cashRoundingAdjustment !== 0" class="p-2.5 rounded-xl border flex items-center justify-between text-xs" :class="cashRoundingAdjustment < 0 ? 'bg-purple-50 border-purple-200 text-purple-900' : 'bg-indigo-50 border-indigo-200 text-indigo-900'">
+              <div class="flex items-center gap-1.5 font-semibold">
                 <Icon icon="fluent-color:money-calculator-24" class="w-4 h-4 shrink-0" />
-                <span>Pembulatan Kebawah:</span>
+                <span>{{ cashRoundingAdjustment < 0 ? 'Pembulatan Kebawah:' : 'Pembulatan Keatas:' }}</span>
               </div>
               <div class="text-right">
-                <span class="text-purple-600 line-through text-[11px] font-mono mr-1.5">{{ formatCurrency(remainingBill) }}</span>
-                <span class="font-extrabold text-purple-900 font-mono">{{ formatCurrency(effectivePayableBill) }}</span>
-                <span class="text-[10px] text-purple-600 block">Potongan kasir Rp {{ cashRoundingAdjustment }}</span>
+                <span class="text-slate-500 line-through text-[11px] font-mono mr-1.5">{{ formatCurrency(remainingBill) }}</span>
+                <span class="font-extrabold font-mono" :class="cashRoundingAdjustment < 0 ? 'text-purple-900' : 'text-indigo-900'">{{ formatCurrency(effectivePayableBill) }}</span>
+                <span class="text-[10px] block" :class="cashRoundingAdjustment < 0 ? 'text-purple-600' : 'text-indigo-600'">
+                  {{ cashRoundingAdjustment < 0 ? `Potongan kasir -Rp ${Math.abs(cashRoundingAdjustment)}` : `Penyesuaian kasir +Rp ${cashRoundingAdjustment}` }}
+                </span>
               </div>
             </div>
 
@@ -1011,7 +1033,7 @@ onUnmounted(() => {
 
         <button
           @click="handleCompletePayment"
-          :disabled="isProcessing || totalPaid < cartStore.grandTotal"
+          :disabled="isProcessing || totalPaid < payableTarget"
           class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:pointer-events-none text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm border border-emerald-700 transition active:scale-95"
         >
           <Check class="w-4 h-4" />
@@ -1112,6 +1134,11 @@ onUnmounted(() => {
             <div v-if="receiptConfig.show_tax_summary !== false && (receiptData?.sale?.tax_amount || 0) > 0" class="flex justify-between text-slate-600">
               <span>Pajak (PPN):</span>
               <span>{{ formatCurrency(receiptData?.sale?.tax_amount || 0) }}</span>
+            </div>
+            <!-- Pembulatan Kas Kasir (Rounding) -->
+            <div v-if="Number(receiptData?.sale?.rounding_amount || receiptData?.rounding_amount || 0) !== 0" class="flex justify-between" :class="Number(receiptData?.sale?.rounding_amount || receiptData?.rounding_amount || 0) < 0 ? 'text-purple-700 font-medium' : 'text-indigo-700 font-medium'">
+              <span>{{ Number(receiptData?.sale?.rounding_amount || receiptData?.rounding_amount || 0) < 0 ? 'Pembulatan (Diskon):' : 'Pembulatan Kas:' }}</span>
+              <span>{{ Number(receiptData?.sale?.rounding_amount || receiptData?.rounding_amount || 0) < 0 ? '-' : '+' }}{{ formatCurrency(Math.abs(Number(receiptData?.sale?.rounding_amount || receiptData?.rounding_amount || 0))) }}</span>
             </div>
             <div class="flex justify-between font-bold text-xs pt-1 border-t border-dotted border-slate-300">
               <span>TOTAL:</span>

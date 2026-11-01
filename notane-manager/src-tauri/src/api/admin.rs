@@ -3,9 +3,9 @@ use crate::crypto::ed25519::{derive_public_key, sign_message, DEFAULT_MASTER_PUB
 use crate::crypto::hash::{hash_secret, verify_secret};
 use crate::models::{
     AdminUser, AppError, AppRelease, AuditLog, AuthResponse, ChangeCredentialsDto, Client,
-    CreateClientDto, CreateLicenseDto, CreateReleaseDto, DeviceActivation, License,
-    LicenseTokenPayload, LoginDto, ManualSignResult, PaginatedResponse, PaginationParams,
-    PinLoginDto, ProviderSettings, ProviderStatus, UpdateClientDto,
+    CreateClientDto, CreateLicenseDto, CreateLicenseTierDto, CreateReleaseDto, DeviceActivation, License,
+    LicenseTier, LicenseTokenPayload, LoginDto, ManualSignResult, PaginatedResponse, PaginationParams,
+    PinLoginDto, ProviderSettings, ProviderStatus, UpdateClientDto, UpdateLicenseTierDto,
 };
 use axum::{
     extract::{Path, Query, State},
@@ -54,6 +54,9 @@ pub fn create_admin_router(_state: ApiState) -> Router<ApiState> {
         // Clients (CRUD & Pagination)
         .route("/clients", get(admin_get_clients).post(admin_create_client))
         .route("/clients/{id}", put(admin_update_client).delete(admin_delete_client))
+        // License Tiers (CRUD & Pagination)
+        .route("/tiers", get(admin_get_tiers).post(admin_create_tier))
+        .route("/tiers/{id}", put(admin_update_tier).delete(admin_delete_tier))
         // Licenses
         .route("/licenses", get(admin_get_licenses).post(admin_create_license))
         .route("/licenses/{id}/status", put(admin_update_license_status))
@@ -546,6 +549,231 @@ async fn admin_delete_client(
 }
 
 // ------------------------------------------------------------------------------
+// LICENSE TIERS CRUD (PAGINATED, SORTED, FILTERED)
+// ------------------------------------------------------------------------------
+async fn admin_get_tiers(
+    State(state): State<ApiState>,
+    Query(params): Query<PaginationParams>,
+) -> Result<Json<PaginatedResponse<LicenseTier>>, (StatusCode, Json<serde_json::Value>)> {
+    let page = params.page.unwrap_or(1).max(1);
+    let page_size = params.page_size.unwrap_or(10).clamp(1, 100);
+    let offset = (page - 1) * page_size;
+
+    let search = params.search.unwrap_or_default().trim().to_string();
+    let search_pattern = format!("%{}%", search);
+
+    let count_sql = if search.is_empty() {
+        "SELECT COUNT(*) FROM provider_license_tiers".to_string()
+    } else {
+        "SELECT COUNT(*) FROM provider_license_tiers WHERE name LIKE ? OR code LIKE ? OR description LIKE ?".to_string()
+    };
+
+    let total_items: (i64,) = if search.is_empty() {
+        sqlx::query_as(&sql(&count_sql)).fetch_one(&state.pool).await
+            .map_err(|e| err_response(AppError::Database(e.to_string())))?
+    } else {
+        sqlx::query_as(&sql(&count_sql))
+            .bind(&search_pattern).bind(&search_pattern).bind(&search_pattern)
+            .fetch_one(&state.pool).await
+            .map_err(|e| err_response(AppError::Database(e.to_string())))?
+    };
+
+    let sort_col = match params.sort_by.as_deref() {
+        Some("name") => "name",
+        Some("code") => "code",
+        Some("default_max_terminals") => "default_max_terminals",
+        Some("default_validity_days") => "default_validity_days",
+        Some("default_grace_period_days") => "default_grace_period_days",
+        Some("is_active") => "is_active",
+        Some("created_at") => "created_at",
+        Some("updated_at") => "updated_at",
+        _ => "created_at",
+    };
+    let sort_dir = match params.sort_order.as_deref() {
+        Some("asc") | Some("ASC") => "ASC",
+        _ => "DESC",
+    };
+
+    let select_sql = format!(
+        "SELECT id, name, code, description, default_max_terminals, default_validity_days, default_grace_period_days, features, is_active, created_at, updated_at
+         FROM provider_license_tiers
+         {}
+         ORDER BY {} {}
+         LIMIT ? OFFSET ?",
+        if search.is_empty() { "" } else { "WHERE name LIKE ? OR code LIKE ? OR description LIKE ?" },
+        sort_col, sort_dir
+    );
+
+    let items = if search.is_empty() {
+        sqlx::query_as::<_, LicenseTier>(&sql(&select_sql))
+            .bind(page_size).bind(offset)
+            .fetch_all(&state.pool).await
+            .map_err(|e| err_response(AppError::Database(e.to_string())))?
+    } else {
+        sqlx::query_as::<_, LicenseTier>(&sql(&select_sql))
+            .bind(&search_pattern).bind(&search_pattern).bind(&search_pattern)
+            .bind(page_size).bind(offset)
+            .fetch_all(&state.pool).await
+            .map_err(|e| err_response(AppError::Database(e.to_string())))?
+    };
+
+    let total_pages = (total_items.0 as f64 / page_size as f64).ceil() as i64;
+
+    Ok(Json(PaginatedResponse {
+        items,
+        page,
+        page_size,
+        total_items: total_items.0,
+        total_pages: total_pages.max(1),
+    }))
+}
+
+async fn admin_create_tier(
+    State(state): State<ApiState>,
+    Json(payload): Json<CreateLicenseTierDto>,
+) -> Result<Json<LicenseTier>, (StatusCode, Json<serde_json::Value>)> {
+    if let Err(e) = payload.validate() {
+        return Err(err_response(AppError::Validation(e.to_string())));
+    }
+
+    let code_upper = payload.code.trim().to_uppercase();
+    let existing: Option<(String,)> = sqlx::query_as(&sql("SELECT id FROM provider_license_tiers WHERE code = ?"))
+        .bind(&code_upper)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|e| err_response(AppError::Database(e.to_string())))?;
+
+    if existing.is_some() {
+        return Err(err_response(AppError::Validation(format!("Kode tier '{}' sudah digunakan", code_upper))));
+    }
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = Utc::now().to_rfc3339();
+    let features_json = serde_json::to_string(&payload.features).unwrap_or_else(|_| "[]".to_string());
+    let is_active = if payload.is_active.unwrap_or(true) { 1 } else { 0 };
+
+    sqlx::query(
+        &sql("INSERT INTO provider_license_tiers (
+            id, name, code, description, default_max_terminals, default_validity_days, default_grace_period_days, features, is_active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    )
+    .bind(&id)
+    .bind(payload.name.trim())
+    .bind(&code_upper)
+    .bind(payload.description.as_deref())
+    .bind(payload.default_max_terminals)
+    .bind(payload.default_validity_days)
+    .bind(payload.default_grace_period_days)
+    .bind(&features_json)
+    .bind(is_active)
+    .bind(&now)
+    .bind(&now)
+    .execute(&state.pool)
+    .await
+    .map_err(|e| err_response(AppError::Database(e.to_string())))?;
+
+    Ok(Json(LicenseTier {
+        id,
+        name: payload.name.trim().to_string(),
+        code: code_upper,
+        description: payload.description,
+        default_max_terminals: payload.default_max_terminals,
+        default_validity_days: payload.default_validity_days,
+        default_grace_period_days: payload.default_grace_period_days,
+        features: features_json,
+        is_active,
+        created_at: now.clone(),
+        updated_at: now,
+    }))
+}
+
+async fn admin_update_tier(
+    Path(id): Path<String>,
+    State(state): State<ApiState>,
+    Json(payload): Json<UpdateLicenseTierDto>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    if let Err(e) = payload.validate() {
+        return Err(err_response(AppError::Validation(e.to_string())));
+    }
+
+    let code_upper = payload.code.trim().to_uppercase();
+    let existing: Option<(String,)> = sqlx::query_as(&sql("SELECT id FROM provider_license_tiers WHERE code = ? AND id != ?"))
+        .bind(&code_upper)
+        .bind(&id)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|e| err_response(AppError::Database(e.to_string())))?;
+
+    if existing.is_some() {
+        return Err(err_response(AppError::Validation(format!("Kode tier '{}' sudah digunakan oleh paket lain", code_upper))));
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let features_json = serde_json::to_string(&payload.features).unwrap_or_else(|_| "[]".to_string());
+    let is_active = if payload.is_active.unwrap_or(true) { 1 } else { 0 };
+
+    let rows_affected = sqlx::query(
+        &sql("UPDATE provider_license_tiers
+         SET name = ?, code = ?, description = ?, default_max_terminals = ?, default_validity_days = ?, default_grace_period_days = ?, features = ?, is_active = ?, updated_at = ?
+         WHERE id = ?")
+    )
+    .bind(payload.name.trim())
+    .bind(&code_upper)
+    .bind(payload.description.as_deref())
+    .bind(payload.default_max_terminals)
+    .bind(payload.default_validity_days)
+    .bind(payload.default_grace_period_days)
+    .bind(&features_json)
+    .bind(is_active)
+    .bind(&now)
+    .bind(&id)
+    .execute(&state.pool)
+    .await
+    .map_err(|e| err_response(AppError::Database(e.to_string())))?
+    .rows_affected();
+
+    if rows_affected == 0 {
+        return Err(err_response(AppError::NotFound("Tier lisensi tidak ditemukan".to_string())));
+    }
+
+    Ok(Json(json!({ "success": true })))
+}
+
+async fn admin_delete_tier(
+    Path(id): Path<String>,
+    State(state): State<ApiState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let count: (i64,) = sqlx::query_as(
+        &sql("SELECT COUNT(*) FROM provider_licenses WHERE tier_id = ? OR tier = (SELECT code FROM provider_license_tiers WHERE id = ?)")
+    )
+    .bind(&id)
+    .bind(&id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|e| err_response(AppError::Database(e.to_string())))?;
+
+    if count.0 > 0 {
+        return Err(err_response(AppError::Validation(format!(
+            "Tier ini sedang digunakan oleh {} lisensi. Nonaktifkan status tier alih-alih menghapusnya.",
+            count.0
+        ))));
+    }
+
+    let rows_affected = sqlx::query(&sql("DELETE FROM provider_license_tiers WHERE id = ?"))
+        .bind(&id)
+        .execute(&state.pool)
+        .await
+        .map_err(|e| err_response(AppError::Database(e.to_string())))?
+        .rows_affected();
+
+    if rows_affected == 0 {
+        return Err(err_response(AppError::NotFound("Tier tidak ditemukan".to_string())));
+    }
+
+    Ok(Json(json!({ "success": true, "message": "Tier berhasil dihapus" })))
+}
+
+// ------------------------------------------------------------------------------
 // LICENSES CRUD (PAGINATED, SORTED, FILTERED)
 // ------------------------------------------------------------------------------
 async fn admin_get_licenses(
@@ -624,7 +852,7 @@ async fn admin_get_licenses(
     };
 
     let select_sql = format!(
-        "SELECT l.id, l.license_key, l.client_id, c.client_name, l.tier, l.max_terminals,
+        "SELECT l.id, l.license_key, l.client_id, c.client_name, l.tier, l.tier_id, l.max_terminals,
                 l.status, l.issued_at, l.expires_at, l.grace_period_days, l.features,
                 l.notes, l.created_at, l.updated_at,
                 (SELECT COUNT(*) FROM provider_device_activations d WHERE d.license_id = l.id AND d.is_active = 1) AS active_terminals,
@@ -672,39 +900,93 @@ async fn admin_create_license(
         return Err(err_response(AppError::Validation(e.to_string())));
     }
 
+    // Resolve tier details if tier_id is provided, or find tier by code
+    let (tier_id_val, tier_code, tier_features, default_terminals, default_validity, default_grace) = if let Some(ref tid) = payload.tier_id {
+        let row: Option<(String, String, String, i64, i64, i64)> = sqlx::query_as(
+            &sql("SELECT id, code, features, default_max_terminals, default_validity_days, default_grace_period_days FROM provider_license_tiers WHERE id = ?")
+        )
+        .bind(tid)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|e| err_response(AppError::Database(e.to_string())))?;
+
+        if let Some((id, code, features, max_t, val_d, gr_d)) = row {
+            (Some(id), code, features, max_t, val_d, gr_d)
+        } else {
+            (None, payload.tier.clone(), "[]".to_string(), payload.max_terminals.unwrap_or(3), 365, 7)
+        }
+    } else {
+        let row: Option<(String, String, String, i64, i64, i64)> = sqlx::query_as(
+            &sql("SELECT id, code, features, default_max_terminals, default_validity_days, default_grace_period_days FROM provider_license_tiers WHERE code = ?")
+        )
+        .bind(&payload.tier)
+        .fetch_optional(&state.pool)
+        .await
+        .unwrap_or(None);
+
+        if let Some((id, code, features, max_t, val_d, gr_d)) = row {
+            (Some(id), code, features, max_t, val_d, gr_d)
+        } else {
+            (None, payload.tier.clone(), "[]".to_string(), payload.max_terminals.unwrap_or(3), 365, 7)
+        }
+    };
+
+    let final_tier_code = if !payload.tier.trim().is_empty() {
+        payload.tier.trim().to_uppercase()
+    } else {
+        tier_code
+    };
+
+    let final_features_json = if let Some(ref f) = payload.features {
+        if !f.is_empty() {
+            serde_json::to_string(f).unwrap_or_else(|_| "[]".to_string())
+        } else {
+            tier_features
+        }
+    } else {
+        tier_features
+    };
+
     let license_key = match payload.custom_key {
         Some(k) if !k.trim().is_empty() => k.trim().to_uppercase(),
         _ => {
             let year = Utc::now().format("%Y");
             let mut rng = rand::thread_rng();
             let suffix: u32 = rng.gen_range(1000..9999);
-            format!("NTN-{}-{}-X{}", payload.tier[..3].to_uppercase(), year, suffix)
+            let prefix = if final_tier_code.len() >= 3 {
+                &final_tier_code[..3]
+            } else {
+                "LIC"
+            };
+            format!("NTN-{}-{}-X{}", prefix.to_uppercase(), year, suffix)
         }
     };
 
     let id = uuid::Uuid::new_v4().to_string();
     let now = Utc::now();
-    let expires_at = now + Duration::days(payload.expires_in_days);
+    let validity_days = payload.expires_in_days.filter(|d| *d > 0).unwrap_or(default_validity);
+    let grace_days = payload.grace_period_days.filter(|g| *g >= 0).unwrap_or(default_grace);
+    let max_terminals = payload.max_terminals.filter(|m| *m > 0).unwrap_or(default_terminals);
+    let expires_at = now + Duration::days(validity_days);
     let now_str = now.to_rfc3339();
     let expires_str = expires_at.to_rfc3339();
-    let features_json = serde_json::to_string(&payload.features).unwrap_or_else(|_| "[]".to_string());
-    let grace_days = payload.grace_period_days.unwrap_or(7);
 
     sqlx::query(
         &sql("INSERT INTO provider_licenses (
-            id, license_key, client_id, tier, max_terminals, status, issued_at, expires_at,
+            id, license_key, client_id, tier, tier_id, max_terminals, status, issued_at, expires_at,
             grace_period_days, features, notes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?)")
+        ) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?)")
     )
     .bind(&id)
     .bind(&license_key)
     .bind(&payload.client_id)
-    .bind(&payload.tier)
-    .bind(payload.max_terminals)
+    .bind(&final_tier_code)
+    .bind(&tier_id_val)
+    .bind(max_terminals)
     .bind(&now_str)
     .bind(&expires_str)
     .bind(grace_days)
-    .bind(&features_json)
+    .bind(&final_features_json)
     .bind(&payload.notes)
     .bind(&now_str)
     .bind(&now_str)
@@ -723,13 +1005,14 @@ async fn admin_create_license(
         license_key,
         client_id: payload.client_id,
         client_name,
-        tier: payload.tier,
-        max_terminals: payload.max_terminals,
+        tier: final_tier_code,
+        tier_id: tier_id_val,
+        max_terminals,
         status: "ACTIVE".to_string(),
         issued_at: now_str.clone(),
         expires_at: expires_str,
         grace_period_days: grace_days,
-        features: features_json,
+        features: final_features_json,
         notes: payload.notes,
         active_terminals: Some(0),
         is_claimed: Some(0),

@@ -1205,12 +1205,21 @@ onMounted(async () => {
     </div>
 
     <!-- Modal Form (Dynamic based on active tab) -->
-    <div
-      v-if="showModal"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-    >
-      <div class="bg-white border border-slate-300 w-full max-w-md rounded-xl p-6 space-y-4 shadow-2xl text-slate-900">
-        <h3 class="font-bold text-base text-slate-900 border-b border-slate-200 pb-3">
+    <Teleport to="body">
+      <div
+        v-if="showModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none select-none">
+          <div class="relative bg-white border border-slate-300 w-full max-w-md rounded-xl p-6 space-y-4 shadow-2xl text-slate-900 text-left pointer-events-auto my-8">
+            <h3 class="font-bold text-base text-slate-900 border-b border-slate-200 pb-3">
           {{ isEditing ? 'Edit' : 'Tambah' }}
           {{ activeTab === 'units' ? 'Satuan Barang' : activeTab === 'categories' ? 'Kategori Produk' : activeTab === 'brands' ? 'Merek / Prinsipal' : 'Pemasok / Distributor' }}
         </h3>
@@ -1301,5 +1310,7 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
   </AdminLayout>
 </template>

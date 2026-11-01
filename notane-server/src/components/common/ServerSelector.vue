@@ -108,12 +108,12 @@ async function handleConnect() {
         </div>
         <div>
           <h3 class="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
-            <span>Server Selector & LAN Discovery</span>
+            <span>Pilih Server Kasir</span>
             <span class="text-[10px] bg-blue-50 text-blue-700 font-bold px-1.5 py-0.2 rounded border border-blue-200">
-              mDNS / LAN
+              Jaringan Lokal
             </span>
           </h3>
-          <p class="text-[11px] text-slate-500">Pilih PC Server Utama yang ingin dihubungi oleh kasir ini</p>
+          <p class="text-[11px] text-slate-500">Pilih komputer server yang ingin dihubungkan</p>
         </div>
       </div>
 
@@ -166,7 +166,7 @@ async function handleConnect() {
     <!-- Tab Content: Auto Scan -->
     <div v-if="activeTab === 'SCAN'" class="space-y-3">
       <div class="flex items-center justify-between text-xs">
-        <span class="font-bold text-slate-700">Daftar Server Terdeteksi di LAN:</span>
+        <span class="font-bold text-slate-700">Daftar Server Terdeteksi:</span>
         <button
           type="button"
           @click="runScan"
@@ -174,14 +174,14 @@ async function handleConnect() {
           class="text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
         >
           <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isScanning }" />
-          <span>{{ isScanning ? 'Memindai LAN...' : 'Pindai Ulang' }}</span>
+          <span>{{ isScanning ? 'Memindai...' : 'Pindai Ulang' }}</span>
         </button>
       </div>
 
       <!-- Loading scan bar -->
       <div v-if="isScanning" class="p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1.5 animate-pulse">
         <div class="flex items-center justify-between">
-          <span class="font-semibold">Mencari Server Notane POS di subnet lokal...</span>
+          <span class="font-semibold">Mencari server di jaringan lokal...</span>
           <span class="font-mono text-[10px]">{{ scanProgress.current }} / {{ scanProgress.total }}</span>
         </div>
         <div class="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden">

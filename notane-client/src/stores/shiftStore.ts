@@ -10,6 +10,7 @@ export const useShiftStore = defineStore('shift', () => {
   const isLoading = ref<boolean>(false)
   const showShiftModal = ref<boolean>(false)
   const shiftModalMode = ref<'OPEN' | 'CLOSE'>('OPEN')
+  const showShiftHistoryModal = ref<boolean>(false)
 
   function openShiftModal(mode: 'OPEN' | 'CLOSE' = 'OPEN') {
     shiftModalMode.value = mode
@@ -18,6 +19,14 @@ export const useShiftStore = defineStore('shift', () => {
 
   function closeShiftModal() {
     showShiftModal.value = false
+  }
+
+  function openShiftHistoryModal() {
+    showShiftHistoryModal.value = true
+  }
+
+  function closeShiftHistoryModal() {
+    showShiftHistoryModal.value = false
   }
 
   async function checkCurrentShift() {
@@ -105,16 +114,45 @@ export const useShiftStore = defineStore('shift', () => {
     throw new Error(res.data.message || 'Gagal menutup shift')
   }
 
+  async function fetchShifts(params?: {
+    outlet_id?: string
+    status?: string
+    search?: string
+    page?: number
+    page_size?: number
+  }) {
+    const res = await api.get('/shifts', { params })
+    return res.data
+  }
+
+  async function fetchShiftDetail(shiftId: string) {
+    const res = await api.get(`/shifts/${shiftId}`)
+    return res.data
+  }
+
+  async function fetchShiftStats(outletId?: string) {
+    const res = await api.get('/shifts/stats', {
+      params: outletId ? { outlet_id: outletId } : undefined,
+    })
+    return res.data
+  }
+
   return {
     currentShift,
     isShiftOpen,
     isLoading,
     showShiftModal,
     shiftModalMode,
+    showShiftHistoryModal,
     openShiftModal,
     closeShiftModal,
+    openShiftHistoryModal,
+    closeShiftHistoryModal,
     checkCurrentShift,
     openShift,
     closeShift,
+    fetchShifts,
+    fetchShiftDetail,
+    fetchShiftStats,
   }
 })

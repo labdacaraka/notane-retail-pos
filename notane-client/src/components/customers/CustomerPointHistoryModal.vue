@@ -178,14 +178,23 @@ function formatDate(isoStr: string) {
 </script>
 
 <template>
-  <div
-    v-if="show"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-200"
-  >
+  <Teleport to="body">
     <div
-      class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+      v-if="show"
+      class="fixed inset-0 z-50 overflow-y-auto"
     >
-      <!-- HEADER -->
+      <!-- Dedicated Fixed Backdrop -->
+      <div
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-200"
+        @click="emit('close')"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+        <div
+          class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden text-left pointer-events-auto my-8"
+        >
+          <!-- HEADER -->
       <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
@@ -491,16 +500,26 @@ function formatDate(isoStr: string) {
         </button>
       </div>
     </div>
+  </div>
+</div>
 
     <!-- SUB-MODAL PENYESUAIAN POIN MANUAL -->
     <div
       v-if="showAdjustModal"
-      class="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+      class="fixed inset-0 z-60 overflow-y-auto"
     >
+      <!-- Dedicated Fixed Backdrop -->
       <div
-        class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-      >
-        <div class="px-5 py-4 border-b border-slate-200 bg-amber-50/50 flex items-center justify-between">
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        @click="showAdjustModal = false"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+        <div
+          class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden text-left pointer-events-auto my-8"
+        >
+          <div class="px-5 py-4 border-b border-slate-200 bg-amber-50/50 flex items-center justify-between">
           <div class="flex items-center gap-2 text-amber-900 font-bold text-sm">
             <Sliders class="w-4 h-4 text-amber-600" />
             <span>Koreksi / Penyesuaian Poin Manual</span>
@@ -611,4 +630,5 @@ function formatDate(isoStr: string) {
       </div>
     </div>
   </div>
+</Teleport>
 </template>

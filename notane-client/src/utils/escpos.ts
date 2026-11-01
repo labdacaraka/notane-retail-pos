@@ -295,6 +295,13 @@ export function buildReceiptEscPos(receiptData: any, options: EscPosOptions): Ui
     builder.textLine(formatTwoColumns('Pajak (PPN)', fmtRupiah(totalTax), width))
   }
 
+  const roundingAmount = Number(sale.rounding_amount || receiptData.rounding_amount || 0)
+  if (roundingAmount !== 0) {
+    const rLabel = roundingAmount < 0 ? 'Pembulatan (Diskon)' : 'Pembulatan Kas'
+    const rSign = roundingAmount < 0 ? '-' : '+'
+    builder.textLine(formatTwoColumns(rLabel, `${rSign}${fmtRupiah(Math.abs(roundingAmount))}`, width))
+  }
+
   builder.bold(true)
   builder.textLine(formatTwoColumns('TOTAL BELANJA', `Rp ${fmtRupiah(totalAmount)}`, width))
   builder.bold(false)
@@ -514,6 +521,13 @@ export function generatePlainTextReceipt(receiptData: any, paperWidthOrOptions: 
     lines.push(formatTwoColumns('Pajak (PPN)', fmtRupiah(totalTax), width))
   }
 
+  const roundingAmount = Number(sale.rounding_amount || receiptData.rounding_amount || 0)
+  if (roundingAmount !== 0) {
+    const rLabel = roundingAmount < 0 ? 'Pembulatan (Diskon)' : 'Pembulatan Kas'
+    const rSign = roundingAmount < 0 ? '-' : '+'
+    lines.push(formatTwoColumns(rLabel, `${rSign}${fmtRupiah(Math.abs(roundingAmount))}`, width))
+  }
+
   lines.push(formatTwoColumns('TOTAL BELANJA', `Rp ${fmtRupiah(totalAmount)}`, width))
 
   if (options.showSavingsSummary !== false && totalSavings > 0) {
@@ -535,4 +549,115 @@ export function generatePlainTextReceipt(receiptData: any, paperWidthOrOptions: 
   lines.push('  Terima Kasih Atas Kunjungan Anda')
 
   return lines.join('\n')
+}
+
+/**
+ * Generator ESC/POS Biner untuk Laporan Penutupan Shift Kasir (Z-Report)
+ */
+export function buildZReportEscPos(zReport: any, options: EscPosOptions): Uint8Array {
+  const width = options.paperWidth === '80mm' ? 42 : 32
+  const builder = new EscPosBuilder()
+
+  // 1. Header Toko
+  builder.alignCenter()
+  builder.bold(true)
+  builder.textLine(options.storeName || 'NOTANE RETAIL STORE')
+  builder.bold(false)
+
+  if (options.storeAddress) {
+    builder.textLine(options.storeAddress)
+  }
+  if (options.storePhone) {
+    builder.textLine(`Telp: ${options.storePhone}`)
+  }
+
+  builder.textLine(formatSeparator('=', width))
+  builder.bold(true)
+  builder.textLine('LAPORAN PENUTUPAN SHIFT')
+  builder.textLine('Z-REPORT')
+  builder.bold(false)
+  builder.textLine(formatSeparator('=', width))
+
+  // 2. Info Shift
+  builder.alignLeft()
+  builder.textLine(formatTwoColumns('Kasir', zReport.cashier_name || '-', width))
+  builder.textLine(formatTwoColumns('Terminal', zReport.shift?.terminal_id || '-', width))
+  builder.textLine(formatTwoColumns('Outlet', zReport.shift?.outlet_name || zReport.outlet_name || '-', width))
+
+  const openedAtStr = zReport.shift?.opened_at
+    ? new Date(zReport.shift.opened_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '-'
+  const closedAtStr = zReport.shift?.closed_at
+    ? new Date(zReport.shift.closed_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '-'
+  builder.textLine(formatTwoColumns('Mulai', openedAtStr, width))
+  builder.textLine(formatTwoColumns('Tutup', closedAtStr, width))
+  builder.textLine(formatTwoColumns('Jumlah Nota', `${zReport.total_sales_count ?? zReport.transaction_count ?? 0} transaksi`, width))
+
+  builder.textLine(formatSeparator('-', width))
+
+  // 3. Rekapan Penerimaan per Metode Bayar
+  builder.bold(true)
+  builder.textLine('PENERIMAAN METODE BAYAR')
+  builder.bold(false)
+
+  const breakdowns = zReport.payment_breakdown || []
+  if (breakdowns.length > 0) {
+    for (const pm of breakdowns) {
+      const name = pm.method_name || pm.name || pm.category || 'Pembayaran'
+      const count = pm.transaction_count ? ` (${pm.transaction_count}x)` : ''
+      builder.textLine(formatTwoColumns(`${name}${count}`, `Rp ${fmtRupiah(pm.total_amount || pm.amount || 0)}`, width))
+    }
+  } else {
+    builder.textLine(formatTwoColumns('Uang Tunai (Cash)', `Rp ${fmtRupiah(zReport.total_cash_received || 0)}`, width))
+    if (Number(zReport.total_qris_received || 0) > 0) {
+      builder.textLine(formatTwoColumns('QRIS', `Rp ${fmtRupiah(zReport.total_qris_received || 0)}`, width))
+    }
+    if (Number(zReport.total_card_received || 0) > 0) {
+      builder.textLine(formatTwoColumns('Debit/Kredit EDC', `Rp ${fmtRupiah(zReport.total_card_received || 0)}`, width))
+    }
+    if (Number(zReport.total_points_redeemed || 0) > 0) {
+      builder.textLine(formatTwoColumns('Poin Reward', `Rp ${fmtRupiah(zReport.total_points_redeemed || 0)}`, width))
+    }
+    if (Number(zReport.total_transfer_received || 0) > 0) {
+      builder.textLine(formatTwoColumns('Transfer Bank', `Rp ${fmtRupiah(zReport.total_transfer_received || 0)}`, width))
+    }
+  }
+
+  builder.bold(true)
+  builder.textLine(formatTwoColumns('TOTAL PENJUALAN', `Rp ${fmtRupiah(zReport.total_net_sales || 0)}`, width))
+  builder.bold(false)
+
+  builder.textLine(formatSeparator('-', width))
+
+  // 4. Rekonsiliasi Laci Kasir (Cash Drawer)
+  builder.bold(true)
+  builder.textLine('REKONSILIASI KAS LACI')
+  builder.bold(false)
+  builder.textLine(formatTwoColumns('Modal Awal (Opening)', `Rp ${fmtRupiah(zReport.shift?.opening_cash || 0)}`, width))
+  builder.textLine(formatTwoColumns('+ Penerimaan Tunai', `Rp ${fmtRupiah(zReport.total_cash_received || 0)}`, width))
+  if (Number(zReport.total_expenses || 0) > 0) {
+    builder.textLine(formatTwoColumns('- Pengeluaran Laci', `Rp ${fmtRupiah(zReport.total_expenses || 0)}`, width))
+  }
+  builder.textLine(formatTwoColumns('= Seharusnya di Laci', `Rp ${fmtRupiah(zReport.expected_cash_in_drawer || 0)}`, width))
+  builder.textLine(formatTwoColumns('Hitungan Fisik Kasir', `Rp ${fmtRupiah(zReport.actual_cash_counted || 0)}`, width))
+
+  const discrepancy = Number(zReport.discrepancy || 0)
+  const discStatus = discrepancy === 0 ? 'SESUAI' : discrepancy > 0 ? 'LEBIH KAS' : 'KURANG KAS'
+  builder.bold(true)
+  builder.textLine(formatTwoColumns(`Selisih (${discStatus})`, `Rp ${fmtRupiah(Math.abs(discrepancy))}`, width))
+  builder.bold(false)
+
+  builder.textLine(formatSeparator('=', width))
+  builder.alignCenter()
+  builder.textLine('Pencatatan shift telah dibukukan')
+  builder.textLine('otomatis ke General Ledger.')
+  builder.textLine(new Date().toLocaleString('id-ID'))
+  builder.feed(2)
+
+  if (options.autoCut !== false) {
+    builder.cut()
+  }
+
+  return builder.toUint8Array()
 }

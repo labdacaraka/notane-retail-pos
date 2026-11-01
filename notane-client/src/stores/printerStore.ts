@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { api } from '@/services/api'
 import {
   buildReceiptEscPos,
+  buildZReportEscPos,
   buildTestPrintEscPos,
   generatePlainTextReceipt,
   type EscPosOptions,
@@ -405,6 +406,34 @@ export const usePrinterStore = defineStore('printer', () => {
     }
   }
 
+  // Core Action: Print Z-Report Directly
+  async function printZReport(zReportData: any): Promise<{ success: boolean; message: string }> {
+    if (!receiptSettings.value) {
+      await fetchReceiptSettings()
+    }
+
+    const options: EscPosOptions = {
+      paperWidth: paperWidth.value,
+      autoCut: autoCut.value,
+      openDrawer: false,
+      storeName: receiptSettings.value?.store_name,
+      storeTagline: receiptSettings.value?.store_tagline,
+      storeAddress: receiptSettings.value?.store_address,
+      storePhone: receiptSettings.value?.store_phone,
+    }
+
+    const buffer = buildZReportEscPos(zReportData, options)
+    lastPrintTime.value = new Date().toLocaleTimeString('id-ID')
+
+    await writeRaw(buffer)
+
+    statusMessage.value = `Z-Report berhasil dicetak ke ${printerName.value}`
+    return {
+      success: true,
+      message: `Z-Report berhasil dicetak ke ${printerName.value}.`,
+    }
+  }
+
   // Core Action: Test Print
   async function testPrint(): Promise<{ success: boolean; message: string }> {
     const options = {
@@ -462,6 +491,7 @@ export const usePrinterStore = defineStore('printer', () => {
     setVirtualPrinter,
     writeRaw,
     printReceipt,
+    printZReport,
     testPrint,
   }
 })

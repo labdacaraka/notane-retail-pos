@@ -255,6 +255,10 @@ export interface CashierShift {
   actual_cash?: number
   discrepancy?: number
   status: 'OPEN' | 'CLOSED'
+  cash_sales?: number
+  shift_expenses?: number
+  shift_cash_drops?: number
+  shift_sales_returns?: number
 }
 
 export interface Customer {
@@ -361,6 +365,7 @@ export interface CheckoutResult {
     total_amount: number
     paid_amount: number
     change_amount: number
+    rounding_amount?: number
     total_flash_sale_discount?: number
     total_member_discount?: number
     total_savings_amount?: number
@@ -373,6 +378,7 @@ export interface CheckoutResult {
   change_amount: number
   earned_points: number
   invoice_number: string
+  rounding_amount?: number
   total_savings_amount?: number
   message: string
 }
@@ -474,6 +480,81 @@ export interface CreateExpenseRequest {
   amount: number
   transaction_date?: string
   recipient_name?: string
+  notes?: string
+  reference_no?: string
+  attachment_url?: string
+  shift_id?: string | null
+}
+
+export interface OtherIncomeCategory {
+  id: string
+  code: string
+  name: string
+  account_id?: string | null
+  account_code?: string | null
+  account_name?: string | null
+  description?: string | null
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface OtherIncomeTransaction {
+  id: string
+  transaction_no: string
+  outlet_id: string
+  outlet_name?: string
+  category_id?: string | null
+  category_name?: string | null
+  income_account_id: string
+  income_account_code?: string
+  income_account_name?: string
+  payment_account_id: string
+  payment_account_code?: string
+  payment_account_name?: string
+  amount: number | string
+  transaction_date: string
+  payer_name?: string | null
+  notes?: string | null
+  reference_no?: string | null
+  attachment_url?: string | null
+  shift_id?: string | null
+  journal_entry_id?: string | null
+  created_by?: string | null
+  created_by_name?: string | null
+  cancelled_by?: string | null
+  cancelled_by_name?: string | null
+  cancelled_at?: string | null
+  cancellation_reason?: string | null
+  status: 'COMPLETED' | 'CANCELLED'
+  created_at?: string
+  updated_at?: string
+}
+
+export interface OtherIncomeCategoryBreakdown {
+  category_id?: string | null
+  category_name: string
+  total_amount: number | string
+  transaction_count: number
+  percentage: number | string
+}
+
+export interface OtherIncomeSummaryResponse {
+  total_amount: number | string
+  total_count: number
+  today_amount: number | string
+  this_month_amount: number | string
+  categories_breakdown: OtherIncomeCategoryBreakdown[]
+}
+
+export interface CreateOtherIncomeRequest {
+  outlet_id: string
+  category_id?: string | null
+  income_account_id: string
+  payment_account_id: string
+  amount: number
+  transaction_date?: string
+  payer_name?: string
   notes?: string
   reference_no?: string
   attachment_url?: string
@@ -802,6 +883,151 @@ export interface DividendSummary {
   closed_periods_count: number
   eligible_closed_periods: ClosedPeriodForDividend[]
 }
+
+export interface CustomerDisplayBanner {
+  id: string
+  title: string
+  subtitle?: string | null
+  image_url: string
+  brand_name?: string | null
+  badge_text?: string | null
+  is_active: boolean
+  display_order: number
+  start_date?: string | null
+  end_date?: string | null
+  created_at?: string
+  updated_at?: string
+  created_by?: string | null
+  updated_by?: string | null
+}
+
+export interface SalesSummaryKpi {
+  gross_sales: number
+  total_discounts: number
+  total_tax: number
+  net_sales: number
+  total_cogs: number
+  gross_profit: number
+  gross_margin_pct: number
+  transaction_count: number
+  average_order_value: number
+  total_items_sold: number
+}
+
+export interface PurchasesSummaryKpi {
+  total_purchases: number
+  purchase_count: number
+  paid_purchases: number
+  unpaid_purchases: number
+}
+
+export interface ExpensesSummaryKpi {
+  total_expenses: number
+  expense_count: number
+}
+
+export interface OtherIncomeSummaryKpi {
+  total_other_income: number
+  other_income_count: number
+}
+
+export interface NetProfitSummaryKpi {
+  net_operating_profit: number
+  net_margin_pct: number
+}
+
+export interface DailyTrendPoint {
+  date: string
+  day_name: string
+  net_sales: number
+  cogs: number
+  gross_profit: number
+  purchases: number
+  expenses: number
+  other_income: number
+  net_profit: number
+  transaction_count: number
+}
+
+export interface CategoryDistributionItem {
+  name: string
+  amount: number
+  count: number
+  percentage: number
+}
+
+export interface PaymentMethodDistributionItem {
+  method: string
+  label: string
+  amount: number
+  count: number
+  percentage: number
+}
+
+export interface TopProductItem {
+  product_id?: string | null
+  product_name: string
+  sku: string
+  total_qty: number
+  total_sales: number
+  total_profit: number
+  margin_pct: number
+}
+
+export interface AnalyticsOverviewResponse {
+  start_date: string
+  end_date: string
+  outlet_id?: string | null
+  outlet_name?: string | null
+  sales: SalesSummaryKpi
+  purchases: PurchasesSummaryKpi
+  expenses: ExpensesSummaryKpi
+  other_income: OtherIncomeSummaryKpi
+  profit: NetProfitSummaryKpi
+  trends: DailyTrendPoint[]
+  expense_categories: CategoryDistributionItem[]
+  other_income_categories: CategoryDistributionItem[]
+  payment_methods: PaymentMethodDistributionItem[]
+  top_products: TopProductItem[]
+}
+
+export interface ProductsAnalyticsResponse {
+  items: TopProductItem[]
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
+  summary_qty: number
+  summary_sales: number
+  summary_profit: number
+}
+
+export interface CategoryAnalyticsResponse {
+  items: CategoryDistributionItem[]
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
+  total_amount: number
+}
+
+export interface DailyLedgerAnalyticsResponse {
+  items: DailyTrendPoint[]
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
+  summary_sales: number
+  summary_cogs: number
+  summary_gross_profit: number
+  summary_purchases: number
+  summary_expenses: number
+  summary_other_income: number
+  summary_net_profit: number
+  summary_transactions: number
+}
+
+
 
 
 

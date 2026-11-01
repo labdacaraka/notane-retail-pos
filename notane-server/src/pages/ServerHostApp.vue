@@ -369,8 +369,8 @@ const copyHwid = () => {
 const toggleServer = async () => {
   if (isServerRunning.value) {
     const ok = await dialog.confirm({
-      title: 'Hentikan Server Sementara?',
-      message: 'Peringatan: Menghentikan server akan memutus koneksi seluruh komputer kasir yang sedang aktif (Mode Maintenance). Apakah Anda yakin ingin menghentikan server?',
+      title: 'Hentikan Server?',
+      message: 'Jika server dihentikan, komputer kasir yang sedang terhubung tidak akan dapat bertransaksi. Hentikan server sekarang?',
       confirmText: 'Ya, Hentikan Server',
       cancelText: 'Batal',
       type: 'danger',
@@ -378,8 +378,8 @@ const toggleServer = async () => {
     if (!ok) return
   } else if (!isLicenseValid.value) {
     await dialog.alert({
-      title: 'Server Terkunci',
-      message: 'Aplikasi belum teraktivasi lisensi resmi. Silakan lakukan aktivasi lisensi terlebih dahulu.',
+      title: 'Lisensi Belum Aktif',
+      message: 'Aplikasi belum teraktivasi. Silakan aktivasi lisensi terlebih dahulu.',
       type: 'warning',
     })
     showLicenseModal.value = true
@@ -391,18 +391,18 @@ const toggleServer = async () => {
     if (isServerRunning.value) {
       const ok = await networkStore.stopHostServer()
       if (ok) {
-        dialog.toast('Host Server berhasil dihentikan sementara (Mode Maintenance)', 'info')
+        dialog.toast('Server berhasil dihentikan.', 'info')
       } else {
         await dialog.alert({
           title: 'Gagal Menghentikan Server',
-          message: 'Server tidak merespons perintah penghentian. Pastikan Daemon kontrol aktif.',
+          message: 'Server tidak dapat dihentikan. Silakan coba beberapa saat lagi.',
           type: 'danger',
         })
       }
     } else {
       const ok = await networkStore.startHostServer()
       if (ok) {
-        dialog.toast('Host Server berhasil dijalankan dan siap menerima koneksi kasir!', 'success')
+        dialog.toast('Server berhasil dijalankan dan siap melayani komputer kasir.', 'success')
       } else {
         await dialog.alert({
           title: 'Gagal Menyalakan Server',

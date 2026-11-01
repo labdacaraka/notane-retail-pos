@@ -593,7 +593,7 @@ pub async fn get_balance_sheet(
     }
 
     // 4. Hitung Laba/Rugi Belum Ditutup (Unclosed Current Earnings to date)
-    // Sesuai standar neraca: Saldo pendapatan - saldo beban yang belum ditutup
+    // Sesuai standar neraca SAK: Saldo netto akun pendapatan - saldo beban yang belum ditutup
     let unclosed_rev_query = format!(
         "SELECT COALESCE(SUM(jl.credit - jl.debit), 0) as amount
          FROM journal_lines jl
@@ -602,7 +602,6 @@ pub async fn get_balance_sheet(
          JOIN account_categories ac ON coa.account_category_id = ac.id
          WHERE ac.name = 'REVENUE' 
            AND je.journal_date <= $1
-           AND je.is_closing_entry = FALSE
            {}",
         outlet_filter_sql
     );
@@ -621,7 +620,6 @@ pub async fn get_balance_sheet(
          JOIN account_categories ac ON coa.account_category_id = ac.id
          WHERE ac.name = 'EXPENSE' 
            AND je.journal_date <= $1
-           AND je.is_closing_entry = FALSE
            {}",
         outlet_filter_sql
     );
@@ -636,7 +634,7 @@ pub async fn get_balance_sheet(
 
     if current_period_earnings != Decimal::ZERO {
         equity_details.push(AccountSummaryItem {
-            code: "3301".to_string(),
+            code: "3901".to_string(),
             name: "Laba (Rugi) Periode Berjalan".to_string(),
             amount: current_period_earnings,
         });
@@ -809,8 +807,6 @@ pub async fn perform_accounting_closing(
          JOIN account_categories ac ON coa.account_category_id = ac.id
          WHERE ac.name = 'REVENUE' 
            AND je.journal_date >= $1 AND je.journal_date <= $2
-           AND je.reference_type != 'CLOSING_ENTRY'
-           AND je.is_closing_entry = FALSE
            {}
          GROUP BY coa.id, coa.code, coa.name
          HAVING COALESCE(SUM(jl.credit - jl.debit), 0) != 0",
@@ -833,8 +829,6 @@ pub async fn perform_accounting_closing(
          JOIN account_categories ac ON coa.account_category_id = ac.id
          WHERE ac.name = 'EXPENSE' 
            AND je.journal_date >= $1 AND je.journal_date <= $2
-           AND je.reference_type != 'CLOSING_ENTRY'
-           AND je.is_closing_entry = FALSE
            {}
          GROUP BY coa.id, coa.code, coa.name
          HAVING COALESCE(SUM(jl.debit - jl.credit), 0) != 0",
@@ -1021,6 +1015,22 @@ pub async fn perform_accounting_closing(
     .await
     .map_err(|e| format!("Gagal menyimpan riwayat tutup buku: {}", e))?;
 
+    // Kunci juga periode akuntansi terkait di accounting_periods agar terproteksi dari perubahan
+    sqlx::query(
+        "UPDATE accounting_periods
+         SET is_closed = TRUE,
+             closed_at = CURRENT_TIMESTAMP,
+             closed_by = $1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE start_date >= $2 AND end_date <= $3 AND is_closed = FALSE",
+    )
+    .bind(user_id)
+    .bind(req.period_start)
+    .bind(req.period_end)
+    .execute(&mut *tx)
+    .await
+    .ok();
+
     tx.commit().await.map_err(|e| format!("Gagal commit penutupan buku: {}", e))?;
 
     let created_row = sqlx::query(
@@ -1111,6 +1121,26 @@ pub async fn reopen_accounting_closing(
     .execute(&mut *tx)
     .await
     .map_err(|e| format!("Gagal memperbarui status buka kembali: {}", e))?;
+
+    // Buka kembali periode akuntansi terkait di accounting_periods
+    let pstart: NaiveDate = existing.get("period_start");
+    let pend: NaiveDate = existing.get("period_end");
+    sqlx::query(
+        "UPDATE accounting_periods
+         SET is_closed = FALSE,
+             reopened_at = CURRENT_TIMESTAMP,
+             reopened_by = $1,
+             reopen_reason = $2,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE start_date >= $3 AND end_date <= $4 AND is_closed = TRUE",
+    )
+    .bind(user_id)
+    .bind(&req.reason)
+    .bind(pstart)
+    .bind(pend)
+    .execute(&mut *tx)
+    .await
+    .ok();
 
     tx.commit().await.map_err(|e| format!("Gagal commit reopen: {}", e))?;
 
@@ -1993,7 +2023,6 @@ pub async fn perform_hard_close(
         JOIN account_categories ac ON coa.account_category_id = ac.id
         WHERE ac.name = 'REVENUE'
           AND je.journal_date >= $1 AND je.journal_date <= $2
-          AND je.is_closing_entry = FALSE
         GROUP BY coa.id, coa.code, coa.name
         HAVING COALESCE(SUM(jl.credit - jl.debit), 0) != 0
     "#;
@@ -2014,7 +2043,6 @@ pub async fn perform_hard_close(
         JOIN account_categories ac ON coa.account_category_id = ac.id
         WHERE ac.name = 'EXPENSE'
           AND je.journal_date >= $1 AND je.journal_date <= $2
-          AND je.is_closing_entry = FALSE
         GROUP BY coa.id, coa.code, coa.name
         HAVING COALESCE(SUM(jl.debit - jl.credit), 0) != 0
     "#;
@@ -2098,18 +2126,21 @@ pub async fn perform_hard_close(
     }
 
     let desc = req.description.unwrap_or_else(|| format!("Hard Close Tutup Buku Tahunan Tahun {}", req.fiscal_year));
+    let closing_id = Uuid::new_v4();
+    let closing_number = format!("CLS-HRD-{}", req.fiscal_year);
 
     sqlx::query(
         "INSERT INTO journal_entries (
             id, journal_number, journal_date, reference_type, reference_id, description,
             total_debit, total_credit, is_closing_entry, created_at, updated_at, created_by, updated_by
         ) VALUES (
-            $1, $2, $3, 'CLOSING_ENTRY', NULL, $4, $5, $6, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $7, $7
+            $1, $2, $3, 'CLOSING_ENTRY', $4, $5, $6, $7, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $8, $8
         )",
     )
     .bind(journal_id)
     .bind(&journal_number)
     .bind(period_end)
+    .bind(closing_id)
     .bind(&desc)
     .bind(tot_debit)
     .bind(tot_credit)
@@ -2149,6 +2180,31 @@ pub async fn perform_hard_close(
     .bind(user_id)
     .bind(period_start)
     .bind(period_end)
+    .execute(&mut *tx)
+    .await
+    .ok();
+
+    // Catat histori resmi penutupan buku tahunan ke tabel accounting_closings
+    let today = Local::now().date_naive();
+    sqlx::query(
+        "INSERT INTO accounting_closings (
+            id, closing_number, period_start, period_end, closing_date, outlet_id,
+            total_revenue, total_expense, net_income, journal_entry_id, status, notes, created_by
+        ) VALUES (
+            $1, $2, $3, $4, $5, NULL, $6, $7, $8, $9, 'CLOSED', $10, $11
+        )",
+    )
+    .bind(closing_id)
+    .bind(&closing_number)
+    .bind(period_start)
+    .bind(period_end)
+    .bind(today)
+    .bind(total_revenue)
+    .bind(total_expense)
+    .bind(net_income)
+    .bind(journal_id)
+    .bind(&desc)
+    .bind(user_id)
     .execute(&mut *tx)
     .await
     .ok();

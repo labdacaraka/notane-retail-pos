@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import DashboardView from '../pages/DashboardView.vue'
 import ClientsView from '../pages/ClientsView.vue'
+import LicenseTiersView from '../pages/LicenseTiersView.vue'
 import LicensesView from '../pages/LicensesView.vue'
 import OfflineSignerView from '../pages/OfflineSignerView.vue'
 import DevicesView from '../pages/DevicesView.vue'
@@ -14,6 +15,7 @@ const routes = [
   { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
   { path: '/', name: 'dashboard', component: DashboardView },
   { path: '/clients', name: 'clients', component: ClientsView },
+  { path: '/tiers', name: 'tiers', component: LicenseTiersView },
   { path: '/licenses', name: 'licenses', component: LicensesView },
   { path: '/signer', name: 'signer', component: OfflineSignerView },
   { path: '/devices', name: 'devices', component: DevicesView },

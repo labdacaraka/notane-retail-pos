@@ -95,7 +95,7 @@ async function handleRestore() {
 
   const ok = await dialog.confirm({
     title: 'Konfirmasi Pemulihan Database',
-    message: 'PERINGATAN: Proses pemulihan database akan mengganti seluruh data operasional toko saat ini. Seluruh transaksi kasir yang belum tercadangkan akan hilang. Apakah Anda benar-benar yakin ingin melanjutkan pemulihan data ini?',
+    message: 'Perhatian: Pemulihan data akan menggantikan seluruh data toko saat ini dengan data dari file cadangan. Seluruh transaksi yang belum tercadangkan akan tertimpa. Lanjutkan pemulihan?',
     confirmText: 'Ya, Pulihkan Sekarang',
     cancelText: 'Batal',
     type: 'danger',
@@ -231,7 +231,7 @@ function formatDate(iso: string) {
               <span>Format Paket Ekspor Cadangan (.zip)</span>
             </div>
             <p class="text-xs text-indigo-900/80 leading-relaxed">
-              Sistem akan membuat berkas arsip <strong>ZIP</strong> berisi file <code>backup.sql</code> lengkap dan <code>manifest.json</code>. File manifest menyertakan informasi versi aplikasi dan nomor skema database untuk menjamin kompatibilitas saat dipulihkan di komputer server lain.
+              Sistem akan mengemas seluruh data toko ke dalam satu berkas arsip <strong>ZIP</strong> berisi <code>backup.sql</code> dan <code>manifest.json</code> agar dapat dipulihkan dengan aman di komputer lain.
             </p>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
               <div class="bg-white/80 p-2.5 rounded-xl border border-indigo-100">

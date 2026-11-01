@@ -112,6 +112,22 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
 
     // 2. Provider Tables
     sqlx::query(
+        "CREATE TABLE IF NOT EXISTS provider_license_tiers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            code TEXT UNIQUE NOT NULL,
+            description TEXT,
+            default_max_terminals INTEGER NOT NULL DEFAULT 5,
+            default_validity_days INTEGER NOT NULL DEFAULT 365,
+            default_grace_period_days INTEGER NOT NULL DEFAULT 7,
+            features TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );"
+    ).execute(pool).await?;
+
+    sqlx::query(
         "CREATE TABLE IF NOT EXISTS provider_clients (
             id TEXT PRIMARY KEY,
             client_name TEXT NOT NULL,
@@ -195,6 +211,15 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
         .execute(pool)
         .await;
     let _ = sqlx::query("ALTER TABLE provider_licenses ADD COLUMN claimed_at TEXT;")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_licenses ADD COLUMN tier_id TEXT;")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_license_tiers ADD COLUMN default_validity_days INTEGER NOT NULL DEFAULT 365;")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_license_tiers ADD COLUMN default_grace_period_days INTEGER NOT NULL DEFAULT 7;")
         .execute(pool)
         .await;
 
@@ -301,6 +326,10 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
         ("license:update", "Ubah Status Lisensi", "license", "Memperpanjang atau mengubah status lisensi"),
         ("license:revoke", "Cabut Lisensi", "license", "Mencabut/revoke lisensi"),
         ("license:unbind_claim", "Lepas Klaim Lisensi", "license", "Melepaskan ikatan klaim mesin lisensi agar dapat digunakan di komputer baru"),
+        ("tier:read", "Lihat Tier Lisensi", "tier", "Melihat daftar paket tier lisensi"),
+        ("tier:create", "Tambah Tier Lisensi", "tier", "Membuat paket tier lisensi baru"),
+        ("tier:update", "Edit Tier Lisensi", "tier", "Mengubah nama, modul fitur, atau status tier lisensi"),
+        ("tier:delete", "Hapus Tier Lisensi", "tier", "Menghapus paket tier lisensi"),
         ("device:read", "Lihat Perangkat", "device", "Melihat terminal HWID aktif"),
         ("device:unbind", "Reset Perangkat HWID", "device", "Melepas tautan hardware ID mesin klien"),
         ("release:read", "Lihat Rilis OTA", "release", "Melihat riwayat pembaruan aplikasi"),
@@ -335,6 +364,68 @@ async fn seed_rbac_and_defaults(pool: &DbPool) -> Result<(), sqlx::Error> {
         .bind(&perm_id)
         .execute(pool)
         .await?;
+    }
+
+    // Seed Default License Tiers if none exist
+    let count_tiers: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM provider_license_tiers")
+        .fetch_one(pool)
+        .await
+        .unwrap_or((0,));
+
+    if count_tiers.0 == 0 {
+        let default_tiers = [
+            (
+                "tier_basic",
+                "Basic Starter",
+                "BASIC",
+                "Paket kasir toko retail mandiri untuk pencatatan transaksi dasar dan cetak label",
+                1i64,
+                365i64,
+                7i64,
+                r#"["membership","expenses","other_income","label_printing"]"#,
+            ),
+            (
+                "tier_pro",
+                "Professional Retail",
+                "PRO",
+                "Paket lengkap toko retail berkembang dengan promosi, analisis statistik & customer display",
+                3i64,
+                365i64,
+                14i64,
+                r#"["membership","promotions","expenses","other_income","analytics","label_printing","customer_display","audit_log"]"#,
+            ),
+            (
+                "tier_enterprise",
+                "Enterprise Chain",
+                "ENTERPRISE",
+                "Paket terlengkap waralaba & cabang dengan multi-outlet, akuntansi SAK & manajemen batch",
+                10i64,
+                365i64,
+                30i64,
+                r#"["membership","accounting","analytics","multi_outlet","inventory_batch","promotions","expenses","other_income","customer_display","audit_log","label_printing","remove_branding"]"#,
+            ),
+        ];
+
+        for (id, name, code, desc, max_terminals, validity_days, grace_days, feats) in default_tiers {
+            let _ = sqlx::query(
+                "INSERT INTO provider_license_tiers (
+                    id, name, code, description, default_max_terminals, default_validity_days, default_grace_period_days, features, is_active, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10)
+                ON CONFLICT (id) DO NOTHING"
+            )
+            .bind(id)
+            .bind(name)
+            .bind(code)
+            .bind(desc)
+            .bind(max_terminals)
+            .bind(validity_days)
+            .bind(grace_days)
+            .bind(feats)
+            .bind(&now)
+            .bind(&now)
+            .execute(pool)
+            .await;
+        }
     }
 
     // Default Settings

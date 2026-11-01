@@ -4593,12 +4593,21 @@ onMounted(async () => {
       <!-- ===================================================================== -->
       <!-- MODAL 1: FORMULIR TUTUP BUKU PERIODE -->
       <!-- ===================================================================== -->
-      <div
-        v-if="showClosingModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn">
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+      <Teleport to="body">
+        <div
+          v-if="showClosingModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showClosingModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-2.5">
               <Lock class="w-5 h-5 text-amber-400" />
               <div>
@@ -4681,16 +4690,27 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL 2: FORMULIR BUKA KEMBALI BUKU (REOPEN) -->
       <!-- ===================================================================== -->
-      <div
-        v-if="showReopenModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn">
-          <div class="px-6 py-4 bg-rose-900 text-white flex items-center justify-between">
+      <Teleport to="body">
+        <div
+          v-if="showReopenModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showReopenModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-rose-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-2">
               <Unlock class="w-5 h-5 text-rose-300" />
               <h3 class="font-extrabold text-sm">Buka Kembali Buku Periode (Reopen)</h3>
@@ -4740,18 +4760,27 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL: TAMBAH PERIODE AKUNTANSI BARU -->
       <!-- ===================================================================== -->
       <Teleport to="body">
-      <div
-        v-if="showPeriodModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
-        @click.self="showPeriodModal = false"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn">
-          <div class="px-6 py-4 bg-emerald-800 text-white flex items-center justify-between">
+        <div
+          v-if="showPeriodModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showPeriodModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-emerald-800 text-white flex items-center justify-between">
             <div class="flex items-center gap-2.5">
               <Calendar class="w-5 h-5 text-emerald-300" />
               <div>
@@ -4819,19 +4848,27 @@ onMounted(async () => {
           </div>
         </div>
       </div>
-      </Teleport>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL: BUKA KUNCI PERIODE AKUNTANSI -->
       <!-- ===================================================================== -->
       <Teleport to="body">
-      <div
-        v-if="showReopenPeriodModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
-        @click.self="showReopenPeriodModal = false"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn">
-          <div class="px-6 py-4 bg-amber-800 text-white flex items-center justify-between">
+        <div
+          v-if="showReopenPeriodModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showReopenPeriodModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-amber-800 text-white flex items-center justify-between">
             <div class="flex items-center gap-2">
               <Unlock class="w-5 h-5 text-amber-300" />
               <h3 class="font-extrabold text-sm">Buka Kunci Periode Akuntansi</h3>
@@ -4881,19 +4918,27 @@ onMounted(async () => {
           </div>
         </div>
       </div>
-      </Teleport>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL: TUTUP BUKU AKHIR TAHUN (HARD CLOSE) -->
       <!-- ===================================================================== -->
       <Teleport to="body">
-      <div
-        v-if="showHardCloseModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
-        @click.self="showHardCloseModal = false"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn">
-          <div class="px-6 py-4 bg-purple-900 text-white flex items-center justify-between">
+        <div
+          v-if="showHardCloseModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showHardCloseModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-purple-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-2.5">
               <Scale class="w-5 h-5 text-purple-300" />
               <div>
@@ -4962,18 +5007,28 @@ onMounted(async () => {
           </div>
         </div>
       </div>
-      </Teleport>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL 3: FORMULIR JURNAL PENYESUAIAN (MODE PERUNTUKAN & MANUAL) -->
       <!-- ===================================================================== -->
-      <div
-        v-if="showManualJournalModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] animate-scaleIn">
-          <!-- Header with Mode Switcher -->
-          <div class="px-6 py-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
+      <Teleport to="body">
+        <div
+          v-if="showManualJournalModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showManualJournalModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] animate-scaleIn text-left pointer-events-auto my-8">
+              <!-- Header with Mode Switcher -->
+              <div class="px-6 py-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
             <div class="flex items-center gap-2.5">
               <div class="w-8 h-8 rounded-xl bg-emerald-700 flex items-center justify-center text-emerald-300">
                 <Sparkles class="w-4 h-4" />
@@ -5461,16 +5516,27 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL: TRANSFER KAS ANTAR CABANG (REKENING ANTAR-KANTOR) -->
       <!-- ===================================================================== -->
-      <div
-        v-if="showFundTransferModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn">
-          <div class="px-6 py-4 bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex items-center justify-between shrink-0">
+      <Teleport to="body">
+        <div
+          v-if="showFundTransferModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showFundTransferModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-2.5">
               <ArrowLeftRight class="w-5 h-5 text-sky-400" />
               <div>
@@ -5677,16 +5743,27 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL: FORMULIR SETORAN MODAL USAHA (CAPITAL DEPOSIT) -->
       <!-- ===================================================================== -->
-      <div
-        v-if="showCapitalModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-      >
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+      <Teleport to="body">
+        <div
+          v-if="showCapitalModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showCapitalModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-2.5">
               <div class="w-8 h-8 rounded-xl bg-emerald-700 flex items-center justify-center text-amber-300">
                 <Coins class="w-4 h-4" />
@@ -5879,16 +5956,27 @@ onMounted(async () => {
           </form>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL: PEMBATALAN SETORAN MODAL (CANCEL / REVERSAL) -->
       <!-- ===================================================================== -->
-      <div
-        v-if="showCancelCapitalModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-      >
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          <div class="px-6 py-4 bg-rose-900 text-white flex items-center justify-between">
+      <Teleport to="body">
+        <div
+          v-if="showCancelCapitalModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showCancelCapitalModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-rose-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-2">
               <AlertTriangle class="w-5 h-5 text-rose-300" />
               <h3 class="font-bold text-sm">Batalkan Setoran Modal</h3>
@@ -5952,16 +6040,27 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL: BUKTI KAS MASUK SETORAN MODAL (PRINT VOUCHER) -->
       <!-- ===================================================================== -->
-      <div
-        v-if="showCapitalVoucherModal && selectedCapitalForVoucher"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-      >
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between print:hidden">
+      <Teleport to="body">
+        <div
+          v-if="showCapitalVoucherModal && selectedCapitalForVoucher"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showCapitalVoucherModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between print:hidden">
             <div class="flex items-center gap-2">
               <Printer class="w-4 h-4 text-emerald-400" />
               <h3 class="font-bold text-sm">Bukti Kas Masuk (Setoran Modal)</h3>
@@ -6055,19 +6154,27 @@ onMounted(async () => {
         </div>
       </div>
     </div>
-
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL: REKENING BANK PENERIMAAN (TAMBAH / EDIT) -->
       <!-- ===================================================================== -->
       <Teleport to="body">
-      <div
-        v-if="showBankModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden my-8">
-          <!-- Header -->
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div
+          v-if="showBankModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showBankModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden text-left pointer-events-auto my-8">
+              <!-- Header -->
+              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-2">
               <Landmark class="w-4 h-4 text-emerald-400" />
               <h3 class="font-bold text-sm">
@@ -6237,22 +6344,30 @@ onMounted(async () => {
           </div>
         </div>
       </div>
-      </Teleport>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL COA: TAMBAH / EDIT AKUN -->
       <!-- ===================================================================== -->
       <Teleport to="body">
-      <div
-        v-if="showCoaModal"
-        class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto"
-        @click.self="showCoaModal = false"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden">
-          <!-- Header -->
-          <div class="px-6 py-4 flex items-center justify-between"
-            :class="coaModalMode === 'create' ? 'bg-emerald-700' : 'bg-slate-800'"
-          >
+        <div
+          v-if="showCoaModal"
+          class="fixed inset-0 z-[60] overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showCoaModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden text-left pointer-events-auto my-8">
+              <!-- Header -->
+              <div class="px-6 py-4 flex items-center justify-between"
+                :class="coaModalMode === 'create' ? 'bg-emerald-700' : 'bg-slate-800'"
+              >
             <div class="flex items-center gap-2.5 text-white">
               <Landmark class="w-5 h-5 opacity-80" />
               <div>
@@ -6425,7 +6540,8 @@ onMounted(async () => {
           </div>
         </div>
       </div>
-      </Teleport>
+    </div>
+</Teleport>
 
       <!-- ===================================================================== -->
       <!-- MODAL: PEMBAGIAN DIVIDEN BARU (LABA DITAHAN) -->
@@ -7505,6 +7621,7 @@ onMounted(async () => {
           </div>
         </div>
       </Teleport>
+    </div>
   </AdminLayout>
 </template>
 

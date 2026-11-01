@@ -112,8 +112,17 @@ const handleDisconnect = () => {
 </script>
 
 <template>
-  <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-    <div class="bg-white border-2 border-slate-400 shadow-2xl rounded-sm w-full max-w-lg overflow-hidden flex flex-col font-sans">
+  <Teleport to="body">
+    <div v-if="modelValue" class="fixed inset-0 z-50 overflow-y-auto">
+      <!-- Dedicated Fixed Backdrop -->
+      <div
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+        @click="closeModal"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+        <div class="relative bg-white border-2 border-slate-400 shadow-2xl rounded-sm w-full max-w-lg overflow-hidden flex flex-col font-sans text-left pointer-events-auto my-8">
       <!-- Title Bar Retro -->
       <div class="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-700 select-none">
         <div class="flex items-center gap-2">
@@ -351,4 +360,6 @@ const handleDisconnect = () => {
       </div>
     </div>
   </div>
+</div>
+</Teleport>
 </template>

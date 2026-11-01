@@ -77,7 +77,18 @@ function initFormData() {
   form.value.store_address = cfg?.store_address || 'Jl. Sudirman No. 123, Jakarta Pusat'
   form.value.store_phone = cfg?.store_phone || '021-5551234'
   form.value.pairing_code = cfg?.pairing_code || networkStore.hostStatus.pairing_code || 'NOTANE-8899'
-  form.value.cash_rounding_mode = cfg?.cash_rounding_mode || 'NONE'
+  
+  // Normalisasi opsi pembulatan agar selaras dengan receipt_settings
+  if (cfg?.cash_rounding_mode === 'FLOOR_500') {
+    form.value.cash_rounding_mode = 'ROUND_500_DOWN'
+  } else if (cfg?.cash_rounding_mode === 'CEIL_500') {
+    form.value.cash_rounding_mode = 'ROUND_500_UP'
+  } else if (cfg?.cash_rounding_mode) {
+    form.value.cash_rounding_mode = cfg.cash_rounding_mode
+  } else {
+    form.value.cash_rounding_mode = 'NONE'
+  }
+
   form.value.admin_full_name = cfg?.admin_full_name || 'Administrator Utama'
   form.value.admin_password = ''
   form.value.supervisor_pin = ''
@@ -100,6 +111,63 @@ watch(
 const isFirstRun = computed(() => {
   return props.forceFirstRun || !setupStore.isSetupCompleted
 })
+
+// Opsi Pembulatan Kas Kasir - 100% Selaras dengan receipt_settings & POS Client
+interface RoundingOptionItem {
+  value: string
+  label: string
+  shortLabel: string
+  description: string
+}
+
+const roundingOptions: RoundingOptionItem[] = [
+  {
+    value: 'NONE',
+    label: 'Tidak Ada Pembulatan (Sesuai Rupiah Asli)',
+    shortLabel: 'Tanpa Pembulatan',
+    description: 'Nilai kembalian dihitung presisi sampai satuan terkecil (Rp 1,-).',
+  },
+  {
+    value: 'ROUND_100_DOWN',
+    label: 'Bulatkan Kebawah ke Rp 100 Terdekat (Untungkan Konsumen)',
+    shortLabel: 'Bulatkan Kebawah Rp 100',
+    description: 'Contoh: Total Rp 15.340 dibulatkan menjadi Rp 15.300 (selisih diskon toko Rp 40).',
+  },
+  {
+    value: 'ROUND_500_DOWN',
+    label: 'Bulatkan Kebawah ke Rp 500 Terdekat',
+    shortLabel: 'Bulatkan Kebawah Rp 500',
+    description: 'Contoh: Total Rp 15.750 dibulatkan menjadi Rp 15.500 (selisih diskon toko Rp 250).',
+  },
+  {
+    value: 'ROUND_100_UP',
+    label: 'Bulatkan Keatas ke Rp 100 Terdekat',
+    shortLabel: 'Bulatkan Keatas Rp 100',
+    description: 'Contoh: Total Rp 15.340 dibulatkan menjadi Rp 15.400 (penyesuaian kasir +Rp 60).',
+  },
+  {
+    value: 'ROUND_500_UP',
+    label: 'Bulatkan Keatas ke Rp 500 Terdekat',
+    shortLabel: 'Bulatkan Keatas Rp 500',
+    description: 'Contoh: Total Rp 15.340 dibulatkan menjadi Rp 15.500 (penyesuaian kasir +Rp 160).',
+  },
+  {
+    value: 'DONATION_ROUND',
+    label: 'Tawarkan Donasi Pecahan Receh di POS (Indomaret Style)',
+    shortLabel: 'Donasi Pecahan Receh',
+    description: 'Kasir dapat mencentang persetujuan pelanggan untuk menyalurkan kembalian receh ke Dana Sosial / Donasi (Akun COA 2104).',
+  },
+]
+
+function getRoundingModeDescription(val: string): string {
+  const opt = roundingOptions.find((o) => o.value === val)
+  return opt ? opt.description : 'Perhitungan kembalian dan pembukuan kasir pada receipt_settings.'
+}
+
+function getRoundingModeLabel(val: string): string {
+  const opt = roundingOptions.find((o) => o.value === val)
+  return opt ? opt.shortLabel : val
+}
 
 // Step validations
 const isStep1Valid = computed(() => {
@@ -609,13 +677,15 @@ async function handleSkipWithDefaults() {
                 </label>
                 <select
                   v-model="form.cash_rounding_mode"
-                  class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-xs bg-white"
+                  class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-xs bg-white"
                 >
-                  <option value="NONE">Tanpa Pembulatan (Sesuai Nominal)</option>
-                  <option value="ROUND_100">Bulatkan ke Rp 100 terdekat</option>
-                  <option value="FLOOR_500">Bulatkan ke Bawah Rp 500</option>
-                  <option value="CEIL_500">Bulatkan ke Atas Rp 500</option>
+                  <option v-for="opt in roundingOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
                 </select>
+                <p class="text-[11px] text-indigo-700 bg-indigo-50/70 border border-indigo-100 rounded-lg p-2 mt-1.5 leading-relaxed">
+                  <span class="font-bold">Info:</span> {{ getRoundingModeDescription(form.cash_rounding_mode) }}
+                </p>
               </div>
             </div>
           </div>
@@ -655,9 +725,9 @@ async function handleSkipWithDefaults() {
                 </div>
 
                 <div>
-                  <h4 class="text-sm font-black text-slate-900">Database Bersih (Siap Jualan)</h4>
+                  <h4 class="text-sm font-black text-slate-900">Mulai dari Awal (Kosong)</h4>
                   <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Sistem siap untuk diisi produk dan barcode toko Anda secara langsung.
+                    Data produk dan transaksi masih kosong, siap untuk diisi langsung dengan produk toko Anda.
                   </p>
                 </div>
 
@@ -710,9 +780,9 @@ async function handleSkipWithDefaults() {
                 </div>
 
                 <div>
-                  <h4 class="text-sm font-black text-slate-900">Muat Data Demo / Contoh Produk</h4>
+                  <h4 class="text-sm font-black text-slate-900">Muat Data Contoh</h4>
                   <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Memuat 3 produk contoh (Indomie, Ultra Milk, Apel timbangan) beserta stok awal, harga tier, dan voucher promo untuk mencoba transaksi.
+                    Menyertakan beberapa contoh produk (makanan, minuman, timbangan) beserta stok dan voucher untuk mencoba transaksi kasir.
                   </p>
                 </div>
 
@@ -889,6 +959,10 @@ async function handleSkipWithDefaults() {
                   <span class="text-slate-500">Cabang Utama:</span>
                   <span class="font-bold text-indigo-700">{{ form.main_outlet_name }}</span>
                 </div>
+                <div class="flex justify-between py-1 border-b border-slate-200/60">
+                  <span class="text-slate-500">Pembulatan Kas:</span>
+                  <span class="font-bold text-slate-800">{{ getRoundingModeLabel(form.cash_rounding_mode) }}</span>
+                </div>
                 <div class="flex justify-between py-1">
                   <span class="text-slate-500">No. Telepon:</span>
                   <span class="font-mono text-slate-800">{{ form.store_phone }}</span>
@@ -942,7 +1016,7 @@ async function handleSkipWithDefaults() {
           <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-3">
             <CheckCircle2 class="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
-              <p class="font-bold">Semua Data Siap Diterapkan!</p>
+              <p class="font-bold">Konfigurasi Siap Disimpan</p>
               <p class="mt-0.5 text-emerald-800 leading-relaxed">
                 Klik tombol <strong>"Simpan & Terapkan Pengaturan"</strong> di bawah untuk mulai menggunakan Notane Server.
               </p>
@@ -959,9 +1033,9 @@ async function handleSkipWithDefaults() {
           </div>
 
           <div class="space-y-1.5">
-            <h3 class="text-2xl font-black text-slate-900 tracking-tight">Selamat! Toko Anda Siap Beroperasi</h3>
+            <h3 class="text-2xl font-black text-slate-900 tracking-tight">Pengaturan Toko Selesai</h3>
             <p class="text-sm text-slate-500 max-w-md mx-auto">
-              Konfigurasi <strong>{{ form.store_name }}</strong> berhasil disimpan ke database. Notane Server sekarang aktif melayani terminal kasir.
+              Konfigurasi <strong>{{ form.store_name }}</strong> berhasil disimpan. Notane Server siap melayani komputer kasir.
             </p>
           </div>
 

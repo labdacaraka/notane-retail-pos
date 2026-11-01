@@ -12,3 +12,6 @@ pub mod capital;
 pub mod bank;
 pub mod dividend;
 pub mod export;
+pub mod display_banner;
+pub mod other_income;
+pub mod analytics;

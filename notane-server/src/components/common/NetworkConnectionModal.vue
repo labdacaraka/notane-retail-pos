@@ -216,7 +216,7 @@ const handleDisconnect = () => {
             >
               <span v-if="isScanningLan" class="animate-spin">⌛</span>
               <span v-else>🔍</span>
-              <span>{{ isScanningLan ? 'Memindai...' : 'Pindai LAN (mDNS)' }}</span>
+              <span>{{ isScanningLan ? 'Memindai...' : 'Pindai Jaringan Lokal' }}</span>
             </button>
 
             <button
@@ -227,9 +227,9 @@ const handleDisconnect = () => {
             >
               <span v-if="isTestingPing" class="animate-spin">⌛</span>
               <span v-else>📡</span>
-              <span>Uji Latensi (Ping Test)</span>
+              <span>Uji Sambungan</span>
             </button>
-            <span class="text-[10px] text-slate-500">Otomatis deteksi IP server di LAN</span>
+            <span class="text-[10px] text-slate-500">Deteksi server otomatis di jaringan lokal</span>
           </div>
         </div>
 
@@ -237,13 +237,12 @@ const handleDisconnect = () => {
         <div class="bg-amber-50/70 p-3 border border-amber-300 rounded-sm shadow-xs space-y-2">
           <div class="font-bold text-amber-900 border-b border-amber-200 pb-1 uppercase text-[11px] flex items-center justify-between">
             <span class="flex items-center gap-1.5">
-              <span>🔐</span>
-              <span>Kode Pencocokan Perangkat (Pairing Code)</span>
+              <span>Kode Pairing Toko</span>
             </span>
             <span class="text-[10px] text-amber-700 font-normal">Wajib Diisi</span>
           </div>
           <p class="text-[10px] text-amber-800">
-            Hanya terminal yang memasukkan Kode Pencocokan yang valid dari Host Server yang diizinkan terhubung. Hal ini melindungi server (termasuk VPS) dari akses perangkat asing.
+            Hanya komputer kasir yang memiliki kode pairing ini yang dapat terhubung ke server toko.
           </p>
           <div>
             <input

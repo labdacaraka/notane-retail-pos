@@ -16,6 +16,9 @@ pub mod cash_drops;
 pub mod audit_middleware;
 pub mod dividend;
 pub mod exports;
+pub mod display_banners;
+pub mod other_income;
+pub mod analytics;
 
 use axum::{
     extract::{Request, State},
@@ -88,6 +91,9 @@ pub fn create_pos_router(pool: PgPool, ws_state: AppState) -> Router {
         .merge(capital::router())
         .merge(banks::router())
         .merge(dividend::router())
+        .merge(display_banners::display_banner_routes())
+        .merge(other_income::router())
+        .merge(analytics::router())
         .layer(from_fn_with_state(pool.clone(), audit_middleware::audit_log_middleware))
         .with_state(pool.clone())
         .layer(from_fn_with_state(ws_state.clone(), check_server_running_middleware));

@@ -148,14 +148,22 @@ function handleSave() {
 </script>
 
 <template>
-  <div
-    v-if="show"
-    class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-    @click.self="emit('close')"
-  >
+  <Teleport to="body">
     <div
-      class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150"
+      v-if="show"
+      class="fixed inset-0 z-50 overflow-y-auto"
     >
+      <!-- Dedicated Fixed Backdrop -->
+      <div
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        @click="emit('close')"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+        <div
+          class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 text-left pointer-events-auto my-8"
+        >
       <!-- Modal Header -->
       <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
         <div class="flex items-center gap-3">
@@ -648,4 +656,6 @@ function handleSave() {
       </div>
     </div>
   </div>
+</div>
+</Teleport>
 </template>

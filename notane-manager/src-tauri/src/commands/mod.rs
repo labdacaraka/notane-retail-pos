@@ -205,7 +205,7 @@ pub async fn delete_client(
 #[tauri::command]
 pub async fn get_licenses(state: tauri::State<'_, AppState>) -> Result<Vec<License>, AppError> {
     let rows = sqlx::query_as::<_, License>(
-        "SELECT l.id, l.license_key, l.client_id, c.client_name, l.tier, l.max_terminals,
+        "SELECT l.id, l.license_key, l.client_id, c.client_name, l.tier, l.tier_id, l.max_terminals,
                 l.status, l.issued_at, l.expires_at, l.grace_period_days, l.features,
                 l.notes, l.created_at, l.updated_at,
                 (SELECT COUNT(*) FROM provider_device_activations d WHERE d.license_id = l.id AND d.is_active = 1) AS active_terminals,
@@ -227,40 +227,79 @@ pub async fn generate_license(
 ) -> Result<License, AppError> {
     payload.validate().map_err(|e| AppError::Validation(e.to_string()))?;
 
+    let (tier_id_val, tier_code, tier_features, default_terminals, default_validity, default_grace) = if let Some(ref tid) = payload.tier_id {
+        let row: Option<(String, String, String, i64, i64, i64)> = sqlx::query_as(
+            &sql("SELECT id, code, features, default_max_terminals, default_validity_days, default_grace_period_days FROM provider_license_tiers WHERE id = ?")
+        )
+        .bind(tid)
+        .fetch_optional(&state.pool)
+        .await?;
+
+        if let Some((id, code, features, max_t, val_d, gr_d)) = row {
+            (Some(id), code, features, max_t, val_d, gr_d)
+        } else {
+            (None, payload.tier.clone(), "[]".to_string(), payload.max_terminals.unwrap_or(3), 365, 7)
+        }
+    } else {
+        (None, payload.tier.clone(), "[]".to_string(), payload.max_terminals.unwrap_or(3), 365, 7)
+    };
+
+    let final_tier_code = if !payload.tier.trim().is_empty() {
+        payload.tier.trim().to_uppercase()
+    } else {
+        tier_code
+    };
+
+    let final_features_json = if let Some(ref f) = payload.features {
+        if !f.is_empty() {
+            serde_json::to_string(f).unwrap_or_else(|_| "[]".to_string())
+        } else {
+            tier_features
+        }
+    } else {
+        tier_features
+    };
+
     let license_key = match payload.custom_key {
         Some(k) if !k.trim().is_empty() => k.trim().to_uppercase(),
         _ => {
             let year = Utc::now().format("%Y");
             let mut rng = rand::thread_rng();
             let suffix: u32 = rng.gen_range(1000..9999);
-            format!("NTN-{}-{}-X{}", payload.tier[..3].to_uppercase(), year, suffix)
+            let prefix = if final_tier_code.len() >= 3 {
+                &final_tier_code[..3]
+            } else {
+                "LIC"
+            };
+            format!("NTN-{}-{}-X{}", prefix.to_uppercase(), year, suffix)
         }
     };
 
     let id = uuid::Uuid::new_v4().to_string();
     let now = Utc::now();
-    let expires_at = now + Duration::days(payload.expires_in_days);
+    let validity_days = payload.expires_in_days.filter(|d| *d > 0).unwrap_or(default_validity);
+    let grace_days = payload.grace_period_days.filter(|g| *g >= 0).unwrap_or(default_grace);
+    let max_terminals = payload.max_terminals.filter(|m| *m > 0).unwrap_or(default_terminals);
+    let expires_at = now + Duration::days(validity_days);
     let now_str = now.to_rfc3339();
     let expires_str = expires_at.to_rfc3339();
 
-    let features_json = serde_json::to_string(&payload.features).unwrap_or_else(|_| "[]".to_string());
-    let grace_days = payload.grace_period_days.unwrap_or(7);
-
     sqlx::query(
         &sql("INSERT INTO provider_licenses (
-            id, license_key, client_id, tier, max_terminals, status, issued_at, expires_at,
+            id, license_key, client_id, tier, tier_id, max_terminals, status, issued_at, expires_at,
             grace_period_days, features, notes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?)")
+        ) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?)")
     )
     .bind(&id)
     .bind(&license_key)
     .bind(&payload.client_id)
-    .bind(&payload.tier)
-    .bind(payload.max_terminals)
+    .bind(&final_tier_code)
+    .bind(&tier_id_val)
+    .bind(max_terminals)
     .bind(&now_str)
     .bind(&expires_str)
     .bind(grace_days)
-    .bind(&features_json)
+    .bind(&final_features_json)
     .bind(&payload.notes)
     .bind(&now_str)
     .bind(&now_str)
@@ -278,13 +317,14 @@ pub async fn generate_license(
         license_key,
         client_id: payload.client_id,
         client_name,
-        tier: payload.tier,
-        max_terminals: payload.max_terminals,
+        tier: final_tier_code,
+        tier_id: tier_id_val,
+        max_terminals,
         status: "ACTIVE".to_string(),
         issued_at: now_str.clone(),
         expires_at: expires_str,
         grace_period_days: grace_days,
-        features: features_json,
+        features: final_features_json,
         notes: payload.notes,
         active_terminals: Some(0),
         is_claimed: Some(0),

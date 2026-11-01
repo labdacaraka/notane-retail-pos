@@ -21,6 +21,10 @@ import UsersPage from '@/pages/UsersPage.vue'
 import OutletsPage from '@/pages/OutletsPage.vue'
 import ExpensesPage from '@/pages/ExpensesPage.vue'
 import PromotionsPage from '@/pages/PromotionsPage.vue'
+import DisplayBannersPage from '@/pages/DisplayBannersPage.vue'
+import CashierShiftsPage from '@/pages/CashierShiftsPage.vue'
+import OtherIncomePage from '@/pages/OtherIncomePage.vue'
+import AnalyticsPage from '@/pages/AnalyticsPage.vue'
 import { useLicenseStore } from '@/stores/licenseStore'
 import { useDialogStore } from '@/stores/dialogStore'
 const routes = [
@@ -62,6 +66,12 @@ const routes = [
     name: 'admin-sales',
     component: SalesPage,
     meta: { requiresAuth: true, permission: ['sales:read', 'report:view'] },
+  },
+  {
+    path: '/admin/shifts',
+    name: 'admin-shifts',
+    component: CashierShiftsPage,
+    meta: { requiresAuth: true, permission: ['shift:read', 'sales:read', 'report:view'] },
   },
   {
     path: '/admin/purchases',
@@ -112,6 +122,12 @@ const routes = [
     meta: { requiresAuth: true, permission: ['promotions:read', 'master:read'], requiredFeature: 'promotions' },
   },
   {
+    path: '/admin/display-banners',
+    name: 'admin-display-banners',
+    component: DisplayBannersPage,
+    meta: { requiresAuth: true, permission: ['display_banners:read', 'master:read'], requiredFeature: 'customer_display' },
+  },
+  {
     path: '/admin/parameters',
     name: 'admin-parameters',
     component: ParametersPage,
@@ -134,6 +150,18 @@ const routes = [
     name: 'admin-expenses',
     component: ExpensesPage,
     meta: { requiresAuth: true, permission: ['expenses:read', 'expenses:categories'], requiredFeature: 'expenses' },
+  },
+  {
+    path: '/admin/other-income',
+    name: 'admin-other-income',
+    component: OtherIncomePage,
+    meta: { requiresAuth: true, permission: ['other_income:read', 'other_income:categories'], requiredFeature: 'other_income' },
+  },
+  {
+    path: '/admin/analytics',
+    name: 'admin-analytics',
+    component: AnalyticsPage,
+    meta: { requiresAuth: true, permission: ['analytics:read', 'report:read', 'report:view', 'sales:read', 'accounting:read'], requiredFeature: 'analytics' },
   },
   {
     path: '/admin/audit-logs',
@@ -184,9 +212,13 @@ router.beforeEach(async (to, _from, next) => {
       const featureNames: Record<string, string> = {
         membership: 'Pelanggan & Membership',
         accounting: 'Akuntansi & Pembukuan',
+        analytics: 'Statistik & Analisis Bisnis',
         promotions: 'Promosi Retail, Voucher & Flash Sale',
         label_printing: 'Cetak Label Harga',
         expenses: 'Biaya & Pengeluaran Kas',
+        other_income: 'Pendapatan Lain-lain',
+        customer_display: 'Customer Display & Banner Promo',
+        display_banners: 'Customer Display & Banner Promo',
         audit_log: 'Jejak Audit Keamanan',
         multi_outlet: 'Multi-Outlet Cabang',
       }

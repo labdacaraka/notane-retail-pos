@@ -92,21 +92,32 @@ const activeSupervisor = computed(() => {
   return supervisors.value.find((s) => s.id === selectedSupervisorId.value)
 })
 
+const hasSupervisorBiometric = computed(() => {
+  if (activeSupervisor.value) {
+    return !!activeSupervisor.value.has_biometric
+  }
+  return supervisors.value.some((s) => s.has_biometric)
+})
+
+const hasSupervisorFace = computed(() => {
+  if (activeSupervisor.value) {
+    return !!activeSupervisor.value.has_face_recognition
+  }
+  return supervisors.value.some((s) => s.has_face_recognition)
+})
+
 const showFingerprintBtn = computed(() => {
   const mode = biometricSettings.value.supervisor_biometric_mode
-  return mode === 'FINGERPRINT' || mode === 'ANY'
+  return hasSupervisorBiometric.value || mode === 'FINGERPRINT' || mode === 'ANY'
 })
 
 const showFaceBtn = computed(() => {
   const mode = biometricSettings.value.supervisor_biometric_mode
-  return mode === 'FACE_RECOGNITION' || mode === 'ANY'
+  return hasSupervisorFace.value || mode === 'FACE_RECOGNITION' || mode === 'ANY'
 })
 
 const isPinAllowed = computed(() => {
-  const mode = biometricSettings.value.supervisor_biometric_mode
-  const policy = biometricSettings.value.supervisor_biometric_policy
-  if (mode === 'OFF') return true
-  return policy !== 'STRICT'
+  return true
 })
 
 const supervisorExtraParams = computed(() => {
@@ -165,8 +176,13 @@ function onSupervisorsLoaded(items: SupervisorOption[]) {
 function onSupervisorChanged(val: string, item: SupervisorOption) {
   selectedSupervisorId.value = val || ''
   emit('update:modelValueSupervisorId', selectedSupervisorId.value)
-  if (item && !supervisors.value.some((s) => s.id === item.id)) {
-    supervisors.value.push(item)
+  if (item) {
+    const existingIdx = supervisors.value.findIndex((s) => s.id === item.id)
+    if (existingIdx >= 0) {
+      supervisors.value[existingIdx] = { ...supervisors.value[existingIdx], ...item }
+    } else {
+      supervisors.value.push(item)
+    }
   }
   if (isVerified.value) {
     resetVerification()
@@ -359,9 +375,9 @@ function resetVerification() {
       <label class="block text-xs font-bold text-slate-800">
         {{ label }} <span v-if="required" class="text-rose-500">*</span>
       </label>
-      <div v-if="biometricSettings.supervisor_biometric_mode !== 'OFF'" class="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
+      <div v-if="biometricSettings.supervisor_biometric_mode !== 'OFF' || hasSupervisorBiometric || hasSupervisorFace" class="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        Biometrik Aktif
+        Biometrik Siap
       </div>
     </div>
 
@@ -445,6 +461,24 @@ function resetVerification() {
           @loaded="onSupervisorsLoaded"
           @change="onSupervisorChanged"
         />
+      </div>
+
+      <!-- Badges Kemampuan Biometrik Supervisor Aktif -->
+      <div v-if="activeSupervisor" class="flex items-center gap-2 px-1">
+        <span
+          v-if="activeSupervisor.has_biometric"
+          class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200"
+        >
+          <Fingerprint class="w-3 h-3 text-emerald-600" />
+          <span>Sidik Jari Terdaftar</span>
+        </span>
+        <span
+          v-if="activeSupervisor.has_face_recognition"
+          class="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-200"
+        >
+          <Camera class="w-3 h-3 text-cyan-600" />
+          <span>Wajah Terdaftar</span>
+        </span>
       </div>
 
       <!-- Peringatan jika cabang belum dipilih -->

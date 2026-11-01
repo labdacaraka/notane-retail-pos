@@ -1260,14 +1260,23 @@ onMounted(() => {
     </div>
 
     <!-- Modal Form: Tambah / Edit Pelanggan -->
-    <div
-      v-if="showCustomerModal"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-    >
-      <div class="bg-white border border-slate-300 w-full max-w-lg rounded-xl p-6 space-y-4 shadow-2xl">
-        <h3 class="font-bold text-base text-slate-900">
-          {{ isEditingCustomer ? 'Edit Data Pelanggan' : 'Tambah Pelanggan Baru' }}
-        </h3>
+    <Teleport to="body">
+      <div
+        v-if="showCustomerModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showCustomerModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none select-none">
+          <div class="relative bg-white border border-slate-300 w-full max-w-lg rounded-xl p-6 space-y-4 shadow-2xl text-left pointer-events-auto my-8">
+            <h3 class="font-bold text-base text-slate-900">
+              {{ isEditingCustomer ? 'Edit Data Pelanggan' : 'Tambah Pelanggan Baru' }}
+            </h3>
 
         <div class="space-y-3 text-xs">
           <div class="grid grid-cols-2 gap-3">
@@ -1341,16 +1350,27 @@ onMounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
 
     <!-- Modal Form: Tambah / Edit Customer Group -->
-    <div
-      v-if="showGroupModal"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-    >
-      <div class="bg-white border border-slate-300 w-full max-w-md rounded-xl p-6 space-y-4 shadow-2xl">
-        <h3 class="font-bold text-base text-slate-900">
-          {{ isEditingGroup ? 'Edit Grup Pelanggan' : 'Tambah Grup Pelanggan Baru' }}
-        </h3>
+    <Teleport to="body">
+      <div
+        v-if="showGroupModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showGroupModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none select-none">
+          <div class="relative bg-white border border-slate-300 w-full max-w-md rounded-xl p-6 space-y-4 shadow-2xl text-left pointer-events-auto my-8">
+            <h3 class="font-bold text-base text-slate-900">
+              {{ isEditingGroup ? 'Edit Grup Pelanggan' : 'Tambah Grup Pelanggan Baru' }}
+            </h3>
 
         <div class="space-y-3 text-xs">
           <div>
@@ -1383,6 +1403,8 @@ onMounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
 
     <!-- Modal Riwayat Poin Pelanggan -->
     <CustomerPointHistoryModal

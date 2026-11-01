@@ -456,12 +456,21 @@ onUnmounted(() => {
     </div>
 
     <!-- Modal Form: Tambah / Edit Voucher -->
-    <div
-      v-if="showVoucherModal"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-    >
-      <div class="bg-white border border-slate-300 w-full max-w-lg rounded-xl p-6 space-y-4 shadow-2xl">
-        <h3 class="font-bold text-base text-slate-900">
+    <Teleport to="body">
+      <div
+        v-if="showVoucherModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showVoucherModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white border border-slate-300 w-full max-w-lg rounded-xl p-6 space-y-4 shadow-2xl text-left pointer-events-auto my-8">
+            <h3 class="font-bold text-base text-slate-900">
           {{ isEditing ? 'Edit Master Voucher Promo' : 'Buat Voucher Promo Baru' }}
         </h3>
 
@@ -586,14 +595,25 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
 
     <!-- Modal: Riwayat Klaim Transaksi Voucher -->
-    <div
-      v-if="showClaimsModal"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-    >
-      <div class="bg-white border border-slate-300 w-full max-w-3xl rounded-xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+    <Teleport to="body">
+      <div
+        v-if="showClaimsModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showClaimsModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white border border-slate-300 w-full max-w-3xl rounded-xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col text-left pointer-events-auto my-8">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
           <div>
             <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
               <History class="w-5 h-5 text-amber-600" />
@@ -680,5 +700,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
   </AdminLayout>
 </template>

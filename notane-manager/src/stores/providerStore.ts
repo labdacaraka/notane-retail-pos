@@ -25,12 +25,27 @@ export interface Client {
   updated_at: string
 }
 
+export interface LicenseTier {
+  id: string
+  name: string
+  code: string
+  description?: string
+  default_max_terminals: number
+  default_validity_days: number
+  default_grace_period_days: number
+  features: string // JSON string
+  is_active: number // 1 or 0
+  created_at: string
+  updated_at: string
+}
+
 export interface License {
   id: string
   license_key: string
   client_id: string
   client_name?: string
-  tier: 'BASIC' | 'PRO' | 'ENTERPRISE'
+  tier: string
+  tier_id?: string
   max_terminals: number
   status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED'
   issued_at: string
@@ -145,6 +160,14 @@ export const useProviderStore = defineStore('provider', () => {
     total_pages: 1,
   })
 
+  const tiersPagination = ref<PaginatedResponse<LicenseTier>>({
+    items: [],
+    page: 1,
+    page_size: 10,
+    total_items: 0,
+    total_pages: 1,
+  })
+
   const licensesPagination = ref<PaginatedResponse<License>>({
     items: [],
     page: 1,
@@ -179,6 +202,7 @@ export const useProviderStore = defineStore('provider', () => {
 
   // Backward-compatibility shortcuts for views
   const clients = ref<Client[]>([])
+  const tiers = ref<LicenseTier[]>([])
   const licenses = ref<License[]>([])
   const devices = ref<DeviceActivation[]>([])
   const releases = ref<AppRelease[]>([])
@@ -309,6 +333,111 @@ export const useProviderStore = defineStore('provider', () => {
   }
 
   // ----------------------------------------------------------------------------
+  // LICENSE TIERS
+  // ----------------------------------------------------------------------------
+  async function fetchTiers(params: PaginationParams = {}) {
+    isLoading.value = true
+    try {
+      const queryParams: Record<string, any> = {
+        page: params.page || tiersPagination.value.page || 1,
+        page_size: params.page_size || tiersPagination.value.page_size || 10,
+        sort_by: params.sort_by || 'created_at',
+        sort_order: params.sort_order || 'desc',
+      }
+      if (params.search) queryParams.search = params.search
+
+      const { data } = await apiClient.get<PaginatedResponse<LicenseTier>>('/api/v1/admin/tiers', {
+        params: queryParams,
+      })
+      if (data && Array.isArray(data.items)) {
+        tiersPagination.value = data
+        tiers.value = data.items
+      }
+    } catch (e: any) {
+      errorMessage.value = e?.message || 'Gagal memuat data tier lisensi'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function fetchAllTiers(): Promise<LicenseTier[]> {
+    try {
+      const { data } = await apiClient.get<PaginatedResponse<LicenseTier>>('/api/v1/admin/tiers', {
+        params: { page: 1, page_size: 100, sort_by: 'name', sort_order: 'asc' },
+      })
+      if (data && Array.isArray(data.items)) {
+        return data.items
+      }
+      return []
+    } catch {
+      return []
+    }
+  }
+
+  async function saveTier(payload: {
+    name: string
+    code: string
+    description?: string
+    default_max_terminals: number
+    default_validity_days: number
+    default_grace_period_days: number
+    features: string[]
+    is_active?: boolean
+  }) {
+    isLoading.value = true
+    try {
+      await apiClient.post('/api/v1/admin/tiers', payload)
+      successMessage.value = `Paket tier "${payload.name}" berhasil dibuat`
+      await fetchTiers()
+      return true
+    } catch (e: any) {
+      errorMessage.value = e?.response?.data?.error || e?.message || 'Gagal menyimpan tier lisensi'
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function updateTier(
+    tierId: string,
+    payload: {
+      name: string
+      code: string
+      description?: string
+      default_max_terminals: number
+      default_validity_days: number
+      default_grace_period_days: number
+      features: string[]
+      is_active?: boolean
+    }
+  ) {
+    isLoading.value = true
+    try {
+      await apiClient.put(`/api/v1/admin/tiers/${tierId}`, { id: tierId, ...payload })
+      successMessage.value = `Paket tier "${payload.name}" berhasil diperbarui`
+      await fetchTiers()
+      return true
+    } catch (e: any) {
+      errorMessage.value = e?.response?.data?.error || e?.message || 'Gagal memperbarui tier lisensi'
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function deleteTier(tierId: string) {
+    try {
+      await apiClient.delete(`/api/v1/admin/tiers/${tierId}`)
+      successMessage.value = 'Tier lisensi berhasil dihapus'
+      await fetchTiers()
+      return true
+    } catch (e: any) {
+      errorMessage.value = e?.response?.data?.error || e?.message || 'Gagal menghapus tier lisensi'
+      return false
+    }
+  }
+
+  // ----------------------------------------------------------------------------
   // LICENSES
   // ----------------------------------------------------------------------------
   async function fetchLicenses(params: PaginationParams = {}) {
@@ -341,11 +470,12 @@ export const useProviderStore = defineStore('provider', () => {
 
   async function generateLicense(payload: {
     client_id: string
+    tier_id?: string
     tier: string
-    max_terminals: number
-    expires_in_days: number
+    max_terminals?: number
+    expires_in_days?: number
     grace_period_days?: number
-    features: string[]
+    features?: string[]
     notes?: string
     custom_key?: string
   }) {
@@ -606,6 +736,8 @@ export const useProviderStore = defineStore('provider', () => {
     status,
     clients,
     clientsPagination,
+    tiers,
+    tiersPagination,
     licenses,
     licensesPagination,
     devices,
@@ -625,6 +757,11 @@ export const useProviderStore = defineStore('provider', () => {
     saveClient,
     updateClient,
     deleteClient,
+    fetchTiers,
+    fetchAllTiers,
+    saveTier,
+    updateTier,
+    deleteTier,
     fetchLicenses,
     generateLicense,
     updateLicenseStatus,

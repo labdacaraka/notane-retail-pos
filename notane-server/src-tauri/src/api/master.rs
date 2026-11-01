@@ -3556,7 +3556,7 @@ async fn get_biometric_settings_handler(State(pool): State<PgPool>) -> impl Into
             Json(json!({
                 "success": true,
                 "data": {
-                    "supervisor_biometric_mode": "OFF",
+                    "supervisor_biometric_mode": "ANY",
                     "supervisor_biometric_policy": "OPTIONAL",
                     "face_match_threshold": 75.0
                 }

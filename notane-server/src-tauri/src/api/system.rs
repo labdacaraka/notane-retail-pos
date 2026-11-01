@@ -657,7 +657,7 @@ async fn save_provider_config() -> impl IntoResponse {
         StatusCode::FORBIDDEN,
         Json(json!({
             "status": "error",
-            "message": "Akses Ditolak: URL Provider Server lisensi dikunci mati dan tidak dapat diubah melalui antarmuka/API (Anti-Cloning & Zero-Trust Enforced)."
+            "message": "Alamat server lisensi bawaan aplikasi tidak dapat diubah."
         })),
     )
 }

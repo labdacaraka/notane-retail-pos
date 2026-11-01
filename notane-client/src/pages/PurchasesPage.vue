@@ -2883,13 +2883,21 @@ async function handleDeleteSupplier(supp: any) {
       </div>
 
       <!-- 4. Modal Buat Penerimaan Barang (GRN) Baru Berdasarkan PO -->
-      <div
-        v-if="showGrnModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showGrnModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
-          <!-- Header -->
+      <Teleport to="body">
+        <div
+          v-if="showGrnModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showGrnModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] text-left pointer-events-auto my-8">
+              <!-- Header -->
           <div class="px-6 py-4 bg-emerald-950 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
@@ -3159,15 +3167,25 @@ async function handleDeleteSupplier(supp: any) {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- MODAL: TERBITKAN FAKTUR PEMBELIAN DARI GRN (showInvoiceModal) -->
-      <div
-        v-if="showInvoiceModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showInvoiceModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
-          <div class="px-6 py-4 bg-blue-950 text-white flex items-center justify-between shrink-0">
+      <Teleport to="body">
+        <div
+          v-if="showInvoiceModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showInvoiceModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-blue-950 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center">
                 <FileText class="w-5 h-5 text-blue-400" />
@@ -3387,15 +3405,25 @@ async function handleDeleteSupplier(supp: any) {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- MODAL: DETAIL PENERIMAAN BARANG GRN (showGrnDetailModal) -->
-      <div
-        v-if="showGrnDetailModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showGrnDetailModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
-          <div class="px-6 py-4 bg-emerald-950 text-white flex items-center justify-between shrink-0">
+      <Teleport to="body">
+        <div
+          v-if="showGrnDetailModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showGrnDetailModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-emerald-950 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
                 <Truck class="w-5 h-5 text-emerald-400" />
@@ -3532,15 +3560,25 @@ async function handleDeleteSupplier(supp: any) {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- 5. Modal Detail Faktur GRN -->
-      <div
-        v-if="showDetailModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showDetailModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+      <Teleport to="body">
+        <div
+          v-if="showDetailModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showDetailModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center">
                 <FileText class="w-5 h-5 text-blue-400" />
@@ -3750,16 +3788,26 @@ async function handleDeleteSupplier(supp: any) {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- 6. Modal Buat Dokumen Purchase Order (PO) Baru -->
-      <div
-        v-if="showPoModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showPoModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
-          <!-- Header -->
-          <div class="px-6 py-4 bg-indigo-950 text-white flex items-center justify-between shrink-0">
+      <Teleport to="body">
+        <div
+          v-if="showPoModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showPoModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] text-left pointer-events-auto my-8">
+              <!-- Header -->
+              <div class="px-6 py-4 bg-indigo-950 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center">
                 <Clock class="w-5 h-5 text-indigo-400" />
@@ -3994,15 +4042,25 @@ async function handleDeleteSupplier(supp: any) {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- 7. Modal Detail Purchase Order (PO) -->
-      <div
-        v-if="showPoDetailModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showPoDetailModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
-          <div class="px-6 py-4 bg-indigo-950 text-white flex items-center justify-between shrink-0">
+      <Teleport to="body">
+        <div
+          v-if="showPoDetailModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showPoDetailModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-indigo-950 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center">
                 <Clock class="w-5 h-5 text-indigo-400" />
@@ -4169,15 +4227,25 @@ async function handleDeleteSupplier(supp: any) {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- 8. Modal Form Supplier (Tambah / Edit) -->
-      <div
-        v-if="showSupplierModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showSupplierModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          <div class="p-6">
+      <Teleport to="body">
+        <div
+          v-if="showSupplierModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showSupplierModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-md overflow-hidden text-left pointer-events-auto my-8">
+              <div class="p-6">
             <div class="flex items-center gap-3.5 mb-4">
               <div class="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-center shrink-0">
                 <Building2 class="w-6 h-6 text-emerald-600" />
@@ -4277,14 +4345,24 @@ async function handleDeleteSupplier(supp: any) {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- 8. Modal Buat Dokumen Retur Pembelian (Purchase Return) -->
-      <div
-        v-if="showReturnModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showReturnModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+      <Teleport to="body">
+        <div
+          v-if="showReturnModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showReturnModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] text-left pointer-events-auto my-8">
           <!-- Header -->
           <div class="px-6 py-4 bg-rose-950 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
@@ -4536,15 +4614,25 @@ async function handleDeleteSupplier(supp: any) {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
       <!-- 9. Modal Detail Retur Pembelian -->
-      <div
-        v-if="showReturnDetailModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-        @click.self="showReturnDetailModal = false"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
-          <div class="px-6 py-4 bg-rose-950 text-white flex items-center justify-between shrink-0">
+      <Teleport to="body">
+        <div
+          v-if="showReturnDetailModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showReturnDetailModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
+              <div class="px-6 py-4 bg-rose-950 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-400/40 flex items-center justify-center">
                 <RotateCcw class="w-5 h-5 text-rose-400" />
@@ -4686,6 +4774,8 @@ async function handleDeleteSupplier(supp: any) {
           </div>
         </div>
       </div>
+    </div>
+</Teleport>
 
     </div>
   </AdminLayout>

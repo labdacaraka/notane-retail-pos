@@ -742,6 +742,42 @@ const formatRupiah = (val: any) => formatCurrency(val, true)
 
                   <label
                     class="border-2 rounded-xl p-3 flex items-start gap-3 cursor-pointer transition"
+                    :class="form.cash_rounding_mode === 'ROUND_100_UP'
+                      ? 'border-purple-600 bg-purple-50/40'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'"
+                  >
+                    <input
+                      type="radio"
+                      v-model="form.cash_rounding_mode"
+                      value="ROUND_100_UP"
+                      class="text-purple-600 focus:ring-purple-500 h-4 w-4 mt-0.5"
+                    />
+                    <div>
+                      <div class="text-xs font-bold text-slate-800">Bulatkan Keatas ke Rp 100 Terdekat</div>
+                      <div class="text-[11px] text-slate-500">Contoh: Total Rp 15.340 dibulatkan menjadi Rp 15.400 (penyesuaian kasir +Rp 60).</div>
+                    </div>
+                  </label>
+
+                  <label
+                    class="border-2 rounded-xl p-3 flex items-start gap-3 cursor-pointer transition"
+                    :class="form.cash_rounding_mode === 'ROUND_500_UP'
+                      ? 'border-purple-600 bg-purple-50/40'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'"
+                  >
+                    <input
+                      type="radio"
+                      v-model="form.cash_rounding_mode"
+                      value="ROUND_500_UP"
+                      class="text-purple-600 focus:ring-purple-500 h-4 w-4 mt-0.5"
+                    />
+                    <div>
+                      <div class="text-xs font-bold text-slate-800">Bulatkan Keatas ke Rp 500 Terdekat</div>
+                      <div class="text-[11px] text-slate-500">Contoh: Total Rp 15.340 dibulatkan menjadi Rp 15.500 (penyesuaian kasir +Rp 160).</div>
+                    </div>
+                  </label>
+
+                  <label
+                    class="border-2 rounded-xl p-3 flex items-start gap-3 cursor-pointer transition"
                     :class="form.cash_rounding_mode === 'DONATION_ROUND'
                       ? 'border-purple-600 bg-purple-50/40'
                       : 'border-slate-200 hover:border-slate-300 bg-white'"

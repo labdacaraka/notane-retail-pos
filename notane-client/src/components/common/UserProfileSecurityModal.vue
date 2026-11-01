@@ -298,13 +298,22 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Transition name="modal">
-    <div
-      v-if="show"
-      class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fadeIn"
-    >
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-        <!-- Header Profil -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="show"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="handleClose"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
+            <!-- Header Profil -->
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
           <div class="flex items-center gap-3">
             <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-extrabold text-base shadow-sm">
@@ -673,5 +682,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-  </Transition>
+  </div>
+    </Transition>
+  </Teleport>
 </template>

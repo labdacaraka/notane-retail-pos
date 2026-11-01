@@ -49,6 +49,10 @@ pub enum Permission {
     LicenseUpdate,
     LicenseRevoke,
     LicenseUnbindClaim,
+    TierRead,
+    TierCreate,
+    TierUpdate,
+    TierDelete,
     DeviceRead,
     DeviceUnbind,
     ReleaseRead,
@@ -70,6 +74,10 @@ impl Permission {
             Permission::LicenseUpdate => "license:update",
             Permission::LicenseRevoke => "license:revoke",
             Permission::LicenseUnbindClaim => "license:unbind_claim",
+            Permission::TierRead => "tier:read",
+            Permission::TierCreate => "tier:create",
+            Permission::TierUpdate => "tier:update",
+            Permission::TierDelete => "tier:delete",
             Permission::DeviceRead => "device:read",
             Permission::DeviceUnbind => "device:unbind",
             Permission::ReleaseRead => "release:read",
@@ -153,6 +161,72 @@ pub struct UpdateClientDto {
 }
 
 // ==============================================================================
+// LICENSE TIER MODELS & DTOS
+// ==============================================================================
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct LicenseTier {
+    pub id: String,
+    pub name: String,
+    pub code: String,
+    pub description: Option<String>,
+    pub default_max_terminals: i64,
+    pub default_validity_days: i64,
+    pub default_grace_period_days: i64,
+    pub features: String, // JSON array string
+    pub is_active: i64,   // 1 or 0
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+pub struct CreateLicenseTierDto {
+    #[validate(length(min = 2, max = 100, message = "Nama paket tier minimal 2 karakter"))]
+    pub name: String,
+
+    #[validate(length(min = 2, max = 50, message = "Kode tier minimal 2 karakter"))]
+    pub code: String,
+
+    pub description: Option<String>,
+
+    #[validate(range(min = 1, max = 1000, message = "Kapasitas terminal antara 1 dan 1000"))]
+    pub default_max_terminals: i64,
+
+    #[validate(range(min = 1, max = 3650, message = "Masa berlaku antara 1 dan 3650 hari"))]
+    pub default_validity_days: i64,
+
+    #[validate(range(min = 0, max = 180, message = "Toleransi grace period offline antara 0 dan 180 hari"))]
+    pub default_grace_period_days: i64,
+
+    pub features: Vec<String>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+pub struct UpdateLicenseTierDto {
+    pub id: String,
+
+    #[validate(length(min = 2, max = 100, message = "Nama paket tier minimal 2 karakter"))]
+    pub name: String,
+
+    #[validate(length(min = 2, max = 50, message = "Kode tier minimal 2 karakter"))]
+    pub code: String,
+
+    pub description: Option<String>,
+
+    #[validate(range(min = 1, max = 1000, message = "Kapasitas terminal antara 1 dan 1000"))]
+    pub default_max_terminals: i64,
+
+    #[validate(range(min = 1, max = 3650, message = "Masa berlaku antara 1 dan 3650 hari"))]
+    pub default_validity_days: i64,
+
+    #[validate(range(min = 0, max = 180, message = "Toleransi grace period offline antara 0 dan 180 hari"))]
+    pub default_grace_period_days: i64,
+
+    pub features: Vec<String>,
+    pub is_active: Option<bool>,
+}
+
+// ==============================================================================
 // LICENSE MODELS & DTOS
 // ==============================================================================
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -161,7 +235,8 @@ pub struct License {
     pub license_key: String,
     pub client_id: String,
     pub client_name: Option<String>,
-    pub tier: String, // BASIC, PRO, ENTERPRISE
+    pub tier: String, // e.g. BASIC, PRO, ENTERPRISE or custom code
+    pub tier_id: Option<String>,
     pub max_terminals: i64,
     pub status: String, // ACTIVE, SUSPENDED, EXPIRED, REVOKED
     pub is_claimed: Option<i64>, // 0 = Belum Diklaim, 1 = Telah Diklaim
@@ -182,15 +257,15 @@ pub struct License {
 pub struct CreateLicenseDto {
     pub client_id: String,
 
-    #[validate(length(min = 2, max = 50, message = "Tier harus dipilih"))]
+    pub tier_id: Option<String>,
+
+    #[validate(length(min = 1, max = 50, message = "Tier harus dipilih"))]
     pub tier: String,
 
-    #[validate(range(min = 1, max = 1000, message = "Maksimal terminal antara 1 dan 1000"))]
-    pub max_terminals: i64,
-
-    pub expires_in_days: i64,
+    pub max_terminals: Option<i64>,
+    pub expires_in_days: Option<i64>,
     pub grace_period_days: Option<i64>,
-    pub features: Vec<String>,
+    pub features: Option<Vec<String>>,
     pub notes: Option<String>,
     pub custom_key: Option<String>,
 }

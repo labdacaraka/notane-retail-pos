@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { X, Calendar, Lock, Printer } from 'lucide-vue-next'
+import { ref, computed, onMounted, watch } from 'vue'
+import { X, Calendar, Lock, Printer, Wallet, ChevronDown, ChevronUp } from 'lucide-vue-next'
 import { useShiftStore } from '@/stores/shiftStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useLocationStore } from '@/stores/locationStore'
+import { usePrinterStore } from '@/stores/printerStore'
 import { api } from '@/services/api'
 import SupervisorAuthSection from '@/components/pos/SupervisorAuthSection.vue'
 import SearchableSelect from '@/components/common/SearchableSelect.vue'
@@ -22,9 +23,13 @@ const emit = defineEmits<{
 const shiftStore = useShiftStore()
 const authStore = useAuthStore()
 const locationStore = useLocationStore()
+const printerStore = usePrinterStore()
+const isPrinting = ref<boolean>(false)
+const printStatusMsg = ref<string>('')
 
 const openingCash = ref<number>(100000)
 const actualCash = ref<number>(0)
+const showBreakdown = ref<boolean>(false)
 const supervisors = ref<Array<{ id: string; username: string; full_name: string; role_name: string }>>([])
 const selectedSupervisorId = ref<string>('')
 const selectedOutletId = ref<string>('')
@@ -33,6 +38,18 @@ const supervisorAuthToken = ref<string>('')
 const isSubmitting = ref<boolean>(false)
 const errorMsg = ref<string>('')
 const zReport = ref<any>(null)
+
+const expectedDeposit = computed(() => {
+  return Number(shiftStore.currentShift?.expected_cash ?? 0)
+})
+
+const discrepancyAmount = computed(() => {
+  return (actualCash.value || 0) - expectedDeposit.value
+})
+
+function applyExpectedCash() {
+  actualCash.value = expectedDeposit.value
+}
 
 async function loadSupervisors() {
   try {
@@ -70,13 +87,35 @@ onMounted(() => {
 
 watch(
   () => props.show,
-  (val) => {
+  async (val) => {
     if (val) {
       errorMsg.value = ''
       supervisorPin.value = ''
       supervisorAuthToken.value = ''
+      zReport.value = null
+      showBreakdown.value = false
       loadSupervisors()
       loadOutlets()
+      if (props.mode === 'CLOSE') {
+        await shiftStore.checkCurrentShift()
+        if (shiftStore.currentShift?.expected_cash !== undefined) {
+          actualCash.value = Number(shiftStore.currentShift.expected_cash)
+        } else {
+          actualCash.value = 0
+        }
+      }
+    }
+  }
+)
+
+watch(
+  () => props.mode,
+  async (newMode) => {
+    if (props.show && newMode === 'CLOSE') {
+      await shiftStore.checkCurrentShift()
+      if (shiftStore.currentShift?.expected_cash !== undefined) {
+        actualCash.value = Number(shiftStore.currentShift.expected_cash)
+      }
     }
   }
 )
@@ -144,7 +183,27 @@ async function handleCloseShift() {
   }
 }
 
-function printZReport() {
+async function printZReport() {
+  if (printerStore.isConnected && printerStore.connectionType !== 'VIRTUAL') {
+    try {
+      isPrinting.value = true
+      printStatusMsg.value = 'Mencetak ke printer thermal...'
+      const res = await printerStore.printZReport(zReport.value)
+      printStatusMsg.value = res.message
+      return
+    } catch (err: any) {
+      console.warn('Gagal cetak direct ESC/POS:', err)
+      printStatusMsg.value = `Gagal cetak thermal (${err.message}). Membuka dialog sistem...`
+    } finally {
+      isPrinting.value = false
+    }
+  }
+
+  // Fallback / Standar: Cetak via browser dialog (preview tidak lagi blank putih)
+  window.print()
+}
+
+function openBrowserPrint() {
   window.print()
 }
 
@@ -162,7 +221,7 @@ function paymentIcon(category: string): string {
 <template>
   <div
     v-if="show"
-    class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-fadeIn"
+    class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-fadeIn print:static print:inset-auto print:p-0 print:bg-transparent print:overflow-visible"
   >
     <!-- Open Shift Dialog -->
     <div
@@ -249,35 +308,105 @@ function paymentIcon(category: string): string {
       </div>
     </div>
 
-    <!-- Close Shift (Blind Settlement) Dialog -->
+    <!-- Close Shift & Cash Handover Dialog -->
     <div
       v-else-if="mode === 'CLOSE' && !zReport"
-      class="bg-white border border-slate-300 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col text-slate-900"
+      class="bg-white border border-slate-300 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col text-slate-900"
     >
       <div class="bg-slate-100 p-4 px-6 border-b border-slate-300 flex items-center justify-between">
         <div class="flex items-center gap-2 text-rose-700">
           <Lock class="w-5 h-5" />
-          <h3 class="font-bold text-sm text-slate-900">Tutup Shift Kasir (Blind Settlement)</h3>
+          <h3 class="font-bold text-sm text-slate-900">Tutup Shift Kasir & Rekonsiliasi Kas</h3>
         </div>
         <button @click="emit('close')" class="text-slate-400 hover:text-slate-700 p-1">
           <X class="w-4 h-4" />
         </button>
       </div>
 
-      <div class="p-6 space-y-4">
-        <div class="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900">
-          <strong>Blind Count:</strong> Hitung seluruh uang fisik tunai yang ada di dalam laci kasir sekarang dan masukkan jumlah totalnya.
+      <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <!-- Nominal Wajib Setor Banner -->
+        <div class="p-4 rounded-2xl bg-indigo-50 border border-indigo-200">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-indigo-900 font-bold text-xs uppercase tracking-wider">
+              <Wallet class="w-4 h-4 text-indigo-600" />
+              <span>Nominal Wajib Disetor Kasir</span>
+            </div>
+            <button
+              type="button"
+              @click="applyExpectedCash"
+              class="px-2.5 py-1 text-[11px] font-bold text-indigo-700 bg-white hover:bg-indigo-100 border border-indigo-300 rounded-lg shadow-xs transition active:scale-95 cursor-pointer"
+              title="Isi jumlah setoran sama dengan nominal wajib setor sistem"
+            >
+              Uang Pas / Cocok
+            </button>
+          </div>
+
+          <div class="mt-2 text-2xl font-black font-mono text-indigo-900">
+            {{ formatCurrency(expectedDeposit) }}
+          </div>
+
+          <div class="mt-2 text-[11px] text-indigo-700 flex items-center justify-between">
+            <span>Sesuai pencatatan transaksi kasir shift ini</span>
+            <button
+              type="button"
+              @click="showBreakdown = !showBreakdown"
+              class="font-semibold underline hover:text-indigo-900 flex items-center gap-0.5 cursor-pointer"
+            >
+              <span>{{ showBreakdown ? 'Sembunyikan Rincian' : 'Lihat Rincian Kalkulasi' }}</span>
+              <ChevronUp v-if="showBreakdown" class="w-3.5 h-3.5" />
+              <ChevronDown v-else class="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <!-- Rincian Kalkulasi Kas Laci -->
+          <div v-if="showBreakdown" class="mt-3 pt-3 border-t border-indigo-200/70 space-y-1.5 text-xs animate-in fade-in duration-150">
+            <div class="flex justify-between text-slate-700">
+              <span>Modal Awal Kasir:</span>
+              <span class="font-mono font-medium">{{ formatCurrency(shiftStore.currentShift?.opening_cash || 0) }}</span>
+            </div>
+            <div class="flex justify-between text-emerald-700 font-medium">
+              <span>(+) Penjualan Tunai:</span>
+              <span class="font-mono">{{ formatCurrency(shiftStore.currentShift?.cash_sales || 0) }}</span>
+            </div>
+            <div v-if="Number(shiftStore.currentShift?.shift_expenses || 0) > 0" class="flex justify-between text-rose-700 font-medium">
+              <span>(-) Biaya Operasional Laci:</span>
+              <span class="font-mono">-{{ formatCurrency(shiftStore.currentShift?.shift_expenses || 0) }}</span>
+            </div>
+            <div v-if="Number(shiftStore.currentShift?.shift_cash_drops || 0) > 0" class="flex justify-between text-amber-700 font-medium">
+              <span>(-) Kas Disetor (Cash Drop):</span>
+              <span class="font-mono">-{{ formatCurrency(shiftStore.currentShift?.shift_cash_drops || 0) }}</span>
+            </div>
+            <div v-if="Number(shiftStore.currentShift?.shift_sales_returns || 0) > 0" class="flex justify-between text-rose-700 font-medium">
+              <span>(-) Retur Tunai Konsumen:</span>
+              <span class="font-mono">-{{ formatCurrency(shiftStore.currentShift?.shift_sales_returns || 0) }}</span>
+            </div>
+            <div class="flex justify-between text-indigo-950 font-bold pt-1.5 border-t border-indigo-200">
+              <span>Total Kas Fisik Akhir:</span>
+              <span class="font-mono">{{ formatCurrency(expectedDeposit) }}</span>
+            </div>
+          </div>
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1.5">
-            Total Uang Fisik di Laci Kasir (Rp)
-          </label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-bold text-slate-700">
+              Total Uang Fisik yang Disetor Kasir (Rp) *
+            </label>
+            <span
+              v-if="actualCash > 0"
+              class="text-[11px] font-bold"
+              :class="discrepancyAmount === 0 ? 'text-emerald-700' : discrepancyAmount < 0 ? 'text-rose-600' : 'text-blue-700'"
+            >
+              {{ discrepancyAmount === 0 ? '✓ Uang Pas Seimbang' : discrepancyAmount < 0 ? `Kurang: -${formatCurrency(Math.abs(discrepancyAmount))}` : `Lebih: +${formatCurrency(discrepancyAmount)}` }}
+            </span>
+          </div>
           <input
             v-model.number="actualCash"
             type="number"
-            class="w-full bg-slate-50 border-2 border-rose-500/70 rounded-xl px-4 py-3 text-2xl font-mono text-slate-900 text-right focus:bg-white focus:outline-none focus:border-rose-600 font-bold"
+            class="w-full bg-slate-50 border-2 rounded-xl px-4 py-3 text-2xl font-mono text-slate-900 text-right focus:bg-white focus:outline-none font-bold"
+            :class="discrepancyAmount === 0 ? 'border-emerald-500 focus:border-emerald-600' : discrepancyAmount < 0 ? 'border-rose-500 focus:border-rose-600' : 'border-blue-500 focus:border-blue-600'"
           />
+          <p class="text-[11px] text-slate-500 mt-1">Masukkan total uang fisik tunai yang ada di laci kasir untuk diserahkan.</p>
         </div>
 
         <!-- Supervisor Biometric & PIN Section -->
@@ -295,17 +424,17 @@ function paymentIcon(category: string): string {
         </div>
       </div>
 
-      <div class="bg-slate-100 p-4 px-6 border-t border-slate-300 flex justify-end gap-2">
+      <div class="bg-slate-100 p-4 px-6 border-t border-slate-300 flex items-center justify-end gap-2">
         <button
           @click="emit('close')"
-          class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs border border-slate-300 transition active:scale-95"
+          class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs border border-slate-300 transition active:scale-95 cursor-pointer"
         >
           Batal
         </button>
         <button
           @click="handleCloseShift"
           :disabled="isSubmitting"
-          class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-5 py-2 rounded-xl text-xs shadow-sm border border-rose-700 transition active:scale-95"
+          class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-5 py-2 rounded-xl text-xs shadow-sm border border-rose-700 transition active:scale-95 cursor-pointer"
         >
           {{ isSubmitting ? 'Memproses...' : 'Tutup Shift & Cetak Z-Report' }}
         </button>
@@ -315,7 +444,8 @@ function paymentIcon(category: string): string {
     <!-- Z-Report Modal Display -->
     <div
       v-else-if="zReport"
-      class="bg-white border border-slate-300 w-full max-w-lg rounded-2xl shadow-2xl flex flex-col text-slate-900 overflow-hidden"
+      id="printable-z-report"
+      class="bg-white border border-slate-300 w-full max-w-lg rounded-2xl shadow-2xl flex flex-col text-slate-900 overflow-hidden print:max-w-none print:shadow-none print:border-none print:w-[80mm] print:m-0 print:p-0"
     >
       <!-- Header -->
       <div class="bg-slate-800 p-4 text-center text-white">
@@ -324,7 +454,7 @@ function paymentIcon(category: string): string {
       </div>
 
       <!-- Scrollable content -->
-      <div class="overflow-y-auto max-h-[70vh] p-4 space-y-3">
+      <div class="overflow-y-auto max-h-[70vh] p-4 space-y-3 print:max-h-none print:overflow-visible print:p-1">
         <!-- Shift Info -->
         <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] space-y-1">
           <div class="flex justify-between text-slate-700">
@@ -467,20 +597,33 @@ function paymentIcon(category: string): string {
       </div>
 
       <!-- Footer actions -->
-      <div class="p-4 border-t border-slate-200 flex items-center gap-2 bg-slate-50">
-        <button
-          @click="printZReport"
-          class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-sm border border-emerald-700"
-        >
-          <Printer class="w-4 h-4" />
-          <span>Cetak Z-Report</span>
-        </button>
-        <button
-          @click="zReport = null; emit('close')"
-          class="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 px-4 py-2.5 rounded-xl text-xs font-bold transition active:scale-95"
-        >
-          Tutup
-        </button>
+      <div class="p-4 border-t border-slate-200 flex flex-col gap-2 bg-slate-50 print:hidden">
+        <div v-if="printStatusMsg" class="text-xs text-center font-medium text-slate-600">
+          {{ printStatusMsg }}
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            @click="printZReport"
+            :disabled="isPrinting"
+            class="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-sm border border-emerald-700 cursor-pointer"
+          >
+            <Printer class="w-4 h-4" />
+            <span>{{ isPrinting ? 'Mencetak...' : 'Cetak Z-Report' }}</span>
+          </button>
+          <button
+            @click="openBrowserPrint"
+            title="Cetak via dialog browser / simpan ke PDF"
+            class="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 px-3 py-2.5 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1 cursor-pointer"
+          >
+            <span>PDF / Dialog</span>
+          </button>
+          <button
+            @click="zReport = null; emit('close')"
+            class="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 px-4 py-2.5 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer"
+          >
+            Tutup
+          </button>
+        </div>
       </div>
     </div>
   </div>

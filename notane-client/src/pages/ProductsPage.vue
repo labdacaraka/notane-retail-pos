@@ -1343,12 +1343,21 @@ onUnmounted(() => {
     </div>
 
     <!-- Create Product Modal -->
-    <div
-      v-if="showCreateModal"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-    >
-      <div class="bg-white border border-slate-300 w-full max-w-lg rounded-xl p-6 space-y-4 shadow-2xl">
-        <h3 class="font-bold text-base text-slate-900">Tambah Master Produk Baru</h3>
+    <Teleport to="body">
+      <div
+        v-if="showCreateModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showCreateModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none select-none">
+          <div class="relative bg-white border border-slate-300 w-full max-w-lg rounded-xl p-6 space-y-4 shadow-2xl text-left pointer-events-auto my-8">
+            <h3 class="font-bold text-base text-slate-900">Tambah Master Produk Baru</h3>
 
         <div class="space-y-3 text-xs">
           <!-- Foto Produk Upload & Preview -->
@@ -1525,14 +1534,25 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
 
     <!-- Edit Product Modal -->
-    <div
-      v-if="showEditModal"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-    >
-      <div class="bg-white border border-slate-300 w-full max-w-lg rounded-xl p-6 space-y-4 shadow-2xl">
-        <h3 class="font-bold text-base text-slate-900">Edit Master Produk</h3>
+    <Teleport to="body">
+      <div
+        v-if="showEditModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showEditModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none select-none">
+          <div class="relative bg-white border border-slate-300 w-full max-w-lg rounded-xl p-6 space-y-4 shadow-2xl text-left pointer-events-auto my-8">
+            <h3 class="font-bold text-base text-slate-900">Edit Master Produk</h3>
 
         <div class="space-y-3 text-xs">
           <!-- Foto Produk Upload & Preview -->
@@ -1724,14 +1744,25 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
 
     <!-- Customer Group Prices Modal -->
-    <div
-      v-if="showGroupPriceModal"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-    >
-      <div class="bg-white border border-slate-300 w-full max-w-xl rounded-2xl p-6 space-y-4 shadow-2xl text-slate-900">
-        <!-- Header -->
+    <Teleport to="body">
+      <div
+        v-if="showGroupPriceModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showGroupPriceModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none select-none">
+          <div class="relative bg-white border border-slate-300 w-full max-w-xl rounded-2xl p-6 space-y-4 shadow-2xl text-slate-900 text-left pointer-events-auto my-8">
+            <!-- Header -->
         <div class="flex items-center justify-between border-b border-slate-200 pb-3">
           <div>
             <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
@@ -1811,14 +1842,25 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
 
     <!-- Outlet-Specific Prices Modal -->
-    <div
-      v-if="showOutletPriceModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
-    >
-      <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200 p-6 space-y-4">
-        <!-- Header -->
+    <Teleport to="body">
+      <div
+        v-if="showOutletPriceModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showOutletPriceModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200 p-6 space-y-4 text-left pointer-events-auto my-8">
+            <!-- Header -->
         <div class="flex items-center justify-between border-b border-slate-200 pb-3">
           <div class="flex items-center gap-2.5">
             <div class="p-2 rounded-xl bg-blue-100 text-blue-700">
@@ -1961,14 +2003,25 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
 
   <!-- ===== MODAL: HARGA MEMBER PER OUTLET ===== -->
-  <div
-    v-if="showOutletCgpModal"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-  >
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
-      <!-- Header -->
+  <Teleport to="body">
+    <div
+      v-if="showOutletCgpModal"
+      class="fixed inset-0 z-50 overflow-y-auto"
+    >
+      <!-- Dedicated Fixed Backdrop -->
+      <div
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        @click="showOutletCgpModal = false"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
+          <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
@@ -2092,14 +2145,25 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+</div>
+</Teleport>
 
   <!-- Modal Batch Stok Produk (FIFO & Pelacakan Kulakan) -->
-  <div
-    v-if="showBatchesModal"
-    class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-  >
-    <div class="bg-white border border-slate-300 w-full max-w-4xl rounded-2xl p-6 space-y-4 shadow-2xl text-slate-900">
-      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+  <Teleport to="body">
+    <div
+      v-if="showBatchesModal"
+      class="fixed inset-0 z-50 overflow-y-auto"
+    >
+      <!-- Dedicated Fixed Backdrop -->
+      <div
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        @click="showBatchesModal = false"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none select-none">
+        <div class="relative bg-white border border-slate-300 w-full max-w-4xl rounded-2xl p-6 space-y-4 shadow-2xl text-slate-900 text-left pointer-events-auto my-8">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-3">
         <div>
           <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
             <Layers class="w-5 h-5 text-emerald-600" />
@@ -2235,15 +2299,25 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+</div>
+</Teleport>
 
   <!-- Modal Riwayat Transaksi Penjualan Batch (Traceability) -->
   <Teleport to="body">
     <div
       v-if="showBatchSalesModal"
-      class="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      class="fixed inset-0 z-[80] overflow-y-auto"
     >
-      <div class="bg-white border border-slate-300 w-full max-w-4xl rounded-2xl p-6 space-y-4 shadow-2xl text-slate-900">
-        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+      <!-- Dedicated Fixed Backdrop -->
+      <div
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        @click="showBatchSalesModal = false"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none select-none">
+        <div class="relative bg-white border border-slate-300 w-full max-w-4xl rounded-2xl p-6 space-y-4 shadow-2xl text-slate-900 text-left pointer-events-auto my-8">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-3">
           <div>
             <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
               <Receipt class="w-5 h-5 text-indigo-600" />
@@ -2381,7 +2455,8 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-  </Teleport>
+  </div>
+</Teleport>
 
   </AdminLayout>
 
@@ -2389,18 +2464,23 @@ onUnmounted(() => {
   <Teleport to="body">
     <div
       v-if="previewImageModalUrl"
-      class="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
-      @click="previewImageModalUrl = null"
+      class="fixed inset-0 z-[100] overflow-y-auto"
     >
-      <div class="relative max-w-lg max-h-[85vh] bg-white p-2 rounded-2xl shadow-2xl overflow-hidden" @click.stop>
-        <button
-          type="button"
-          @click="previewImageModalUrl = null"
-          class="absolute top-4 right-4 bg-slate-900/70 hover:bg-slate-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-md transition cursor-pointer z-10"
-        >
-          ✕
-        </button>
-        <img :src="previewImageModalUrl" alt="Foto Produk" class="max-w-full max-h-[80vh] object-contain rounded-xl" />
+      <div
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-xs transition-opacity cursor-pointer"
+        @click="previewImageModalUrl = null"
+      ></div>
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+        <div class="relative max-w-lg max-h-[85vh] bg-white p-2 rounded-2xl shadow-2xl overflow-hidden pointer-events-auto my-8">
+          <button
+            type="button"
+            @click="previewImageModalUrl = null"
+            class="absolute top-4 right-4 bg-slate-900/70 hover:bg-slate-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-md transition cursor-pointer z-10"
+          >
+            ✕
+          </button>
+          <img :src="previewImageModalUrl" alt="Foto Produk" class="max-w-full max-h-[80vh] object-contain rounded-xl" />
+        </div>
       </div>
     </div>
   </Teleport>

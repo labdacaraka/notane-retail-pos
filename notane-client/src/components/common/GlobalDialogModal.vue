@@ -63,15 +63,22 @@ onUnmounted(() => {
   <Teleport to="body">
     <div
       v-if="dialog.isConfirmOpen"
-      class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs select-none animate-in fade-in duration-150"
-      @click.self="handleBackdropConfirm"
+      class="fixed inset-0 z-[9999] overflow-y-auto select-none"
     >
+      <!-- Dedicated Fixed Backdrop -->
       <div
-        class="bg-white border-2 border-slate-400 shadow-2xl rounded-2xl w-full max-w-md overflow-hidden flex flex-col font-sans transition-all scale-100"
-        role="dialog"
-        aria-modal="true"
-      >
-        <!-- Title Bar -->
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        @click="handleBackdropConfirm"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+        <div
+          class="relative bg-white border-2 border-slate-400 shadow-2xl rounded-2xl w-full max-w-md overflow-hidden flex flex-col font-sans transition-all text-left pointer-events-auto my-8"
+          role="dialog"
+          aria-modal="true"
+        >
+          <!-- Title Bar -->
         <div
           class="px-5 py-3.5 flex items-center justify-between text-white border-b select-none shadow-xs"
           :class="{
@@ -152,7 +159,8 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-  </Teleport>
+  </div>
+</Teleport>
 
   <!-- ========================================================================= -->
   <!-- 2. MODAL ALERT IN-APP (PENGGANTI WINDOW.ALERT)                            -->
@@ -160,17 +168,24 @@ onUnmounted(() => {
   <Teleport to="body">
     <div
       v-if="dialog.isAlertOpen"
-      class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs select-none animate-in fade-in duration-150"
-      @click.self="handleBackdropAlert"
+      class="fixed inset-0 z-[9999] overflow-y-auto select-none"
     >
+      <!-- Dedicated Fixed Backdrop -->
       <div
-        class="bg-white border-2 border-slate-300 shadow-2xl rounded-2xl w-full max-w-md overflow-hidden flex flex-col font-sans transition-all scale-100"
-        role="dialog"
-        aria-modal="true"
-      >
-        <!-- Header -->
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        @click="handleBackdropAlert"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
         <div
-          class="px-5 py-3.5 flex items-center justify-between text-white border-b select-none shadow-xs"
+          class="relative bg-white border-2 border-slate-300 shadow-2xl rounded-2xl w-full max-w-md overflow-hidden flex flex-col font-sans transition-all text-left pointer-events-auto my-8"
+          role="dialog"
+          aria-modal="true"
+        >
+          <!-- Header -->
+          <div
+            class="px-5 py-3.5 flex items-center justify-between text-white border-b select-none shadow-xs"
           :class="{
             'bg-rose-700 border-rose-800': dialog.alertOptions.type === 'danger',
             'bg-amber-600 border-amber-700': dialog.alertOptions.type === 'warning',
@@ -232,7 +247,8 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-  </Teleport>
+  </div>
+</Teleport>
 
   <!-- ========================================================================= -->
   <!-- 3. TOAST NOTIFICATIONS (POPUP FLOATING DI ATAS KANAN)                    -->

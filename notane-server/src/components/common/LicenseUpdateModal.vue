@@ -37,7 +37,10 @@ const emit = defineEmits<{
 
 const licenseStore = useLicenseStore()
 const dialog = useDialog()
-const activeTab = ref<'LICENSE' | 'PROVIDER' | 'UPDATE'>(props.initialTab || 'LICENSE')
+const isDev = import.meta.env.DEV
+const activeTab = ref<'LICENSE' | 'PROVIDER' | 'UPDATE'>(
+  (!isDev && props.initialTab === 'PROVIDER') ? 'LICENSE' : (props.initialTab || 'LICENSE')
+)
 const activationMode = ref<'ONLINE' | 'OFFLINE'>('ONLINE')
 
 // Form Aktivasi
@@ -53,7 +56,7 @@ watch(
   (open) => {
     if (open) {
       if (props.initialTab) {
-        activeTab.value = props.initialTab
+        activeTab.value = (!isDev && props.initialTab === 'PROVIDER') ? 'LICENSE' : props.initialTab
       }
       if (activeTab.value === 'UPDATE') {
         handleCheckUpdate()
@@ -166,6 +169,7 @@ async function handleApplyUpdate() {
         </button>
 
         <button
+          v-if="isDev"
           type="button"
           @click="activeTab = 'PROVIDER'"
           class="px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 cursor-pointer"
@@ -175,6 +179,7 @@ async function handleApplyUpdate() {
         >
           <Server class="w-3.5 h-3.5" />
           <span>Server Provider</span>
+          <span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-mono font-bold">DEV</span>
           <span
             class="w-2 h-2 rounded-full"
             :class="licenseStore.testResult?.success ? 'bg-emerald-500' : 'bg-slate-300'"
@@ -190,7 +195,7 @@ async function handleApplyUpdate() {
             : 'border-transparent text-slate-500 hover:text-slate-700'"
         >
           <DownloadCloud class="w-3.5 h-3.5" />
-          <span>Pembaruan Sistem (OTA)</span>
+          <span>Pembaruan Sistem</span>
           <span
             v-if="licenseStore.updateInfo?.has_update"
             class="w-2 h-2 rounded-full bg-rose-500 animate-ping"
@@ -282,30 +287,12 @@ async function handleApplyUpdate() {
             </div>
           </div>
 
-          <!-- Provider Connection Mini Banner -->
-          <div class="p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-center justify-between text-xs">
-            <div class="flex items-center gap-2">
-              <Server class="w-4 h-4 text-indigo-600 shrink-0" />
-              <div class="text-[11px]">
-                <span class="text-slate-500">Pusat Layanan Notane: </span>
-                <span class="font-mono font-bold text-indigo-900">{{ licenseStore.providerConfig.current_url }}</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              @click="activeTab = 'PROVIDER'"
-              class="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
-            >
-              Info Server
-            </button>
-          </div>
-
           <!-- Form Aktivasi -->
           <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2 text-xs font-bold text-slate-800">
                 <Lock class="w-4 h-4 text-indigo-600" />
-                <span>Aktivasi Lisensi Resmi</span>
+                <span>Aktivasi Lisensi</span>
               </div>
 
               <!-- Switcher Online / Manual -->
@@ -316,7 +303,7 @@ async function handleApplyUpdate() {
                   class="px-2.5 py-1 rounded-md transition cursor-pointer"
                   :class="activationMode === 'ONLINE' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-600'"
                 >
-                  ⚡ Online (1-Click)
+                  Online
                 </button>
                 <button
                   type="button"
@@ -324,15 +311,15 @@ async function handleApplyUpdate() {
                   class="px-2.5 py-1 rounded-md transition cursor-pointer"
                   :class="activationMode === 'OFFLINE' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-600'"
                 >
-                  📄 Manual (Offline)
+                  Manual (Offline)
                 </button>
               </div>
             </div>
 
-            <!-- MODE 1: AKTIVASI ONLINE (1-CLICK) -->
+            <!-- MODE 1: AKTIVASI ONLINE -->
             <div v-if="activationMode === 'ONLINE'" class="space-y-3 pt-1">
               <p class="text-[11px] text-slate-500">
-                Masukkan Nomor Lisensi dari Provider. Sistem akan menghubungi server provider untuk mendaftarkan Hardware ID dan mengambil sertifikat digital secara otomatis:
+                Masukkan nomor lisensi Anda. Sistem akan memverifikasi dan mengaktifkan lisensi secara otomatis:
               </p>
 
               <div>
@@ -358,7 +345,7 @@ async function handleApplyUpdate() {
                 >
                   <RefreshCw v-if="licenseStore.isActivatingOnline" class="w-3.5 h-3.5 animate-spin" />
                   <Zap v-else class="w-3.5 h-3.5" />
-                  <span>{{ licenseStore.isActivatingOnline ? 'Mengaktivasi ke Provider...' : 'Aktivasi Online Sekarang' }}</span>
+                  <span>{{ licenseStore.isActivatingOnline ? 'Mengaktifkan...' : 'Aktivasi Lisensi' }}</span>
                 </button>
               </div>
             </div>
@@ -407,9 +394,9 @@ async function handleApplyUpdate() {
         </div>
 
         <!-- ============================================================= -->
-        <!-- TAB 2: SERVER PROVIDER -->
+        <!-- TAB 2: SERVER PROVIDER (DEV ONLY) -->
         <!-- ============================================================= -->
-        <div v-else-if="activeTab === 'PROVIDER'" class="space-y-4">
+        <div v-else-if="isDev && activeTab === 'PROVIDER'" class="space-y-4">
           
           <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-4">
             <div class="flex items-center justify-between">
@@ -418,9 +405,9 @@ async function handleApplyUpdate() {
                   <Server class="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 class="font-bold text-slate-900 text-sm">Pusat Layanan Notane</h4>
+                  <h4 class="font-bold text-slate-900 text-sm">Server Lisensi Notane</h4>
                   <p class="text-[11px] text-slate-500">
-                    Sambungan resmi untuk aktivasi dan pembaruan sistem toko
+                    Koneksi untuk aktivasi dan pembaruan aplikasi
                   </p>
                 </div>
               </div>
@@ -431,7 +418,7 @@ async function handleApplyUpdate() {
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                   : 'bg-amber-50 text-amber-800 border-amber-300'"
               >
-                {{ licenseStore.providerConfig.is_production ? 'Server Resmi' : 'Server Uji Coba' }}
+                {{ licenseStore.providerConfig.is_production ? 'Server Utama' : 'Server Uji Coba' }}
               </span>
             </div>
 
@@ -449,13 +436,12 @@ async function handleApplyUpdate() {
               </div>
             </div>
 
-            <!-- Catatan Keamanan Sambungan (Anti-Cloning Protection) -->
-            <div class="p-3 rounded-lg border border-indigo-200 bg-indigo-50/60 text-indigo-950 flex items-start gap-2.5 text-xs">
-              <Lock class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+            <div class="p-3 rounded-lg border border-slate-200 bg-white text-slate-700 flex items-start gap-2.5 text-xs">
+              <Globe class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
               <div class="space-y-1">
-                <div class="font-bold text-indigo-900 text-[11px]">Keamanan Lisensi Terkunci (Anti-Cloning Protection)</div>
-                <p class="text-[11px] leading-relaxed text-indigo-800/90">
-                  Alamat server lisensi dikunci mati di dalam binary rilis dan tidak dapat diubah di level antarmuka/toko untuk menjamin keaslian lisensi dan mencegah pemalsuan URL server provider.
+                <div class="font-bold text-slate-900 text-[11px]">Alamat Server Lisensi</div>
+                <p class="text-[11px] leading-relaxed text-slate-600">
+                  Alamat ini digunakan sistem untuk memeriksa keaktifan lisensi dan menerima pembaruan aplikasi secara berkala.
                 </p>
               </div>
             </div>
@@ -487,7 +473,7 @@ async function handleApplyUpdate() {
                 <span>{{ licenseStore.testResult.message }}</span>
               </div>
               <span v-if="licenseStore.testResult.latency_ms !== undefined" class="font-mono text-[11px] px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-emerald-700">
-                ⚡ {{ licenseStore.testResult.latency_ms }} ms
+                {{ licenseStore.testResult.latency_ms }} ms
               </span>
             </div>
 
@@ -498,7 +484,7 @@ async function handleApplyUpdate() {
           </div>
 
           <div v-else class="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center text-slate-500 text-xs">
-            Klik tombol <strong>"Uji Koneksi Provider"</strong> di atas untuk memverifikasi apakah server Notane Server dapat terhubung ke Provider.
+            Klik tombol <strong>"Uji Sambungan Server"</strong> di atas untuk memverifikasi apakah server dapat terhubung ke server lisensi.
           </div>
 
         </div>
@@ -542,7 +528,7 @@ async function handleApplyUpdate() {
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <Sparkles class="w-4 h-4 text-emerald-600" />
-                  <span class="font-extrabold text-slate-900 text-sm">Pembaruan Tersedia: v{{ licenseStore.updateInfo.latest_version }}</span>
+                  <span class="font-extrabold text-slate-900 text-sm">Versi Baru Tersedia: v{{ licenseStore.updateInfo.latest_version }}</span>
                 </div>
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                   Versi Baru
@@ -557,7 +543,7 @@ async function handleApplyUpdate() {
               <!-- Action Update Button -->
               <div class="flex items-center justify-between pt-1">
                 <div class="text-[11px] text-slate-500">
-                  Pembaruan sistem dan struktur data akan diterapkan secara aman dan otomatis.
+                  Pembaruan akan diunduh dan diterapkan secara otomatis.
                 </div>
                 <button
                   type="button"
@@ -566,7 +552,7 @@ async function handleApplyUpdate() {
                   class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   <DownloadCloud class="w-4 h-4" :class="{ 'animate-bounce': licenseStore.isApplyingUpdate }" />
-                  <span>{{ licenseStore.isApplyingUpdate ? 'Mengunduh & Memperbarui...' : 'Perbarui Sekarang' }}</span>
+                  <span>{{ licenseStore.isApplyingUpdate ? 'Mengunduh...' : 'Perbarui Sekarang' }}</span>
                 </button>
               </div>
             </div>
@@ -574,7 +560,7 @@ async function handleApplyUpdate() {
             <!-- Up-to-date -->
             <div v-else class="p-6 rounded-xl border border-slate-200 bg-white text-center space-y-2">
               <CheckCircle2 class="w-8 h-8 text-emerald-500 mx-auto" />
-              <h4 class="font-bold text-slate-800 text-sm">Server Anda Sudah Menggunakan Versi Terbaru</h4>
+              <h4 class="font-bold text-slate-800 text-sm">Aplikasi Anda Sudah Menggunakan Versi Terbaru</h4>
               <p class="text-xs text-slate-500 max-w-md mx-auto">
                 {{ licenseStore.updateInfo.message }}
               </p>
@@ -592,7 +578,7 @@ async function handleApplyUpdate() {
       <div class="px-6 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
         <div class="flex items-center gap-1.5 text-[11px]">
           <Layers class="w-3.5 h-3.5 text-slate-400" />
-          <span>Sistem Kasir & Server Notane POS</span>
+          <span>Notane Retail Server</span>
         </div>
         <button
           type="button"

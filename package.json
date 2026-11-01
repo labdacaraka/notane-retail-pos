@@ -1,7 +1,7 @@
 {
   "name": "notane-retail-monorepo",
   "private": true,
-  "version": "1.5.10",
+  "version": "1.5.11",
   "type": "module",
   "workspaces": [
     "notane-client",
@@ -24,7 +24,7 @@
     "manager:up": "docker compose -f docker-compose.manager.yml --env-file .env.manager up -d",
     "manager:down": "docker compose -f docker-compose.manager.yml --env-file .env.manager down",
     "manager:logs": "docker compose -f docker-compose.manager.yml --env-file .env.manager logs -f",
-    "dev:all": "concurrently -n \"CLIENT,SERVER_UI,SERVER_CORE,MANAGER\" -c \"cyan,magenta,yellow,green\" \"npm run client:dev\" \"npm run server:dev\" \"npm run server:daemon\" \"npm run manager:dev\"",
+    "dev:all": "concurrently -n \"CLIENT,SERVER_UI,SERVER_CORE,MGR_UI,MGR_CORE\" -c \"cyan,magenta,yellow,green,blue\" \"npm run client:dev\" \"npm run server:dev\" \"npm run server:daemon\" \"npm run manager:dev\" \"npm run manager:daemon\"",
     "build:all": "npm run client:build && npm run server:build && npm run manager:build",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",

@@ -1015,12 +1015,21 @@ async function handleSaveCategory() {
       <!-- ==================================================================== -->
       <!-- MODAL: CATAT PENGELUARAN BARU (RAMAH PENGGUNA AWAM RETAIL)            -->
       <!-- ==================================================================== -->
-      <div
-        v-if="showCreateModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
-          <!-- Modal Header -->
+      <Teleport to="body">
+        <div
+          v-if="showCreateModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showCreateModal = false"
+          ></div>
+
+          <!-- Scrollable wrapper -->
+          <div class="flex min-h-full items-center justify-center p-3 sm:p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] text-left pointer-events-auto my-8">
+              <!-- Modal Header -->
           <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700">
@@ -1311,16 +1320,27 @@ async function handleSaveCategory() {
           </form>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- ==================================================================== -->
       <!-- MODAL: DETAIL TRANSAKSI & CETAK BUKTI KAS KELUAR                     -->
       <!-- ==================================================================== -->
-      <div
-        v-if="showDetailModal && selectedExpense"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
-      >
-        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
-          <!-- Header -->
+      <Teleport to="body">
+        <div
+          v-if="showDetailModal && selectedExpense"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showDetailModal = false"
+          ></div>
+
+          <!-- Scrollable wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col text-left pointer-events-auto my-8">
+              <!-- Header -->
           <div class="px-6 py-4 bg-slate-800 text-white flex items-center justify-between print:hidden">
             <div class="flex items-center gap-2">
               <Icon icon="fluent:receipt-24-filled" class="w-5 h-5 text-amber-400" />
@@ -1414,16 +1434,27 @@ async function handleSaveCategory() {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- ==================================================================== -->
       <!-- MODAL: BATALKAN PENGELUARAN                                          -->
       <!-- ==================================================================== -->
-      <div
-        v-if="showCancelModal && selectedExpense"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
-      >
-        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden p-6 space-y-4">
-          <div class="flex items-center gap-3 text-rose-600">
+      <Teleport to="body">
+        <div
+          v-if="showCancelModal && selectedExpense"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showCancelModal = false"
+          ></div>
+
+          <!-- Scrollable wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden p-6 space-y-4 text-left pointer-events-auto my-8">
+              <div class="flex items-center gap-3 text-rose-600">
             <div class="p-2.5 bg-rose-100 rounded-2xl">
               <AlertCircle class="w-6 h-6" />
             </div>
@@ -1478,23 +1509,34 @@ async function handleSaveCategory() {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- ==================================================================== -->
       <!-- MODAL: KATEGORI PENGELUARAN (TAMBAH / EDIT)                         -->
       <!-- ==================================================================== -->
-      <div
-        v-if="showCategoryModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
-      >
-        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden p-6 space-y-4">
-          <div class="flex items-center justify-between border-b pb-3 border-slate-200">
-            <h3 class="text-sm font-black text-slate-900">
-              {{ isEditingCategory ? 'Edit Kategori Pengeluaran' : 'Tambah Kategori Pengeluaran' }}
-            </h3>
-            <button type="button" @click="showCategoryModal = false" class="text-slate-400 hover:text-slate-700">
-              <X class="w-4 h-4" />
-            </button>
-          </div>
+      <Teleport to="body">
+        <div
+          v-if="showCategoryModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showCategoryModal = false"
+          ></div>
+
+          <!-- Scrollable wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden p-6 space-y-4 text-left pointer-events-auto my-8">
+              <div class="flex items-center justify-between border-b pb-3 border-slate-200">
+                <h3 class="text-sm font-black text-slate-900">
+                  {{ isEditingCategory ? 'Edit Kategori Pengeluaran' : 'Tambah Kategori Pengeluaran' }}
+                </h3>
+                <button type="button" @click="showCategoryModal = false" class="text-slate-400 hover:text-slate-700">
+                  <X class="w-4 h-4" />
+                </button>
+              </div>
 
           <form @submit.prevent="handleSaveCategory" class="space-y-3 text-xs">
             <div v-if="!isEditingCategory">
@@ -1568,6 +1610,8 @@ async function handleSaveCategory() {
           </form>
         </div>
       </div>
+    </div>
+  </Teleport>
     </div>
   </AdminLayout>
 </template>

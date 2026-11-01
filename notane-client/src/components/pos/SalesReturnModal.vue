@@ -449,8 +449,8 @@ function closeModal() {
           v-if="saleData"
           type="button"
           @click="handleSubmitReturn"
-          :disabled="isSubmitting || !hasSelectedItems || !supervisorPin.trim()"
-          class="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-black text-sm rounded-xl flex items-center gap-2 shadow-lg shadow-rose-600/30 transition"
+          :disabled="isSubmitting || !hasSelectedItems || (!supervisorPin.trim() && !supervisorAuthToken.trim())"
+          class="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-black text-sm rounded-xl flex items-center gap-2 shadow-lg shadow-rose-600/30 transition cursor-pointer"
         >
           <Icon v-if="isSubmitting" icon="fluent:spinner-ios-20-regular" class="animate-spin text-lg" />
           <Icon v-else icon="fluent:checkmark-square-24-filled" class="text-lg" />

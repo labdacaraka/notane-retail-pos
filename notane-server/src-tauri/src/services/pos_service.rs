@@ -136,7 +136,7 @@ pub async fn open_shift(
 }
 
 pub async fn get_current_shift(pool: &PgPool, user_id: Uuid) -> Result<Option<CashierShift>, String> {
-    sqlx::query_as::<_, CashierShift>(
+    let mut shift_opt = sqlx::query_as::<_, CashierShift>(
         "SELECT cs.*, o.name as outlet_name, o.code as outlet_code 
          FROM cashier_shifts cs
          LEFT JOIN outlets o ON cs.outlet_id = o.id
@@ -146,7 +146,60 @@ pub async fn get_current_shift(pool: &PgPool, user_id: Uuid) -> Result<Option<Ca
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|e| format!("Database error: {}", e))
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    if let Some(ref mut shift) = shift_opt {
+        // Hitung total penerimaan pembayaran tunai dari sales
+        let cash_sales = sqlx::query_scalar::<_, Decimal>(
+            r#"
+            SELECT COALESCE(SUM(sp.amount), 0)
+            FROM sale_payments sp
+            JOIN sales s ON sp.sale_id = s.id
+            JOIN payment_methods pm ON sp.payment_method_id = pm.id
+            WHERE s.shift_id = $1 AND s.status = 'COMPLETED' AND pm.category = 'CASH'
+            "#
+        )
+        .bind(shift.id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(Decimal::ZERO);
+
+        // Hitung pengeluaran operasional laci
+        let shift_expenses = sqlx::query_scalar::<_, Decimal>(
+            "SELECT COALESCE(SUM(amount), 0) FROM expense_transactions WHERE shift_id = $1 AND status = 'COMPLETED'"
+        )
+        .bind(shift.id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(Decimal::ZERO);
+
+        // Hitung total setor kas (Cash Drop) ke supervisor/brankas
+        let shift_cash_drops = sqlx::query_scalar::<_, Decimal>(
+            "SELECT COALESCE(SUM(amount), 0) FROM cash_drops WHERE shift_id = $1"
+        )
+        .bind(shift.id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(Decimal::ZERO);
+
+        // Hitung total retur tunai konsumen
+        let shift_sales_returns = sqlx::query_scalar::<_, Decimal>(
+            "SELECT COALESCE(SUM(refund_amount), 0) FROM sales_returns WHERE shift_id = $1 AND refund_method = 'CASH'"
+        )
+        .bind(shift.id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(Decimal::ZERO);
+
+        let expected = shift.opening_cash + cash_sales - shift_expenses - shift_cash_drops - shift_sales_returns;
+        shift.expected_cash = Some(expected);
+        shift.cash_sales = Some(cash_sales);
+        shift.shift_expenses = Some(shift_expenses);
+        shift.shift_cash_drops = Some(shift_cash_drops);
+        shift.shift_sales_returns = Some(shift_sales_returns);
+    }
+
+    Ok(shift_opt)
 }
 
 pub async fn close_shift(
@@ -304,61 +357,118 @@ pub async fn close_shift(
     .await
     .map_err(|e| format!("Gagal menutup shift: {}", e))?;
 
-    // Auto-journal for discrepancy if any
-    if !discrepancy.is_zero() {
-        let abs_diff = discrepancy.abs();
-        let journal_number = format!("JRN-SHT-{}", Utc::now().format("%Y%m%d%H%M%S"));
+    // =========================================================================
+    // JURNAL AKUNTANSI PENUTUPAN SHIFT KASIR (DOUBLE-ENTRY GENERAL LEDGER)
+    // Mencatat pemindahan/setoran kas fisik dari laci kasir (1101) ke brankas/bank (1102)
+    // serta membukukan selisih kas fisik (discrepancy) jika ada (4201 / 5201).
+    // =========================================================================
+    if req.actual_cash > Decimal::ZERO || expected_cash > Decimal::ZERO {
         let journal_id = Uuid::new_v4();
+        let journal_number = format!("JRN-SHT-{}", Utc::now().format("%Y%m%d%H%M%S"));
+        let terminal = shift.terminal_id.clone();
 
-        let desc = if discrepancy > Decimal::ZERO {
-            format!("Lebih Kas Shift {} oleh Kasir {}", shift.id, user_id)
-        } else {
-            format!("Kurang Kas Shift {} oleh Kasir {}", shift.id, user_id)
-        };
+        let desc = format!(
+            "Setoran Kas Penutupan Shift Terminal {} - Kas Fisik: Rp {}, Kas Laci Sistem: Rp {}{}",
+            terminal,
+            req.actual_cash,
+            expected_cash,
+            if discrepancy > Decimal::ZERO {
+                format!(" (Lebih Kas: Rp {})", discrepancy)
+            } else if discrepancy < Decimal::ZERO {
+                format!(" (Kurang Kas: Rp {})", discrepancy.abs())
+            } else {
+                " (Sesuai)".to_string()
+            }
+        );
 
-        sqlx::query(
-            "INSERT INTO journal_entries (
-                id, journal_number, journal_date, reference_type, reference_id, description,
-                total_debit, total_credit, is_closing_entry, created_at, updated_at, created_by, updated_by
-            ) VALUES ($1, $2, CURRENT_DATE, 'SHIFT_DISCREPANCY', $3, $4, $5, $5, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6, $6)",
-        )
-        .bind(journal_id)
-        .bind(journal_number)
-        .bind(shift.id)
-        .bind(desc)
-        .bind(abs_diff)
-        .bind(user_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| format!("Gagal mencatat jurnal selisih kas: {}", e))?;
+        let kas_laci_id: Uuid = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '1101'")
+            .fetch_one(&mut *tx).await.map_err(|_| "Akun 1101 Kas Laci tidak ditemukan")?;
+        let brankas_id: Uuid = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '1102'")
+            .fetch_one(&mut *tx).await.map_err(|_| "Akun 1102 Kas Brankas / Bank tidak ditemukan")?;
 
-        let kas_id: Uuid = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '1101'")
-            .fetch_one(&mut *tx).await.map_err(|_| "Akun 1101 Kas tidak ditemukan")?;
+        let mut lines = Vec::new();
 
+        // 1. Debit Kas Brankas / Bank penampung sebesar kas fisik yang disetor kasir
+        if req.actual_cash > Decimal::ZERO {
+            lines.push((
+                brankas_id,
+                req.actual_cash,
+                Decimal::ZERO,
+                "Penerimaan Setoran Kas Fisik Penutupan Shift ke Brankas / Rekening Penampung".to_string()
+            ));
+        }
+
+        // 2. Kredit Kas Laci Kasir sebesar seluruh saldo kas sistem yang disetor
+        if expected_cash > Decimal::ZERO {
+            lines.push((
+                kas_laci_id,
+                Decimal::ZERO,
+                expected_cash,
+                "Penyetoran / Pengosongan Kas Operasional Laci Kasir".to_string()
+            ));
+        }
+
+        // 3. Selisih kas fisik vs sistem (Lebih Kas -> Kredit 4201, Kurang Kas -> Debit 5201)
         if discrepancy > Decimal::ZERO {
             let rev_id: Uuid = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '4201'")
-                .fetch_one(&mut *tx).await.map_err(|_| "Akun 4201 tidak ditemukan")?;
-            sqlx::query(
-                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Lebih kas fisik', $5), ($1, $4, 0, $3, 'Pendapatan lebih kas', $5)",
-            )
-            .bind(journal_id)
-            .bind(kas_id)
-            .bind(abs_diff)
-            .bind(rev_id)
-            .bind(shift.outlet_id)
-            .execute(&mut *tx).await.map_err(|e| format!("Gagal mencatat baris jurnal: {}", e))?;
-        } else {
+                .fetch_one(&mut *tx).await.map_err(|_| "Akun 4201 Pendapatan Selisih Kasir tidak ditemukan")?;
+            lines.push((
+                rev_id,
+                Decimal::ZERO,
+                discrepancy,
+                format!("Pendapatan Lebih Kas Fisik Penutupan Shift Terminal {}", terminal)
+            ));
+        } else if discrepancy < Decimal::ZERO {
             let exp_id: Uuid = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '5201'")
-                .fetch_one(&mut *tx).await.map_err(|_| "Akun 5201 tidak ditemukan")?;
+                .fetch_one(&mut *tx).await.map_err(|_| "Akun 5201 Beban Selisih Kasir tidak ditemukan")?;
+            lines.push((
+                exp_id,
+                discrepancy.abs(),
+                Decimal::ZERO,
+                format!("Beban Kurang Kas Fisik Penutupan Shift Terminal {}", terminal)
+            ));
+        }
+
+        let total_debit: Decimal = lines.iter().map(|l| l.1).sum();
+        let total_credit: Decimal = lines.iter().map(|l| l.2).sum();
+
+        if total_debit > Decimal::ZERO && total_debit == total_credit {
             sqlx::query(
-                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Beban kurang kas fisik', $5), ($1, $4, 0, $3, 'Kredit kas fisik', $5)",
+                "INSERT INTO journal_entries (
+                    id, journal_number, journal_date, reference_type, reference_id, description,
+                    total_debit, total_credit, is_closing_entry, created_at, updated_at, created_by, updated_by
+                ) VALUES ($1, $2, CURRENT_DATE, 'SHIFT_CLOSING', $3, $4, $5, $6, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $7, $7)",
             )
             .bind(journal_id)
-            .bind(exp_id)
-            .bind(abs_diff)
-            .bind(kas_id)
-            .bind(shift.outlet_id)
-            .execute(&mut *tx).await.map_err(|e| format!("Gagal mencatat baris jurnal: {}", e))?;
+            .bind(&journal_number)
+            .bind(shift.id)
+            .bind(&desc)
+            .bind(total_debit)
+            .bind(total_credit)
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Gagal mencatat header jurnal penutupan shift: {}", e))?;
+
+            for (acc_id, deb, cred, memo) in lines {
+                sqlx::query(
+                    "INSERT INTO journal_lines (
+                        id, journal_id, account_id, debit, credit, memo, outlet_id, created_at, created_by
+                    ) VALUES (
+                        gen_random_uuid(), $1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7
+                    )",
+                )
+                .bind(journal_id)
+                .bind(acc_id)
+                .bind(deb)
+                .bind(cred)
+                .bind(memo)
+                .bind(shift.outlet_id)
+                .bind(user_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("Gagal mencatat baris jurnal penutupan shift: {}", e))?;
+            }
         }
     }
 
@@ -901,7 +1011,7 @@ pub async fn checkout(
         let allowed_qty = *allowed_free_items.get(prod_id).unwrap_or(&Decimal::ZERO);
         if *claimed_qty > allowed_qty {
             return Err(format!(
-                "Validasi Keamanan Gagal: Item gratis/hadiah yang diklaim ({}) melebihi kuota promosi yang sah ({}) sesuai aturan sistem di database.",
+                "Jumlah item gratis yang diklaim ({}) melebihi kuota promo ({}) yang berlaku.",
                 claimed_qty, allowed_qty
             ));
         }
@@ -1395,8 +1505,6 @@ pub async fn checkout(
     }
 
     let final_total = (subtotal - total_discount) + total_tax;
-    let rounding_amount = req.rounding_amount.unwrap_or(Decimal::ZERO).max(Decimal::ZERO);
-    let payable_total = (final_total - rounding_amount).max(Decimal::ZERO);
 
     let loyalty_setting: Option<LoyaltySettings> = sqlx::query_as::<_, LoyaltySettings>(
         "SELECT * FROM loyalty_settings ORDER BY created_at ASC LIMIT 1",
@@ -1524,8 +1632,93 @@ pub async fn checkout(
         }
     }
 
+    // =========================================================================
+    // AUTHORITATIVE CASH ROUNDING ENGINE (ZERO-TRUST)
+    // Sisi backend menghitung pembulatan secara otoritatif berdasarkan receipt_settings.
+    // =========================================================================
+    let cash_rounding_mode: String = sqlx::query_scalar(
+        "SELECT cash_rounding_mode FROM receipt_settings WHERE outlet_id = $1 OR outlet_id IS NULL ORDER BY outlet_id NULLS LAST LIMIT 1"
+    )
+    .bind(outlet_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .unwrap_or(None)
+    .unwrap_or_else(|| "NONE".to_string());
+
+    let has_cash_payment = resolved_payments.iter().any(|p| p.category == "CASH");
+    let non_cash_paid: Decimal = resolved_payments
+        .iter()
+        .filter(|p| p.category != "CASH")
+        .map(|p| p.amount)
+        .sum();
+
+    let remaining_for_cash = (final_total - non_cash_paid).max(Decimal::ZERO);
+
+    let auto_rounding = if has_cash_payment && remaining_for_cash > Decimal::ZERO {
+        match cash_rounding_mode.as_str() {
+            "ROUND_100_DOWN" => {
+                let rem = remaining_for_cash % Decimal::from(100);
+                if rem > Decimal::ZERO { -rem } else { Decimal::ZERO }
+            }
+            "ROUND_500_DOWN" | "FLOOR_500" => {
+                let rem = remaining_for_cash % Decimal::from(500);
+                if rem > Decimal::ZERO { -rem } else { Decimal::ZERO }
+            }
+            "ROUND_100_UP" => {
+                let rem = remaining_for_cash % Decimal::from(100);
+                if rem > Decimal::ZERO { Decimal::from(100) - rem } else { Decimal::ZERO }
+            }
+            "ROUND_500_UP" | "CEIL_500" => {
+                let rem = remaining_for_cash % Decimal::from(500);
+                if rem > Decimal::ZERO { Decimal::from(500) - rem } else { Decimal::ZERO }
+            }
+            "ROUND_100" => {
+                let rem = remaining_for_cash % Decimal::from(100);
+                if rem > Decimal::ZERO {
+                    if rem >= Decimal::from(50) {
+                        Decimal::from(100) - rem
+                    } else {
+                        -rem
+                    }
+                } else {
+                    Decimal::ZERO
+                }
+            }
+            _ => {
+                // Mode NONE: hilangkan desimal pecahan sub-rupiah jika ada
+                let fract = remaining_for_cash - remaining_for_cash.trunc();
+                if fract > Decimal::ZERO {
+                    -fract
+                } else {
+                    Decimal::ZERO
+                }
+            }
+        }
+    } else {
+        Decimal::ZERO
+    };
+
+    let rounding_amount = if let Some(r) = req.rounding_amount {
+        if r != Decimal::ZERO {
+            // Jika frontend mengirimkan angka pembulatan, pastikan arah dan tandanya konsisten dengan aturan server
+            if auto_rounding < Decimal::ZERO && r > Decimal::ZERO {
+                -r
+            } else if auto_rounding > Decimal::ZERO && r < Decimal::ZERO {
+                r.abs()
+            } else {
+                r
+            }
+        } else {
+            auto_rounding
+        }
+    } else {
+        auto_rounding
+    };
+
+    let payable_total = (final_total + rounding_amount).max(Decimal::ZERO);
+
     let total_paid: Decimal = resolved_payments.iter().map(|p| p.amount).sum();
-    if total_paid < payable_total {
+    if total_paid.round_dp(2) < payable_total.round_dp(2) {
         return Err(format!(
             "Pembayaran kurang! Total tagihan: Rp {}, Pembayaran: Rp {}",
             payable_total, total_paid
@@ -1558,7 +1751,7 @@ pub async fn checkout(
     .bind(subtotal)
     .bind(total_discount)
     .bind(total_tax)
-    .bind(final_total)
+    .bind(payable_total)
     .bind(total_paid)
     .bind(change_amount)
     .bind(total_cost)
@@ -1778,6 +1971,17 @@ pub async fn checkout(
     let manual_item_discount: Decimal = prepared_items.iter().map(|pi| pi.disc_amount).sum();
     let gross_sales_revenue = subtotal + total_flash_sale_discount + total_member_discount;
 
+    let rounding_down_amount = if rounding_amount < Decimal::ZERO {
+        rounding_amount.abs()
+    } else {
+        Decimal::ZERO
+    };
+    let rounding_up_amount = if rounding_amount > Decimal::ZERO {
+        rounding_amount
+    } else {
+        Decimal::ZERO
+    };
+
     let total_debits = net_cash_in_drawer
         + total_non_cash_paid
         + total_points_paid
@@ -1785,9 +1989,12 @@ pub async fn checkout(
         + total_member_discount
         + voucher_discount
         + manual_item_discount
-        + rounding_amount
+        + rounding_down_amount
         + total_cost;
-    let total_credits = gross_sales_revenue + total_tax + total_cost;
+    let total_credits = gross_sales_revenue
+        + total_tax
+        + total_cost
+        + rounding_up_amount;
 
     sqlx::query(
         "INSERT INTO journal_entries (
@@ -1914,20 +2121,32 @@ pub async fn checkout(
         }
     }
 
-    if rounding_amount > Decimal::ZERO {
-        let acc_rounding: Option<Uuid> = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '5201'")
+    if rounding_down_amount > Decimal::ZERO {
+        let acc_rounding_down: Option<Uuid> = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '5201'")
             .fetch_optional(&mut *tx).await.unwrap_or(None);
-        let acc_id = acc_rounding.or(acc_disc_item);
+        let acc_id = acc_rounding_down.or(acc_disc_item);
         if let Some(aid) = acc_id {
             sqlx::query(
-                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Selisih Pembulatan Kas Kasir (Rounding)', $4)",
+                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Selisih Pembulatan Kas Kasir (Potongan/Kurang Kas)', $4)",
             )
             .bind(journal_id)
             .bind(aid)
-            .bind(rounding_amount)
+            .bind(rounding_down_amount)
             .bind(line_outlet_id)
             .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal pembulatan kas: {}", e))?;
         }
+    } else if rounding_up_amount > Decimal::ZERO {
+        let acc_rounding_up: Option<Uuid> = sqlx::query_scalar("SELECT id FROM chart_of_accounts WHERE code = '4201'")
+            .fetch_optional(&mut *tx).await.unwrap_or(None);
+        let acc_id = acc_rounding_up.unwrap_or(acc_sales);
+        sqlx::query(
+            "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, 0, $3, 'Selisih Pembulatan Kas Kasir (Lebih Kas)', $4)",
+        )
+        .bind(journal_id)
+        .bind(acc_id)
+        .bind(rounding_up_amount)
+        .bind(line_outlet_id)
+        .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal pembulatan kas: {}", e))?;
     }
 
     if total_cost > Decimal::ZERO {
@@ -2483,6 +2702,7 @@ pub async fn list_sales(
             "total_amount": r.get::<Decimal, _>("total_amount"),
             "paid_amount": r.get::<Decimal, _>("paid_amount"),
             "change_amount": r.get::<Decimal, _>("change_amount"),
+            "rounding_amount": r.try_get::<Decimal, _>("rounding_amount").unwrap_or(Decimal::ZERO),
             "total_cost_amount": r.get::<Decimal, _>("total_cost_amount"),
             "status": r.get::<String, _>("status"),
             "return_status": r.try_get::<String, _>("return_status").unwrap_or_else(|_| "NONE".to_string()),
@@ -2687,6 +2907,7 @@ pub async fn get_sale_detail(
         "total_amount": sale_row.get::<Decimal, _>("total_amount"),
         "paid_amount": sale_row.get::<Decimal, _>("paid_amount"),
         "change_amount": sale_row.get::<Decimal, _>("change_amount"),
+        "rounding_amount": sale_row.try_get::<Decimal, _>("rounding_amount").unwrap_or(Decimal::ZERO),
         "total_cost_amount": sale_row.get::<Decimal, _>("total_cost_amount"),
         "status": sale_row.get::<String, _>("status"),
         "return_status": sale_row.try_get::<String, _>("return_status").unwrap_or_else(|_| "NONE".to_string()),
@@ -2856,4 +3077,339 @@ pub async fn get_sales_stats(
         "total_discount": total_discount,
         "avg_basket_size": avg_basket,
     }))
+}
+
+pub async fn list_shifts(
+    pool: &PgPool,
+    query: Option<crate::models::shift::ListShiftsQuery>,
+    owner_id: Option<Uuid>,
+) -> Result<(Vec<serde_json::Value>, i64), String> {
+    let q = query.unwrap_or_default();
+    let mut filter_sql = " WHERE 1=1".to_string();
+
+    if let Some(uid) = owner_id {
+        filter_sql.push_str(&format!(" AND cs.user_id = '{uid}'"));
+    } else if let Some(uid) = q.user_id {
+        filter_sql.push_str(&format!(" AND cs.user_id = '{uid}'"));
+    }
+
+    if let Some(oid) = q.outlet_id {
+        filter_sql.push_str(&format!(" AND cs.outlet_id = '{oid}'"));
+    }
+
+    if let Some(st) = &q.status {
+        if !st.trim().is_empty() && st != "ALL" {
+            filter_sql.push_str(&format!(" AND cs.status = '{}'", st.trim()));
+        }
+    }
+
+    if let Some(s) = &q.search {
+        if !s.trim().is_empty() {
+            let clean = s.trim().replace('\'', "''");
+            filter_sql.push_str(&format!(
+                " AND (cs.terminal_id ILIKE '%{clean}%' OR u.full_name ILIKE '%{clean}%' OR u.username ILIKE '%{clean}%')"
+            ));
+        }
+    }
+
+    let count_sql = format!(
+        "SELECT COUNT(*)::bigint FROM cashier_shifts cs
+         LEFT JOIN users u ON cs.user_id = u.id
+         {filter_sql}"
+    );
+    let total_items: i64 = sqlx::query_scalar(&count_sql)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| format!("Database error counting shifts: {}", e))?;
+
+    let page = q.page.unwrap_or(1).max(1);
+    let page_size = q.page_size.unwrap_or(15).max(1);
+    let offset = (page - 1) * page_size;
+
+    let sql = format!(
+        "SELECT cs.id, cs.outlet_id, cs.terminal_id, cs.user_id, cs.opened_at, cs.closed_at,
+                cs.opening_cash, cs.expected_cash, cs.actual_cash, cs.discrepancy, cs.status,
+                cs.supervisor_approval_id, cs.created_at, cs.updated_at,
+                u.full_name as cashier_name, u.username as cashier_username,
+                spv.full_name as supervisor_name,
+                o.name as outlet_name, o.code as outlet_code,
+                COALESCE((
+                    SELECT COUNT(s.id)::bigint FROM sales s WHERE s.shift_id = cs.id AND s.status = 'COMPLETED'
+                ), 0) as total_sales_count,
+                COALESCE((
+                    SELECT SUM(s.total_amount) FROM sales s WHERE s.shift_id = cs.id AND s.status = 'COMPLETED'
+                ), 0) as total_net_sales,
+                COALESCE((
+                    SELECT SUM(sp.amount) FROM sale_payments sp
+                    JOIN sales s ON sp.sale_id = s.id
+                    JOIN payment_methods pm ON sp.payment_method_id = pm.id
+                    WHERE s.shift_id = cs.id AND s.status = 'COMPLETED' AND pm.category = 'CASH'
+                ), 0) as total_cash_sales,
+                COALESCE((
+                    SELECT SUM(amount) FROM cash_drops cd WHERE cd.shift_id = cs.id
+                ), 0) as total_cash_drops,
+                COALESCE((
+                    SELECT SUM(amount) FROM expense_transactions et WHERE et.shift_id = cs.id AND et.status = 'COMPLETED'
+                ), 0) as total_expenses,
+                COALESCE((
+                    SELECT SUM(refund_amount) FROM sales_returns sr WHERE sr.shift_id = cs.id AND sr.refund_method = 'CASH'
+                ), 0) as total_sales_returns
+         FROM cashier_shifts cs
+         LEFT JOIN users u ON cs.user_id = u.id
+         LEFT JOIN users spv ON cs.supervisor_approval_id = spv.id
+         LEFT JOIN outlets o ON cs.outlet_id = o.id
+         {filter_sql}
+         ORDER BY cs.opened_at DESC
+         LIMIT {page_size} OFFSET {offset}"
+    );
+
+    let rows = sqlx::query(&sql)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| format!("Database error fetching shifts: {}", e))?;
+
+    let shifts = rows.into_iter().map(|r| {
+        serde_json::json!({
+            "id": r.get::<Uuid, _>("id"),
+            "outlet_id": r.get::<Option<Uuid>, _>("outlet_id"),
+            "outlet_name": r.get::<Option<String>, _>("outlet_name"),
+            "outlet_code": r.get::<Option<String>, _>("outlet_code"),
+            "terminal_id": r.get::<String, _>("terminal_id"),
+            "user_id": r.get::<Uuid, _>("user_id"),
+            "cashier_name": r.get::<Option<String>, _>("cashier_name"),
+            "cashier_username": r.get::<Option<String>, _>("cashier_username"),
+            "supervisor_name": r.get::<Option<String>, _>("supervisor_name"),
+            "opened_at": r.get::<chrono::DateTime<chrono::Utc>, _>("opened_at").to_rfc3339(),
+            "closed_at": r.get::<Option<chrono::DateTime<chrono::Utc>>, _>("closed_at").map(|t| t.to_rfc3339()),
+            "opening_cash": r.get::<Decimal, _>("opening_cash"),
+            "expected_cash": r.get::<Option<Decimal>, _>("expected_cash"),
+            "actual_cash": r.get::<Option<Decimal>, _>("actual_cash"),
+            "discrepancy": r.get::<Option<Decimal>, _>("discrepancy"),
+            "status": r.get::<String, _>("status"),
+            "total_sales_count": r.get::<i64, _>("total_sales_count"),
+            "total_net_sales": r.get::<Decimal, _>("total_net_sales"),
+            "total_cash_sales": r.get::<Decimal, _>("total_cash_sales"),
+            "total_cash_drops": r.get::<Decimal, _>("total_cash_drops"),
+            "total_expenses": r.get::<Decimal, _>("total_expenses"),
+            "total_sales_returns": r.get::<Decimal, _>("total_sales_returns"),
+        })
+    }).collect();
+
+    Ok((shifts, total_items))
+}
+
+pub async fn get_shift_stats(
+    pool: &PgPool,
+    owner_id: Option<Uuid>,
+    outlet_id: Option<Uuid>,
+) -> Result<serde_json::Value, String> {
+    let mut filter_clause = " WHERE 1=1".to_string();
+    if let Some(uid) = owner_id {
+        filter_clause.push_str(&format!(" AND cs.user_id = '{uid}'"));
+    }
+    if let Some(oid) = outlet_id {
+        filter_clause.push_str(&format!(" AND cs.outlet_id = '{oid}'"));
+    }
+
+    let sql = format!(
+        "SELECT 
+            COUNT(*)::bigint as total_shifts,
+            COUNT(*) FILTER (WHERE cs.status = 'OPEN')::bigint as open_shifts,
+            COUNT(*) FILTER (WHERE cs.status = 'CLOSED')::bigint as closed_shifts,
+            COALESCE(SUM(cs.opening_cash), 0) as total_opening_cash,
+            COALESCE(SUM(cs.actual_cash), 0) as total_actual_cash,
+            COALESCE(SUM(cs.discrepancy), 0) as total_discrepancy,
+            COALESCE((
+                SELECT SUM(s.total_amount)
+                FROM sales s
+                JOIN cashier_shifts cs2 ON s.shift_id = cs2.id
+                WHERE s.status = 'COMPLETED'
+                {}
+            ), 0) as total_shift_sales
+         FROM cashier_shifts cs
+         {}",
+        if let Some(oid) = outlet_id {
+            format!(" AND cs2.outlet_id = '{oid}'")
+        } else {
+            "".to_string()
+        },
+        filter_clause
+    );
+
+    let row = sqlx::query(&sql)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| format!("Database error fetching shift stats: {}", e))?;
+
+    let total_shifts: i64 = row.get("total_shifts");
+    let open_shifts: i64 = row.get("open_shifts");
+    let closed_shifts: i64 = row.get("closed_shifts");
+    let total_opening_cash: Decimal = row.get("total_opening_cash");
+    let total_actual_cash: Decimal = row.get("total_actual_cash");
+    let total_discrepancy: Decimal = row.get("total_discrepancy");
+    let total_shift_sales: Decimal = row.get("total_shift_sales");
+
+    Ok(serde_json::json!({
+        "total_shifts": total_shifts,
+        "open_shifts": open_shifts,
+        "closed_shifts": closed_shifts,
+        "total_opening_cash": total_opening_cash,
+        "total_actual_cash": total_actual_cash,
+        "total_discrepancy": total_discrepancy,
+        "total_shift_sales": total_shift_sales,
+    }))
+}
+
+pub async fn get_shift_detail_by_id(
+    pool: &PgPool,
+    shift_id: Uuid,
+) -> Result<crate::models::shift::ShiftSummaryResponse, String> {
+    let shift_row = sqlx::query_as::<_, CashierShift>(
+        "SELECT cs.*, o.name as outlet_name, o.code as outlet_code
+         FROM cashier_shifts cs
+         LEFT JOIN outlets o ON cs.outlet_id = o.id
+         WHERE cs.id = $1"
+    )
+    .bind(shift_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| format!("Database error: {}", e))?
+    .ok_or_else(|| "Shift tidak ditemukan".to_string())?;
+
+    let cashier_name = sqlx::query_scalar::<_, String>("SELECT full_name FROM users WHERE id = $1")
+        .bind(shift_row.user_id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or_else(|_| "Kasir".to_string());
+
+    // Hitung rekap sales dalam shift ini
+    let sales_row = sqlx::query(
+        "SELECT 
+            COUNT(*)::bigint as total_count,
+            COALESCE(SUM(subtotal), 0) as gross_sales,
+            COALESCE(SUM(discount_amount), 0) as discounts,
+            COALESCE(SUM(tax_amount), 0) as tax,
+            COALESCE(SUM(total_amount), 0) as net_sales
+        FROM sales 
+        WHERE shift_id = $1 AND status = 'COMPLETED'",
+    )
+    .bind(shift_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| format!("Gagal mengkalkulasi penjualan shift: {}", e))?;
+
+    let total_sales_count: i64 = sales_row.get("total_count");
+    let gross_sales: Decimal = sales_row.get("gross_sales");
+    let discounts: Decimal = sales_row.get("discounts");
+    let tax: Decimal = sales_row.get("tax");
+    let net_sales: Decimal = sales_row.get("net_sales");
+
+    // Hitung rincian pembayaran
+    let payments_rows = sqlx::query(
+        "SELECT 
+            pm.id as payment_method_id,
+            pm.name as payment_method_name,
+            pm.category,
+            COALESCE(SUM(sp.amount), 0) as total_amount,
+            COUNT(sp.id)::bigint as tx_count
+        FROM sale_payments sp
+        JOIN sales s ON sp.sale_id = s.id
+        JOIN payment_methods pm ON sp.payment_method_id = pm.id
+        WHERE s.shift_id = $1 AND s.status = 'COMPLETED'
+        GROUP BY pm.id, pm.name, pm.category",
+    )
+    .bind(shift_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("Gagal mengkalkulasi rincian pembayaran: {}", e))?;
+
+    let mut payment_breakdowns = Vec::new();
+    let mut total_cash = Decimal::ZERO;
+    let mut total_qris = Decimal::ZERO;
+    let mut total_card = Decimal::ZERO;
+    let mut total_points = Decimal::ZERO;
+    let mut total_points_count = 0;
+
+    for row in payments_rows {
+        let pm_id: Uuid = row.get("payment_method_id");
+        let pm_name: String = row.get("payment_method_name");
+        let category: String = row.get("category");
+        let amount: Decimal = row.get("total_amount");
+        let tx_count: i64 = row.get("tx_count");
+
+        match category.as_str() {
+            "CASH" => total_cash += amount,
+            "QRIS" => total_qris += amount,
+            "EDC" => total_card += amount,
+            "POINTS" => {
+                total_points += amount;
+                total_points_count += tx_count;
+            }
+            _ => {}
+        }
+
+        payment_breakdowns.push(crate::models::shift::ShiftPaymentBreakdown {
+            payment_method_id: pm_id,
+            payment_method_name: pm_name,
+            category,
+            total_amount: amount,
+            transaction_count: tx_count,
+        });
+    }
+
+    let shift_expenses: Decimal = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount), 0) FROM expense_transactions WHERE shift_id = $1 AND status = 'COMPLETED'"
+    )
+    .bind(shift_id)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(Decimal::ZERO);
+
+    let shift_cash_drops: Decimal = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount), 0) FROM cash_drops WHERE shift_id = $1"
+    )
+    .bind(shift_id)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(Decimal::ZERO);
+
+    let shift_sales_returns: Decimal = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(refund_amount), 0) FROM sales_returns WHERE shift_id = $1 AND refund_method = 'CASH'"
+    )
+    .bind(shift_id)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(Decimal::ZERO);
+
+    let expected_cash = shift_row.expected_cash.unwrap_or_else(|| {
+        shift_row.opening_cash + total_cash - shift_expenses - shift_cash_drops - shift_sales_returns
+    });
+
+    Ok(crate::models::shift::ShiftSummaryResponse {
+        shift: shift_row.clone(),
+        cashier_name,
+        outlet_name: shift_row.outlet_name.clone(),
+        opened_at: shift_row.opened_at,
+        closed_at: shift_row.closed_at,
+        total_sales_count,
+        total_gross_sales: gross_sales,
+        total_discounts: discounts,
+        total_tax: tax,
+        total_net_sales: net_sales,
+        opening_cash: shift_row.opening_cash,
+        total_cash_tendered: total_cash,
+        total_cash_change: Decimal::ZERO,
+        net_cash_sales: total_cash,
+        total_expenses: shift_expenses,
+        expected_cash_in_drawer: expected_cash,
+        actual_cash_counted: shift_row.actual_cash,
+        discrepancy: shift_row.discrepancy,
+        total_cash_received: total_cash,
+        total_qris_received: total_qris,
+        total_card_received: total_card,
+        total_points_redeemed: total_points,
+        total_points_count,
+        total_voucher_discount: discounts,
+        payment_breakdowns,
+    })
 }

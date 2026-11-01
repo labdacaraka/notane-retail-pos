@@ -240,8 +240,8 @@ pub async fn cancel_expense(
     }
 
     // Validasi tanggal transaksi terhadap proteksi tutup buku
-    let today = Local::now().date_naive();
-    check_transaction_date_allowed(pool, today, Some(expense.outlet_id)).await?;
+    let rev_date = Local::now().date_naive().max(expense.transaction_date);
+    check_transaction_date_allowed(pool, rev_date, Some(expense.outlet_id)).await?;
 
     let mut tx = pool.begin().await.map_err(|e| format!("Database error: {}", e))?;
 
@@ -264,7 +264,7 @@ pub async fn cancel_expense(
     )
     .bind(rev_journal_id)
     .bind(&rev_journal_number)
-    .bind(today)
+    .bind(rev_date)
     .bind(expense.id)
     .bind(&rev_desc)
     .bind(expense.amount)

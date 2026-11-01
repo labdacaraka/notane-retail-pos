@@ -1643,15 +1643,23 @@ async function handlePrintLabels() {
     <!-- ===================================================================== -->
     <!-- MODAL PRATINJAU DOKUMEN CETAK LABEL (Interactive Print Preview)      -->
     <!-- ===================================================================== -->
-    <div
-      v-if="showPreviewModal"
-      class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5"
-      @click.self="showPreviewModal = false"
-    >
+    <Teleport to="body">
       <div
-        class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        v-if="showPreviewModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
       >
-        <!-- Preview Modal Header -->
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showPreviewModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-3 sm:p-5 text-center pointer-events-none">
+          <div
+            class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden text-left pointer-events-auto my-8"
+          >
+            <!-- Preview Modal Header -->
         <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center shadow-2xs shrink-0">
@@ -1746,6 +1754,8 @@ async function handlePrintLabels() {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
   </AdminLayout>
 </template>
 

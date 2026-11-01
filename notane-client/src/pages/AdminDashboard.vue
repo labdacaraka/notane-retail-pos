@@ -121,6 +121,16 @@ const hubSections = computed(() => {
           requiredFeature: 'promotions',
         },
         {
+          title: 'Banner Layar Pelanggan',
+          desc: 'Media banner promosi gambar dan pengumuman pada monitor customer display',
+          icon: 'fluent-color:image-24',
+          path: '/admin/display-banners',
+          color: 'from-sky-500 to-blue-600',
+          badge: 'Customer Display',
+          permission: ['display_banners:read', 'master:read'],
+          requiredFeature: 'customer_display',
+        },
+        {
           title: 'Parameter Retail',
           desc: 'Satuan barang (termasuk desimal/timbangan), kategori, merek & distributor',
           icon: 'fluent-color:settings-24',
@@ -134,6 +144,16 @@ const hubSections = computed(() => {
     {
       category: 'TRANSAKSI & OPERASIONAL BISNIS',
       tiles: [
+        {
+          title: 'Statistik & Analisis Bisnis',
+          desc: 'Grafik performa penjualan, perbandingan pembelian, beban operasional, pendapatan lain & laba bersih',
+          icon: 'fluent-color:data-pie-24',
+          path: '/admin/analytics',
+          color: 'from-emerald-500 to-teal-700',
+          badge: 'Statistik & Grafik',
+          permission: ['analytics:read', 'report:read', 'report:view', 'sales:read', 'accounting:read'],
+          requiredFeature: 'analytics',
+        },
         {
           title: 'Transaksi Penjualan',
           desc: 'Riwayat penjualan kasir, cetak ulang struk, dan pembatalan nota (void)',
@@ -179,6 +199,16 @@ const hubSections = computed(() => {
           badge: 'Beban Operasional',
           permission: ['expenses:read', 'expenses:categories', 'accounting:read'],
           requiredFeature: 'expenses',
+        },
+        {
+          title: 'Pendapatan Lain-lain',
+          desc: 'Pencatatan kas masuk operasional non-penjualan, pendapatan sewa, komisi & jasa',
+          icon: 'flat-color-icons:paid',
+          path: '/admin/other-income',
+          color: 'from-emerald-500 to-green-600',
+          badge: 'Pendapatan Non-Sales',
+          permission: ['other_income:read', 'other_income:categories', 'accounting:read'],
+          requiredFeature: 'other_income',
         },
       ],
     },

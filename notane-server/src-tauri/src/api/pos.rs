@@ -1,8 +1,9 @@
 use crate::models::sales::{CheckoutRequest, VoidSaleRequest};
 use crate::models::shift::{CloseShiftRequest, OpenShiftRequest};
 use crate::services::pos_service::{
-    close_shift, get_current_shift, get_sale_detail, get_sales_stats, list_sales, lookup_product,
-    open_shift, void_sale, SalesQueryFilter,
+    close_shift, get_current_shift, get_sale_detail, get_sales_stats, get_shift_detail_by_id,
+    get_shift_stats, list_sales, list_shifts, lookup_product, open_shift, void_sale,
+    SalesQueryFilter,
 };
 use crate::utils::jwt::{require_any_permission, verify_jwt};
 use axum::{
@@ -20,6 +21,9 @@ use uuid::Uuid;
 
 pub fn pos_routes() -> Router<PgPool> {
     Router::new()
+        .route("/shifts", get(list_shifts_handler))
+        .route("/shifts/stats", get(shift_stats_handler))
+        .route("/shifts/{id}", get(get_shift_detail_handler))
         .route("/shifts/open", post(open_shift_handler))
         .route("/shifts/close", post(close_shift_handler))
         .route("/shifts/current", get(current_shift_handler))
@@ -133,6 +137,125 @@ async fn current_shift_handler(
         Ok(shift) => (StatusCode::OK, Json(json!({ "success": true, "data": shift }))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "message": err })),
+        )
+            .into_response(),
+    }
+}
+
+async fn list_shifts_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Query(query): Query<crate::models::shift::ListShiftsQuery>,
+) -> impl IntoResponse {
+    let claims = match require_any_permission(&pool, &headers, &["shift:read", "shift:view", "report:view"]).await {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+
+    let has_all_ownership = crate::utils::jwt::check_permission(&pool, &claims, "shift:read").await
+        && (claims.role_name == "SUPERADMIN" || claims.role_name == "STORE_MANAGER" || claims.role_name == "SUPERVISOR");
+    let owner_id = if has_all_ownership { None } else { Some(claims.sub) };
+
+    let page = query.page.unwrap_or(1).max(1);
+    let page_size = query.page_size.unwrap_or(15).max(1);
+
+    match list_shifts(&pool, Some(query), owner_id).await {
+        Ok((shifts, total)) => {
+            let total_pages = (total as f64 / page_size as f64).ceil() as i64;
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "success": true,
+                    "data": shifts,
+                    "total_items": total,
+                    "total_pages": total_pages,
+                    "page": page,
+                    "page_size": page_size
+                })),
+            )
+                .into_response()
+        }
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "message": err })),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct ShiftStatsQuery {
+    outlet_id: Option<Uuid>,
+}
+
+async fn shift_stats_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Query(query): Query<ShiftStatsQuery>,
+) -> impl IntoResponse {
+    let claims = match require_any_permission(&pool, &headers, &["shift:read", "report:view", "shift:view"]).await {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+
+    let has_all_ownership = crate::utils::jwt::check_permission(&pool, &claims, "shift:read").await
+        && (claims.role_name == "SUPERADMIN" || claims.role_name == "STORE_MANAGER" || claims.role_name == "SUPERVISOR");
+    let owner_id = if has_all_ownership { None } else { Some(claims.sub) };
+
+    match get_shift_stats(&pool, owner_id, query.outlet_id).await {
+        Ok(stats) => (
+            StatusCode::OK,
+            Json(json!({
+                "success": true,
+                "data": stats
+            })),
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "message": err })),
+        )
+            .into_response(),
+    }
+}
+
+async fn get_shift_detail_handler(
+    State(pool): State<PgPool>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> impl IntoResponse {
+    let claims = match require_any_permission(&pool, &headers, &["shift:read", "shift:view", "report:view"]).await {
+        Ok(c) => c,
+        Err(resp) => return resp.into_response(),
+    };
+
+    let has_all_ownership = crate::utils::jwt::check_permission(&pool, &claims, "shift:read").await
+        && (claims.role_name == "SUPERADMIN" || claims.role_name == "STORE_MANAGER" || claims.role_name == "SUPERVISOR");
+
+    match get_shift_detail_by_id(&pool, id).await {
+        Ok(shift_data) => {
+            if !has_all_ownership && shift_data.shift.user_id != claims.sub {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "success": false,
+                        "message": "Anda tidak memiliki akses untuk melihat rincian shift kasir lain"
+                    })),
+                )
+                    .into_response();
+            }
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "success": true,
+                    "data": shift_data
+                })),
+            )
+                .into_response()
+        }
+        Err(err) => (
+            StatusCode::NOT_FOUND,
             Json(json!({ "success": false, "message": err })),
         )
             .into_response(),

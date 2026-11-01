@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useProviderStore, type License } from '../stores/providerStore'
+import { useProviderStore, type License, type LicenseTier } from '../stores/providerStore'
 import { usePermission } from '../composables/usePermission'
 import PaginationBar from '../components/common/PaginationBar.vue'
 import ClientSearchSelect from '../components/common/ClientSearchSelect.vue'
@@ -38,10 +38,13 @@ const route = useRoute()
 const providerStore = useProviderStore()
 const { hasPermission } = usePermission()
 
+// Tiers list for select & filter
+const allTiers = ref<LicenseTier[]>([])
+
 // Server-side filter & sort
 const searchQuery = ref('')
 const selectedStatus = ref<'ALL' | 'ACTIVE' | 'SUSPENDED' | 'EXPIRED'>('ALL')
-const selectedTier = ref<'ALL' | 'BASIC' | 'PRO' | 'ENTERPRISE'>('ALL')
+const selectedTier = ref<string>('ALL')
 const selectedClaim = ref<'ALL' | 'CLAIMED' | 'UNCLAIMED'>('ALL')
 const sortBy = ref<'created_at' | 'license_key' | 'client_name' | 'tier' | 'expires_at' | 'status'>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
@@ -55,10 +58,7 @@ const formErrors = ref<Record<string, string>>({})
 
 const licenseSchema = z.object({
   client_id: z.string().min(1, 'Klien harus dipilih'),
-  tier: z.enum(['BASIC', 'PRO', 'ENTERPRISE']),
-  max_terminals: z.number().int().min(1).max(1000),
-  expires_in_days: z.number().int().min(1),
-  grace_period_days: z.number().int().min(0),
+  tier_id: z.string().min(1, 'Tier lisensi harus dipilih'),
   notes: z.string().optional(),
   custom_key: z.string().optional(),
 })
@@ -66,11 +66,14 @@ const licenseSchema = z.object({
 const availableFeatures = [
   { id: 'membership', name: 'Pelanggan & Membership', desc: 'Loyalty point, kartu member, & diskon tier member' },
   { id: 'accounting', name: 'Akuntansi & Pembukuan', desc: 'Bagan akun (COA), jurnal umum, neraca & laba rugi' },
+  { id: 'analytics', name: 'Statistik & Analisis Bisnis', desc: 'Dasbor statistik eksekutif, grafik tren, analisis performa penjualan' },
   { id: 'multi_outlet', name: 'Multi-Outlet Cabang', desc: 'Manajemen banyak cabang dan transfer stok antar-outlet' },
   { id: 'inventory_batch', name: 'Manajemen Batch & FEFO', desc: 'Nomor batch & rotasi produk berdasarkan kadaluarsa' },
-  { id: 'promotions', name: 'Promosi Retail, Voucher & Flash Sale', desc: 'Promo diskon otomatis, voucher belanja & flash sale' },
-  { id: 'expenses', name: 'Biaya Operasional Toko', desc: 'Pencatatan pengeluaran kas / petty cash operasional' },
-  { id: 'audit_log', name: 'Audit Trail & Log Keamanan', desc: 'Rekaman riwayat aktivitas kasir & supervisor' },
+  { id: 'promotions', name: 'Promosi Retail & Flash Sale', desc: 'Promo diskon otomatis, voucher belanja & flash sale' },
+  { id: 'expenses', name: 'Biaya Operasional Toko', desc: 'Pencatatan pengeluaran operasional & kas kecil' },
+  { id: 'other_income', name: 'Pendapatan Lain-lain', desc: 'Pencatatan pendapatan non-penjualan & kas masuk lain' },
+  { id: 'customer_display', name: 'Customer Display & Banner Promo', desc: 'Layar pelanggan kedua dengan banner promosi produk' },
+  { id: 'audit_log', name: 'Audit Trail & Keamanan', desc: 'Rekaman riwayat aktivitas kasir & supervisor' },
   { id: 'label_printing', name: 'Cetak Label Harga & Barcode Rak', desc: 'Desain dan cetak label barcode produk & rak display' },
   { id: 'remove_branding', name: 'White-Label (Remove Branding)', desc: 'Hilangkan logo dan atribusi Notane pada struk & antarmuka' },
 ]
@@ -86,14 +89,18 @@ function parseFeatures(featuresStr: string | string[]): string[] {
 
 const form = ref({
   client_id: '',
-  tier: 'ENTERPRISE' as 'BASIC' | 'PRO' | 'ENTERPRISE',
-  max_terminals: 5,
-  expires_in_days: 365,
-  grace_period_days: 7,
-  features: availableFeatures.map(f => f.id),
+  tier_id: '',
   notes: '',
   custom_key: '',
 })
+
+const selectedTierObj = computed(() => {
+  return allTiers.value.find((t) => t.id === form.value.tier_id)
+})
+
+async function loadTiers() {
+  allTiers.value = await providerStore.fetchAllTiers()
+}
 
 async function loadData(page?: number, pageSize?: number) {
   await providerStore.fetchLicenses({
@@ -123,6 +130,7 @@ watch([selectedStatus, selectedTier, selectedClaim], () => {
 
 onMounted(async () => {
   await providerStore.fetchClients({ page: 1, page_size: 100 })
+  await loadTiers()
   await loadData(1)
 
   if (route.query.action === 'new') {
@@ -144,27 +152,15 @@ function handleSort(column: 'created_at' | 'license_key' | 'client_name' | 'tier
 }
 
 function openCreateModal() {
+  const defaultTier = allTiers.value.find((t) => t.is_active === 1) || allTiers.value[0]
   form.value = {
     client_id: route.query.client_id ? String(route.query.client_id) : '',
-    tier: 'ENTERPRISE',
-    max_terminals: 5,
-    expires_in_days: 365,
-    grace_period_days: 7,
-    features: availableFeatures.map(f => f.id),
+    tier_id: defaultTier?.id || '',
     notes: '',
     custom_key: '',
   }
   formErrors.value = {}
   isModalOpen.value = true
-}
-
-function toggleFeature(id: string) {
-  const idx = form.value.features.indexOf(id)
-  if (idx > -1) {
-    form.value.features.splice(idx, 1)
-  } else {
-    form.value.features.push(id)
-  }
 }
 
 async function handleSubmit() {
@@ -177,10 +173,22 @@ async function handleSubmit() {
     return
   }
 
+  const tier = selectedTierObj.value
+  if (!tier) {
+    formErrors.value.tier_id = 'Pilih tier lisensi terlebih dahulu'
+    return
+  }
+
   isSubmitting.value = true
   const ok = await providerStore.generateLicense({
-    ...res.data,
-    features: form.value.features,
+    client_id: res.data.client_id,
+    tier_id: tier.id,
+    tier: tier.code,
+    max_terminals: Number(tier.default_max_terminals) || 1,
+    expires_in_days: Number(tier.default_validity_days) || 365,
+    grace_period_days: Number(tier.default_grace_period_days) ?? 7,
+    features: parseFeatures(tier.features || '[]'),
+    notes: res.data.notes?.trim() || undefined,
     custom_key: form.value.custom_key.trim() || undefined,
   })
   isSubmitting.value = false
@@ -269,9 +277,7 @@ async function confirmDelete(lic: License) {
           class="bg-slate-900 border border-slate-800 text-slate-300 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-brand-500 cursor-pointer"
         >
           <option value="ALL">Semua Tier</option>
-          <option value="BASIC">BASIC</option>
-          <option value="PRO">PRO</option>
-          <option value="ENTERPRISE">ENTERPRISE</option>
+          <option v-for="t in allTiers" :key="t.id" :value="t.code">{{ t.name }} ({{ t.code }})</option>
         </select>
 
         <!-- Status Klaim Filter -->
@@ -761,99 +767,78 @@ async function confirmDelete(lic: License) {
 
           <!-- Tier Lisensi -->
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Tier Lisensi *</label>
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                v-for="t in (['BASIC', 'PRO', 'ENTERPRISE'] as const)"
-                :key="t"
-                type="button"
-                @click="form.tier = t"
-                class="py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer"
-                :class="form.tier === t ? 'bg-brand-500 text-white border-brand-400 shadow-sm' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'"
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih Paket Tier Lisensi *</label>
+            <select
+              v-model="form.tier_id"
+              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500 cursor-pointer"
+            >
+              <option value="" disabled>-- Pilih Tier Lisensi --</option>
+              <option
+                v-for="t in allTiers.filter(t => t.is_active === 1)"
+                :key="t.id"
+                :value="t.id"
               >
-                {{ t }}
-              </button>
-            </div>
+                {{ t.name }} ({{ t.code }}) — {{ t.default_max_terminals }} Terminal, {{ t.default_validity_days }} Hari, Grace {{ t.default_grace_period_days }} Hari
+              </option>
+            </select>
+            <span v-if="formErrors.tier_id" class="text-xs text-rose-500 mt-1 block">{{ formErrors.tier_id }}</span>
           </div>
 
-          <!-- Kuota Terminal & Masa Berlaku -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Kapasitas Terminal Kasir Klien (notane-client) *</label>
-              <input
-                v-model.number="form.max_terminals"
-                type="number"
-                min="1"
-                max="1000"
-                class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500 font-mono"
-              />
-              <span class="text-[10px] text-slate-400 mt-1 block">Batas maksimal komputer kasir client (notane-client) yang dapat terhubung bersamaan ke 1 notane-server.</span>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1">Masa Berlaku (Hari)</label>
-              <input
-                v-model.number="form.expires_in_days"
-                type="number"
-                min="1"
-                class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500 font-mono"
-              />
-            </div>
-          </div>
-
-          <!-- Grace Period -->
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Toleransi Grace Period Offline (Hari)</label>
-            <input
-              v-model.number="form.grace_period_days"
-              type="number"
-              min="0"
-              placeholder="Contoh: 7 hari toleransi offline"
-              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500 font-mono"
-            />
-          </div>
-
-          <!-- Fitur Diaktifkan -->
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="block text-xs font-semibold text-slate-300">Modul Fitur Opsi (Add-ons)</label>
-              <span class="text-[10px] text-slate-500 font-mono">{{ form.features.length }} Modul Dipilih</span>
-            </div>
-            <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 mb-2.5 flex items-start gap-2">
-              <ShieldCheck class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <span>
-                <strong class="text-slate-200">Fitur Inti / Core POS:</strong> POS Kasir & Struk, Master Produk, Pembelian Dasar, Shift Kasir, Pengguna & Mode Offline selalu aktif permanen secara default.
+          <!-- Ringkasan Konfigurasi Paket Tier (Otomatis & Read-Only) -->
+          <div v-if="selectedTierObj" class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <div class="flex items-center gap-1.5 font-bold text-white">
+                <Layers class="w-4 h-4 text-brand-400" />
+                <span>Spesifikasi Paket {{ selectedTierObj.name }} ({{ selectedTierObj.code }})</span>
+              </div>
+              <span class="text-[11px] font-mono text-brand-400 font-semibold">
+                {{ parseFeatures(selectedTierObj.features).length }} Modul Termasuk
               </span>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <label
-                v-for="feat in availableFeatures"
-                :key="feat.id"
-                class="flex items-start gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors"
-                :class="form.features.includes(feat.id)
-                  ? feat.id === 'remove_branding'
-                    ? 'bg-purple-500/15 border-purple-500/50 text-purple-300 font-semibold'
-                    : 'bg-brand-500/10 border-brand-500/40 text-brand-300'
-                  : 'bg-slate-950 border-slate-800 text-slate-400'"
-              >
-                <input
-                  type="checkbox"
-                  :checked="form.features.includes(feat.id)"
-                  @change="toggleFeature(feat.id)"
-                  class="rounded border-slate-700 bg-slate-900 text-brand-600 focus:ring-0 mt-0.5"
-                />
-                <div class="space-y-0.5">
-                  <div class="flex items-center gap-1.5 font-medium">
-                    <Sparkles v-if="feat.id === 'remove_branding'" class="w-3.5 h-3.5 text-purple-400" />
-                    <span>{{ feat.name }}</span>
-                  </div>
-                  <div class="text-[10px] text-slate-500 leading-tight">{{ feat.desc }}</div>
-                </div>
-              </label>
+
+            <!-- Stat parameter tiles -->
+            <div class="grid grid-cols-3 gap-2">
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-center">
+                <span class="text-[10px] text-slate-400 block">Kapasitas Terminal</span>
+                <span class="text-xs font-bold text-slate-100 font-mono">{{ selectedTierObj.default_max_terminals }} Kasir</span>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-center">
+                <span class="text-[10px] text-slate-400 block">Masa Berlaku</span>
+                <span class="text-xs font-bold text-slate-100 font-mono">{{ selectedTierObj.default_validity_days }} Hari</span>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-center">
+                <span class="text-[10px] text-slate-400 block">Toleransi Offline</span>
+                <span class="text-xs font-bold text-slate-100 font-mono">{{ selectedTierObj.default_grace_period_days }} Hari</span>
+              </div>
             </div>
-            <p v-if="form.features.includes('remove_branding')" class="mt-2 text-[11px] text-purple-300/90 bg-purple-950/40 border border-purple-500/30 p-2.5 rounded-xl flex items-start gap-2">
-              <Shield class="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-              <span><strong>White-Label:</strong> Menghilangkan logo dan atribusi Notane dari aplikasi kasir, layar pelanggan, dan back-office.</span>
+
+            <p v-if="selectedTierObj.description" class="text-xs text-slate-400 italic">
+              {{ selectedTierObj.description }}
             </p>
+
+            <!-- Features badges -->
+            <div class="space-y-1.5 pt-1 border-t border-slate-800/80">
+              <div class="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Modul Fitur Aktif:</div>
+              <div class="flex flex-wrap gap-1.5">
+                <span
+                  v-for="f in parseFeatures(selectedTierObj.features)"
+                  :key="f"
+                  class="px-2 py-0.5 rounded text-[11px] bg-brand-500/15 border border-brand-500/30 text-brand-300 font-medium"
+                >
+                  {{ availableFeatures.find(m => m.id === f)?.name || f }}
+                </span>
+                <span
+                  v-if="parseFeatures(selectedTierObj.features).length === 0"
+                  class="text-xs text-slate-400 italic"
+                >
+                  Tidak ada modul fitur aktif pada tier ini
+                </span>
+              </div>
+            </div>
+
+            <div class="text-[10px] text-slate-500 pt-1">
+              * Kapasitas kasir, masa berlaku, toleransi offline, dan modul fitur otomatis ditentukan oleh paket tier. Kelola spesifikasi paket melalui menu <strong>Tier Lisensi</strong>.
+            </div>
           </div>
 
           <!-- Custom License Key (Optional) -->

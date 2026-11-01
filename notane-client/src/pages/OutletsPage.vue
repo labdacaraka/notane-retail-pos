@@ -695,12 +695,21 @@ async function confirmDelete() {
       </div>
 
       <!-- 4. MODAL TAMBAH / EDIT OUTLET & GUDANG -->
-      <div
-        v-if="showModal"
-        class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-xl overflow-hidden flex flex-col text-slate-900 max-h-[90vh]">
-          <!-- Modal Header -->
+      <Teleport to="body">
+        <div
+          v-if="showModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-xl overflow-hidden flex flex-col text-slate-900 max-h-[90vh] text-left pointer-events-auto my-8">
+              <!-- Modal Header -->
           <div class="bg-slate-100 px-6 py-4 border-b border-slate-300 flex items-center justify-between shrink-0">
             <div class="flex items-center gap-2.5">
               <div class="w-8 h-8 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 font-bold">
@@ -907,13 +916,24 @@ async function confirmDelete() {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- 5. MODAL HAPUS OUTLET / GUDANG -->
-      <div
-        v-if="showDeleteModal"
-        class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
-      >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-sm overflow-hidden p-6 text-slate-900">
+      <Teleport to="body">
+        <div
+          v-if="showDeleteModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showDeleteModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-sm overflow-hidden p-6 text-slate-900 text-left pointer-events-auto my-8">
           <div class="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mx-auto mb-3">
             <Trash2 class="w-6 h-6" />
           </div>
@@ -951,6 +971,8 @@ async function confirmDelete() {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
     </div>
   </AdminLayout>
 </template>

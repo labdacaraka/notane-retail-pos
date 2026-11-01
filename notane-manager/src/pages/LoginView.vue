@@ -1,80 +1,141 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import {
   ShieldCheck,
   Lock,
   User,
-  KeyRound,
   Eye,
   EyeOff,
   Radio,
   AlertCircle,
+  RefreshCw,
+  ShieldAlert,
 } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const activeTab = ref<'password' | 'pin'>('password')
 const username = ref('')
 const password = ref('')
-const pin = ref('')
 const showPassword = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 
-async function handlePasswordLogin() {
+// Captcha state
+const captchaInput = ref('')
+const captchaCode = ref('')
+const captchaChars = ref<{ char: string; x: number; y: number; rot: number; color: string }[]>([])
+const captchaLines = ref<{ x1: number; y1: number; x2: number; y2: number; color: string }[]>([])
+const failedAttempts = ref(0)
+const lockoutSeconds = ref(0)
+let lockoutTimer: any = null
+
+const CAPTCHA_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
+const COLORS = ['#2563eb', '#4f46e5', '#059669', '#d97706', '#7c3aed', '#dc2626']
+
+function generateCaptcha() {
+  captchaInput.value = ''
+  let code = ''
+  const chars: { char: string; x: number; y: number; rot: number; color: string }[] = []
+
+  for (let i = 0; i < 5; i++) {
+    const c = CAPTCHA_CHARS[Math.floor(Math.random() * CAPTCHA_CHARS.length)]
+    code += c
+    chars.push({
+      char: c,
+      x: 22 + i * 26 + (Math.random() * 6 - 3),
+      y: 30 + (Math.random() * 6 - 3),
+      rot: Math.random() * 30 - 15,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    })
+  }
+
+  const lines: { x1: number; y1: number; x2: number; y2: number; color: string }[] = []
+  for (let i = 0; i < 4; i++) {
+    lines.push({
+      x1: Math.random() * 20,
+      y1: Math.random() * 45,
+      x2: 130 + Math.random() * 30,
+      y2: Math.random() * 45,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    })
+  }
+
+  captchaCode.value = code
+  captchaChars.value = chars
+  captchaLines.value = lines
+}
+
+onMounted(() => {
+  generateCaptcha()
+})
+
+function startLockout(seconds: number) {
+  lockoutSeconds.value = seconds
+  clearInterval(lockoutTimer)
+  lockoutTimer = setInterval(() => {
+    lockoutSeconds.value--
+    if (lockoutSeconds.value <= 0) {
+      clearInterval(lockoutTimer)
+      failedAttempts.value = 0
+    }
+  }, 1000)
+}
+
+async function handleLogin() {
   errorMessage.value = ''
+
+  if (lockoutSeconds.value > 0) {
+    errorMessage.value = `Terlalu banyak percobaan gagal. Silakan tunggu ${lockoutSeconds.value} detik.`
+    return
+  }
+
   if (!username.value.trim() || !password.value.trim()) {
     errorMessage.value = 'Silakan masukkan username dan kata sandi'
     return
   }
 
-  isLoading.value = true
-  const res = await authStore.login(username.value, password.value)
-  isLoading.value = false
-
-  if (res.success) {
-    const redirect = (route.query.redirect as string) || '/'
-    router.replace(redirect)
-  } else {
-    errorMessage.value = res.message || 'Username atau password salah'
+  if (!captchaInput.value.trim()) {
+    errorMessage.value = 'Silakan masukkan kode Captcha verifikasi'
+    return
   }
-}
 
-async function handlePinLogin() {
-  errorMessage.value = ''
-  if (!pin.value.trim() || pin.value.trim().length < 4) {
-    errorMessage.value = 'Masukkan PIN keamanan minimal 4 digit'
+  if (captchaInput.value.trim().toUpperCase() !== captchaCode.value.toUpperCase()) {
+    failedAttempts.value++
+    errorMessage.value = 'Kode Captcha salah. Silakan coba lagi.'
+    generateCaptcha()
+    if (failedAttempts.value >= 5) {
+      startLockout(30)
+      errorMessage.value = 'Terlalu banyak percobaan gagal. Akun dikunci sementara selama 30 detik.'
+    }
     return
   }
 
   isLoading.value = true
-  const res = await authStore.loginWithPin(pin.value)
-  isLoading.value = false
-
-  if (res.success) {
-    const redirect = (route.query.redirect as string) || '/'
-    router.replace(redirect)
-  } else {
-    errorMessage.value = res.message || 'PIN keamanan salah'
+  try {
+    const res = await authStore.login(username.value.trim(), password.value)
+    if (res.success) {
+      failedAttempts.value = 0
+      const redirect = (route.query.redirect as string) || '/'
+      router.replace(redirect)
+    } else {
+      failedAttempts.value++
+      errorMessage.value = res.message || 'Username atau password tidak sesuai'
+      generateCaptcha()
+      if (failedAttempts.value >= 5) {
+        startLockout(30)
+        errorMessage.value = 'Terlalu banyak percobaan gagal. Akun dikunci sementara selama 30 detik.'
+      }
+    }
+  } catch (err: any) {
+    errorMessage.value = err?.message || 'Gagal menghubungi server'
+    generateCaptcha()
+  } finally {
+    isLoading.value = false
   }
-}
-
-function handlePinKeypad(num: string) {
-  if (pin.value.length < 10) {
-    pin.value += num
-  }
-}
-
-function handlePinBackspace() {
-  pin.value = pin.value.slice(0, -1)
-}
-
-function handlePinClear() {
-  pin.value = ''
 }
 </script>
 
@@ -82,14 +143,14 @@ function handlePinClear() {
   <div class="min-h-screen w-screen flex items-center justify-center p-4 bg-slate-950 relative overflow-hidden select-none">
     <!-- Ambient glowing backgrounds -->
     <div class="absolute -top-40 -left-40 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-slate-900/40 rounded-full blur-3xl pointer-events-none"></div>
 
     <div class="w-full max-w-md relative z-10 space-y-6">
       <!-- App Brand Header -->
       <div class="text-center space-y-2">
-        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-400 shadow-xl shadow-brand-500/25 mb-1 border border-brand-400/40">
-          <Radio class="w-7 h-7 text-white animate-pulse" />
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-500 shadow-xl shadow-brand-500/25 mb-1 border border-brand-400/40">
+          <Radio class="w-7 h-7 text-white" />
         </div>
         <h1 class="text-xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
           <span>NOTANE</span>
@@ -102,145 +163,160 @@ function handlePinClear() {
         </p>
       </div>
 
-      <!-- Main Login Glassmorphic Card -->
-      <div class="p-7 rounded-3xl glass-panel border border-slate-800 bg-slate-900/80 shadow-2xl space-y-5">
-        <!-- Auth Method Tabs -->
-        <div class="grid grid-cols-2 p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold">
-          <button
-            type="button"
-            @click="activeTab = 'password'"
-            class="py-2 rounded-lg transition-all flex items-center justify-center gap-1.5"
-            :class="activeTab === 'password' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
-          >
-            <Lock class="w-3.5 h-3.5" />
-            <span>Kata Sandi</span>
-          </button>
-          <button
-            type="button"
-            @click="activeTab = 'pin'"
-            class="py-2 rounded-lg transition-all flex items-center justify-center gap-1.5"
-            :class="activeTab === 'pin' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
-          >
-            <KeyRound class="w-3.5 h-3.5" />
-            <span>Quick PIN</span>
-          </button>
+      <!-- Main Login Card -->
+      <div class="p-7 rounded-3xl border border-slate-800 bg-slate-900/90 backdrop-blur-xl shadow-2xl space-y-5">
+        <div class="pb-2 border-b border-slate-800/80">
+          <h2 class="text-sm font-bold text-white flex items-center gap-2">
+            <Lock class="w-4 h-4 text-brand-400" />
+            <span>Autentikasi Administrator</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Masuk dengan kredensial akun dan verifikasi keamanan captcha.
+          </p>
+        </div>
+
+        <!-- Lockout Warning -->
+        <div v-if="lockoutSeconds > 0" class="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+          <ShieldAlert class="w-4 h-4 shrink-0 text-amber-400" />
+          <span>Akses dikunci sementara. Mohon tunggu <strong>{{ lockoutSeconds }} detik</strong> sebelum mencoba lagi.</span>
         </div>
 
         <!-- Error Alert -->
-        <div v-if="errorMessage" class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-in fade-in duration-150">
+        <div v-else-if="errorMessage" class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-in fade-in duration-150">
           <AlertCircle class="w-4 h-4 shrink-0 text-rose-400" />
           <span>{{ errorMessage }}</span>
         </div>
 
-        <!-- Tab 1: Username & Password -->
-        <form v-if="activeTab === 'password'" @submit.prevent="handlePasswordLogin" class="space-y-4">
+        <!-- Login Form -->
+        <form @submit.prevent="handleLogin" class="space-y-4">
+          <!-- Username -->
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Username Administrator</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Username</label>
             <div class="relative">
-              <User class="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <User class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 v-model="username"
                 type="text"
                 autocomplete="username"
-                placeholder="Masukkan username..."
-                class="w-full pl-9 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 font-mono"
+                placeholder="Masukkan username admin..."
+                :disabled="lockoutSeconds > 0"
+                class="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-mono transition"
               />
             </div>
           </div>
 
+          <!-- Password -->
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Kata Sandi</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Kata Sandi</label>
             <div class="relative">
-              <Lock class="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Lock class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 autocomplete="current-password"
                 placeholder="Masukkan kata sandi..."
-                class="w-full pl-9 pr-10 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 font-mono"
+                :disabled="lockoutSeconds > 0"
+                class="w-full pl-10 pr-10 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-mono transition"
               />
               <button
                 type="button"
                 @click="showPassword = !showPassword"
-                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-1"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-1 cursor-pointer"
               >
-                <component :is="showPassword ? EyeOff : Eye" class="w-3.5 h-3.5" />
+                <component :is="showPassword ? EyeOff : Eye" class="w-4 h-4" />
               </button>
             </div>
           </div>
 
+          <!-- Captcha Challenge -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-semibold text-slate-300">
+                Verifikasi Keamanan Captcha <span class="text-rose-500">*</span>
+              </label>
+              <button
+                type="button"
+                @click="generateCaptcha"
+                class="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1 cursor-pointer"
+                title="Ganti Kode Captcha"
+              >
+                <RefreshCw class="w-3 h-3" />
+                <span>Muat Ulang</span>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <!-- Captcha SVG Canvas -->
+              <div class="relative w-40 h-11 shrink-0 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-inner flex items-center justify-center select-none">
+                <svg viewBox="0 0 160 45" class="w-full h-full">
+                  <!-- Background grid pattern -->
+                  <defs>
+                    <pattern id="captcha-grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="0.8" />
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#captcha-grid)" />
+
+                  <!-- Noise lines -->
+                  <line
+                    v-for="(line, idx) in captchaLines"
+                    :key="`line-${idx}`"
+                    :x1="line.x1"
+                    :y1="line.y1"
+                    :x2="line.x2"
+                    :y2="line.y2"
+                    :stroke="line.color"
+                    stroke-width="1.2"
+                    opacity="0.35"
+                  />
+
+                  <!-- Characters -->
+                  <text
+                    v-for="(item, idx) in captchaChars"
+                    :key="`char-${idx}`"
+                    :x="item.x"
+                    :y="item.y"
+                    :fill="item.color"
+                    :transform="`rotate(${item.rot}, ${item.x}, ${item.y})`"
+                    font-size="22"
+                    font-family="monospace"
+                    font-weight="bold"
+                    letter-spacing="2"
+                  >
+                    {{ item.char }}
+                  </text>
+                </svg>
+              </div>
+
+              <!-- Captcha Input -->
+              <input
+                v-model="captchaInput"
+                type="text"
+                maxlength="5"
+                placeholder="Ketik 5 kode..."
+                :disabled="lockoutSeconds > 0"
+                class="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 uppercase tracking-widest font-mono text-center focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
+              />
+            </div>
+            <p class="text-[10px] text-slate-500 mt-1">
+              Ketik 5 karakter di atas untuk memverifikasi bahwa Anda bukan robot.
+            </p>
+          </div>
+
+          <!-- Submit Button -->
           <button
             type="submit"
-            :disabled="isLoading"
-            class="w-full py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2"
+            :disabled="isLoading || lockoutSeconds > 0"
+            class="w-full py-2.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
           >
             <ShieldCheck class="w-4 h-4" />
             <span>{{ isLoading ? 'Memverifikasi Akses...' : 'Masuk ke Studio Provider' }}</span>
           </button>
         </form>
-
-        <!-- Tab 2: Quick PIN Unlock -->
-        <form v-else @submit.prevent="handlePinLogin" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1 text-center">Masukkan 6-Digit PIN Keamanan</label>
-            <div class="relative max-w-[220px] mx-auto">
-              <input
-                v-model="pin"
-                type="password"
-                maxlength="10"
-                placeholder="••••••"
-                class="w-full text-center py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-base tracking-widest text-brand-400 font-mono focus:outline-none focus:border-brand-500"
-              />
-            </div>
-          </div>
-
-          <!-- Virtual Keypad -->
-          <div class="grid grid-cols-3 gap-2 max-w-[220px] mx-auto">
-            <button
-              v-for="n in ['1','2','3','4','5','6','7','8','9']"
-              :key="n"
-              type="button"
-              @click="handlePinKeypad(n)"
-              class="py-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sm font-bold text-white transition-colors"
-            >
-              {{ n }}
-            </button>
-            <button
-              type="button"
-              @click="handlePinClear"
-              class="py-2 rounded-xl bg-slate-950 hover:bg-rose-500/20 text-rose-400 border border-slate-800/80 text-xs font-semibold"
-            >
-              C
-            </button>
-            <button
-              type="button"
-              @click="handlePinKeypad('0')"
-              class="py-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sm font-bold text-white"
-            >
-              0
-            </button>
-            <button
-              type="button"
-              @click="handlePinBackspace"
-              class="py-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-xs font-semibold text-slate-400"
-            >
-              ⌫
-            </button>
-          </div>
-
-          <button
-            type="submit"
-            :disabled="isLoading || pin.length < 4"
-            class="w-full py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2"
-          >
-            <ShieldCheck class="w-4 h-4" />
-            <span>{{ isLoading ? 'Membuka Akses...' : 'Buka Kunci PIN' }}</span>
-          </button>
-        </form>
       </div>
 
-      <div class="text-center text-[11px] text-slate-600 font-mono">
-        Notane Retail Enterprise Cryptographic Core &bull; Zero Trust
+      <div class="text-center text-[11px] text-slate-500 font-sans">
+        Notane Provider &bull; Manajemen Lisensi & Pembaruan Sistem
       </div>
     </div>
   </div>

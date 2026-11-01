@@ -7,7 +7,7 @@
 
 -- 1. Konfigurasi Biometrik Toko pada receipt_settings
 ALTER TABLE receipt_settings
-    ADD COLUMN IF NOT EXISTS supervisor_biometric_mode VARCHAR(30) NOT NULL DEFAULT 'OFF',
+    ADD COLUMN IF NOT EXISTS supervisor_biometric_mode VARCHAR(30) NOT NULL DEFAULT 'ANY',
     ADD COLUMN IF NOT EXISTS supervisor_biometric_policy VARCHAR(30) NOT NULL DEFAULT 'OPTIONAL',
     ADD COLUMN IF NOT EXISTS face_match_threshold NUMERIC(5, 2) NOT NULL DEFAULT 75.00;
 

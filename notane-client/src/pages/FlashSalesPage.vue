@@ -651,12 +651,21 @@ onUnmounted(() => {
     </div>
 
     <!-- 4. MODAL TAMBAH / UBAH FLASH SALE -->
-    <div
-      v-if="showModal"
-      class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-    >
-      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-scaleIn">
-        <!-- Modal Header -->
+    <Teleport to="body">
+      <div
+        v-if="showModal"
+        class="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showModal = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
+            <!-- Modal Header -->
         <div class="bg-gradient-to-r from-amber-600 to-orange-600 text-white px-6 py-4 flex items-center justify-between shrink-0">
           <div class="flex items-center gap-2.5">
             <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center border border-white/20">
@@ -998,14 +1007,25 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
 
     <!-- 5. PRODUCT PICKER DIALOG -->
-    <div
-      v-if="showProductPicker"
-      class="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-    >
-      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-scaleIn">
-        <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+    <Teleport to="body">
+      <div
+        v-if="showProductPicker"
+        class="fixed inset-0 z-[80] overflow-y-auto"
+      >
+        <!-- Dedicated Fixed Backdrop -->
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+          @click="showProductPicker = false"
+        ></div>
+
+        <!-- Scrollable Centered Wrapper -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+          <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
+            <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
           <div class="flex items-center gap-2">
             <Icon icon="flat-color-icons:package" class="w-5 h-5" />
             <span class="font-bold text-sm">Pilih Barang dari Master Produk</span>
@@ -1077,5 +1097,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </div>
+</Teleport>
   </AdminLayout>
 </template>

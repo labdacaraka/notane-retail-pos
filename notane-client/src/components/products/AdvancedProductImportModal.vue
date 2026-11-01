@@ -503,12 +503,20 @@ function handleClose() {
   <Teleport to="body">
     <div
       v-if="isOpen"
-      class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none font-sans"
+      class="fixed inset-0 z-50 overflow-y-auto"
     >
-    <div
-      class="bg-white border border-slate-300 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-fadeIn"
-    >
-      <!-- 1. HEADER MODAL -->
+      <!-- Dedicated Fixed Backdrop -->
+      <div
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        @click="handleClose"
+      ></div>
+
+      <!-- Scrollable Centered Wrapper -->
+      <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none select-none font-sans">
+        <div
+          class="relative bg-white border border-slate-300 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-fadeIn text-left pointer-events-auto my-8"
+        >
+          <!-- 1. HEADER MODAL -->
       <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
@@ -1055,5 +1063,6 @@ function handleClose() {
       </div>
     </div>
   </div>
+</div>
   </Teleport>
 </template>

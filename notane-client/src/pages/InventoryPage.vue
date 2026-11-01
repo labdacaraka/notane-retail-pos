@@ -1496,12 +1496,21 @@ onUnmounted(() => {
       </div>
 
       <!-- MODAL: BUAT TRANSFER STOK BARU -->
-      <div
-        v-if="showCreateTransferModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh]">
-          <!-- Modal Header -->
+      <Teleport to="body">
+        <div
+          v-if="showCreateTransferModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showCreateTransferModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] text-left pointer-events-auto my-8">
+              <!-- Modal Header -->
           <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="p-2 rounded-xl bg-slate-800 border border-slate-700">
@@ -1767,15 +1776,26 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- MODAL: PILIH BARANG DARI KATALOG PRODUK UNTUK TRANSFER -->
-      <div
-        v-if="showTransferProductPicker"
-        class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn">
-          <!-- Header -->
-          <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+      <Teleport to="body">
+        <div
+          v-if="showTransferProductPicker"
+          class="fixed inset-0 z-[70] overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showTransferProductPicker = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
+              <!-- Header -->
+              <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div class="flex items-center gap-2">
               <Icon icon="flat-color-icons:package" class="w-5 h-5" />
               <span class="font-bold text-sm">Pilih Barang dari Master Produk</span>
@@ -1863,15 +1883,26 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- MODAL: PENERIMAAN BARANG TRANSFER (GOODS RECEIPT / INBOUND VERIFICATION) -->
-      <div
-        v-if="showReceiveTransferModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
-          <!-- Modal Header -->
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+      <Teleport to="body">
+        <div
+          v-if="showReceiveTransferModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showReceiveTransferModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
+              <!-- Modal Header -->
+              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="p-2 rounded-xl bg-slate-800 border border-slate-700">
                 <PackageCheck class="w-6 h-6 text-emerald-400" />
@@ -2047,13 +2078,24 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- MODAL: PEMBATALAN TRANSFER STOK -->
-      <div
-        v-if="showCancelTransferModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+      <Teleport to="body">
+        <div
+          v-if="showCancelTransferModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showCancelTransferModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden flex flex-col text-left pointer-events-auto my-8">
           <div class="p-6 text-center space-y-4">
             <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
               <Ban class="w-6 h-6" />
@@ -2100,15 +2142,26 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
 
       <!-- MODAL: RINCIAN DETAIL TRANSFER STOK & SURAT JALAN -->
-      <div
-        v-if="showTransferDetailModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto"
-      >
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
-          <!-- Modal Header -->
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+      <Teleport to="body">
+        <div
+          v-if="showTransferDetailModal"
+          class="fixed inset-0 z-50 overflow-y-auto"
+        >
+          <!-- Dedicated Fixed Backdrop -->
+          <div
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            @click="showTransferDetailModal = false"
+          ></div>
+
+          <!-- Scrollable Centered Wrapper -->
+          <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
+            <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
+              <!-- Modal Header -->
+              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="p-2 rounded-xl bg-white/10">
                 <FileText class="w-5 h-5 text-emerald-400" />
@@ -2363,6 +2416,8 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
     </div>
   </AdminLayout>
 </template>
