@@ -8,6 +8,7 @@ import {
   type LabelDarkness,
 } from '@/stores/labelPrinterStore'
 import { Icon } from '@iconify/vue'
+import { RefreshCw, FileText } from 'lucide-vue-next'
 
 const props = defineProps<{
   show: boolean
@@ -43,14 +44,14 @@ const baudRateOptions = [
 ]
 
 const sizePresets: { id: LabelSizePreset; label: string; desc: string; icon: string }[] = [
-  { id: '40x30', label: '40 × 30 mm', desc: 'Standar Rak & Barcode Minimarket', icon: 'fluent-color:tag-24' },
-  { id: '50x30', label: '50 × 30 mm', desc: 'Label Produk Kompak', icon: 'fluent-color:tag-24' },
-  { id: '60x40', label: '60 × 40 mm', desc: 'Display Luas Supermarket', icon: 'fluent-color:tag-multiple-24' },
-  { id: '70x50', label: '70 × 50 mm', desc: 'Informasi Lengkap & Rinci', icon: 'fluent-color:tag-multiple-24' },
+  { id: '40x30', label: '40 × 30 mm', desc: 'Standar Rak & Barcode Minimarket', icon: 'streamline-ultimate-color:tags-1' },
+  { id: '50x30', label: '50 × 30 mm', desc: 'Label Produk Kompak', icon: 'streamline-ultimate-color:barcode' },
+  { id: '60x40', label: '60 × 40 mm', desc: 'Display Luas Supermarket', icon: 'streamline-ultimate-color:tag-dollar' },
+  { id: '70x50', label: '70 × 50 mm', desc: 'Informasi Lengkap & Rinci', icon: 'streamline-ultimate-color:shipment-barcode' },
   { id: '80x50', label: '80 × 50 mm', desc: 'Label Box Dus / Gudang', icon: 'streamline-ultimate-color:warehouse-cart-packages-2' },
   { id: '100x150', label: '100 × 150 mm', desc: 'Stiker Resi / Ekspedisi (A6)', icon: 'streamline-ultimate-color:delivery-truck-cargo' },
-  { id: 'a4_grid', label: 'Lembaran A4 Grid', desc: 'Kertas Stiker Tom & Jerry 2 Kolom', icon: 'fluent-color:document-page-break-24' },
-  { id: 'custom', label: 'Ukuran Kustom', desc: 'Tentukan Lebar × Tinggi Manual', icon: 'fluent-color:ruler-24' },
+  { id: 'a4_grid', label: 'Lembaran A4 Grid', desc: 'Kertas Stiker Tom & Jerry 2 Kolom', icon: 'flat-color-icons:document' },
+  { id: 'custom', label: 'Ukuran Kustom', desc: 'Tentukan Lebar × Tinggi Manual', icon: 'flat-color-icons:ruler' },
 ]
 
 async function handleConnectSerial() {
@@ -245,7 +246,7 @@ function handleSave() {
               class="flex flex-col items-center justify-center p-3 rounded-xl border text-center transition cursor-pointer"
               :class="activeTab === 'SYSTEM' ? 'bg-teal-50 border-teal-600 ring-2 ring-teal-500/20 text-teal-900 font-bold' : 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100'"
             >
-              <Icon icon="fluent-color:desktop-speaker-24" class="w-6 h-6 mb-1.5" />
+              <Icon icon="streamline-ultimate-color:desktop-computer-pc" class="w-6 h-6 mb-1.5" />
               <span class="text-xs">Driver Sistem</span>
               <span class="text-[10px] text-slate-500 font-normal">OS / Browser Print</span>
             </button>
@@ -315,7 +316,7 @@ function handleSave() {
                 :disabled="labelStore.isFetchingPrinters"
                 class="text-[10px] text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1 cursor-pointer"
               >
-                <Icon icon="fluent:arrow-clockwise-16-regular" class="w-3.5 h-3.5" :class="{ 'animate-spin': labelStore.isFetchingPrinters }" />
+                <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': labelStore.isFetchingPrinters }" />
                 <span>Pindai Ulang Printer</span>
               </button>
             </div>
@@ -344,7 +345,7 @@ function handleSave() {
               />
             </div>
             <div v-if="labelStore.isPdfOrDocumentPrinter" class="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 text-[11px] flex items-center gap-2">
-              <Icon icon="fluent:document-pdf-24-filled" class="w-4 h-4 text-rose-600 shrink-0" />
+              <FileText class="w-4 h-4 text-rose-600 shrink-0" />
               <span>Printer ini adalah <strong>Driver Dokumen / PDF Virtual</strong>. Sistem akan menggunakan render grafis SVG beresolusi tinggi dan dialog penyimpanan file PDF saat mencetak.</span>
             </div>
             <p v-else class="text-[10px] text-slate-500 italic">

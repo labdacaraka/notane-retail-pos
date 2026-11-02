@@ -16,6 +16,8 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  ExternalLink,
+  FileText,
 } from 'lucide-vue-next'
 import { Icon } from '@iconify/vue'
 import { api, getApiBaseUrl } from '@/services/api'
@@ -1832,7 +1834,7 @@ async function handlePrintLabels() {
               class="p-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 hover:text-slate-900 transition cursor-pointer"
               title="Buka dokumen dalam jendela / tab browser baru"
             >
-              <Icon icon="fluent:open-24-filled" class="w-4 h-4" />
+              <ExternalLink class="w-4 h-4" />
             </button>
 
             <!-- Tombol Tutup -->
@@ -1866,7 +1868,7 @@ async function handlePrintLabels() {
             <span>Format: <strong class="text-slate-800">{{ paperFormat === 'sheet_a4' ? 'Lembaran Stiker A4' : 'Roll Thermal' }}</strong></span>
             <span>&bull;</span>
             <span v-if="labelPrinterStore.isPdfOrDocumentPrinter" class="text-blue-700 font-bold flex items-center gap-1">
-              <Icon icon="fluent:document-pdf-24-filled" class="w-3.5 h-3.5 text-rose-600" />
+              <FileText class="w-3.5 h-3.5 text-rose-600" />
               Mode PDF Virtual (Simpan sebagai file PDF)
             </span>
             <span v-else class="text-slate-600">
