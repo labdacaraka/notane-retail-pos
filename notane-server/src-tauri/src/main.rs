@@ -39,6 +39,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(port + 1);
 
     let args: Vec<String> = env::args().collect();
+
+    // Penanganan Flag CLI --reset-data untuk pembersihan total data lokal (Cross-Platform)
+    if args.iter().any(|a| a == "--reset-data" || a == "--purge-data" || a == "--factory-reset") {
+        info!("Memulai proses Factory Reset: membersihkan seluruh database dan data lokal...");
+        let embedded_manager = notane_retail_server_lib::db::embedded::EmbeddedPgManager::new();
+        embedded_manager.stop().await;
+
+        if let Some(home_dir) = dirs::data_local_dir() {
+            let notane_dir = home_dir.join("notane-retail-pos");
+            if notane_dir.exists() {
+                let _ = std::fs::remove_dir_all(&notane_dir);
+                info!("Direktori data PostgreSQL berhasil dihapus: {:?}", notane_dir);
+            }
+        }
+        if let Some(home) = dirs::home_dir() {
+            let notane_cache = home.join(".notane");
+            if notane_cache.exists() {
+                let _ = std::fs::remove_dir_all(&notane_cache);
+            }
+        }
+        println!("✅ Factory reset selesai. Seluruh data PostgreSQL dan lisensi lokal telah dibersihkan.");
+        return Ok(());
+    }
+
     let is_headless = args.iter().any(|a| a == "--headless" || a == "--server-only" || a == "--daemon") || cfg!(not(feature = "gui"));
     let is_standby = args.iter().any(|a| a == "--standby");
     // Host Server otomatis aktif (Auto-Start) saat aplikasi dibuka baik GUI maupun Daemon

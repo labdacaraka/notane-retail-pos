@@ -17,6 +17,7 @@ import {
 import { useBackupStore } from '@/stores/backupStore'
 import { useDirectorySettingsStore } from '@/stores/directorySettingsStore'
 import { useDialog } from '@/composables/useDialog'
+import { api } from '@/services/api'
 
 defineProps<{
   modelValue: boolean
@@ -35,19 +36,53 @@ onMounted(async () => {
   await dirStore.init()
 })
 
-const activeTab = ref<'EXPORT' | 'RESTORE'>('EXPORT')
+const activeTab = ref<'EXPORT' | 'RESTORE' | 'FACTORY_RESET'>('EXPORT')
 const exportNotes = ref('')
 const selectedFile = ref<File | null>(null)
 const confirmChecked = ref(false)
+const confirmCheckedReset = ref(false)
+const isResetting = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
 function closeModal() {
-  if (backupStore.isExporting || backupStore.isRestoring) return
+  if (backupStore.isExporting || backupStore.isRestoring || isResetting.value) return
   emit('update:modelValue', false)
   backupStore.clearState()
   selectedFile.value = null
   confirmChecked.value = false
+  confirmCheckedReset.value = false
   exportNotes.value = ''
+}
+
+async function handleFactoryReset() {
+  if (!confirmCheckedReset.value) {
+    dialog.alert('Harap centang persetujuan konfirmasi risiko sebelum melakukan reset database.', 'warning')
+    return
+  }
+
+  const ok = await dialog.confirm({
+    title: 'Konfirmasi Reset Total Database (Factory Reset)',
+    message: 'PERINGATAN KERAS: Tindakan ini akan MENGHAPUS SELURUH DATA transaksi penjualan, stok produk, akun, dan pengaturan toko di database lokal ini. Database akan dibuat ulang dari nol dan sistem akan kembali ke Setup Wizard awal. Tindakan ini TIDAK DAPAT DIBATALKAN. Lanjutkan?',
+    confirmText: 'Ya, Hapus Semua & Reset Database',
+    cancelText: 'Batal',
+    type: 'danger',
+  })
+  if (!ok) return
+
+  isResetting.value = true
+  try {
+    const res = await api.post('/system/database/factory-reset')
+    dialog.alert(res.data?.message || 'Database berhasil direset total ke kondisi awal.', 'success')
+    closeModal()
+    emit('restore-success')
+    setTimeout(() => {
+      window.location.reload()
+    }, 1200)
+  } catch (err: any) {
+    dialog.alert(err.response?.data?.message || err.message || 'Gagal melakukan factory reset database', 'danger')
+  } finally {
+    isResetting.value = false
+  }
 }
 
 async function handleExport() {
@@ -183,6 +218,20 @@ function formatDate(iso: string) {
           <span
             v-if="activeTab === 'RESTORE'"
             class="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full"
+          ></span>
+        </button>
+
+        <button
+          type="button"
+          @click="activeTab = 'FACTORY_RESET'"
+          class="pb-3 text-xs font-black transition relative flex items-center gap-2 cursor-pointer ml-auto"
+          :class="activeTab === 'FACTORY_RESET' ? 'text-rose-600' : 'text-slate-400 hover:text-slate-700'"
+        >
+          <RotateCcw class="w-4 h-4" />
+          <span>Reset Total Database</span>
+          <span
+            v-if="activeTab === 'FACTORY_RESET'"
+            class="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-600 rounded-full"
           ></span>
         </button>
       </div>
@@ -501,6 +550,61 @@ function formatDate(iso: string) {
                 </span>
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: FACTORY RESET DATABASE -->
+        <div v-else-if="activeTab === 'FACTORY_RESET'" class="space-y-5 animate-fadeIn">
+          <!-- Danger Header Box -->
+          <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 space-y-2">
+            <div class="flex items-center gap-2 font-black text-xs text-rose-700 uppercase tracking-wider">
+              <ShieldAlert class="w-4 h-4 text-rose-600" />
+              <span>Zona Berbahaya: Reset Total Database Lokal (Factory Reset)</span>
+            </div>
+            <p class="text-xs text-rose-800 leading-relaxed">
+              Opsi ini dirancang untuk pengguna yang ingin <strong>memulai kembali dari awal</strong> atau membersihkan database server lama tanpa harus menguninstall aplikasi secara manual.
+            </p>
+          </div>
+
+          <!-- Explanation Box -->
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 text-xs text-slate-700">
+            <h4 class="font-bold text-slate-900">Apa yang terjadi saat Factory Reset dilakukan?</h4>
+            <ul class="space-y-1.5 list-disc list-inside text-slate-600 leading-relaxed">
+              <li>Seluruh tabel dan data transaksi kasir, stok produk, riwayat shift, dan pelanggan akan <strong>dihapus total</strong>.</li>
+              <li>Database PostgreSQL lokal (<code class="font-mono bg-slate-200 px-1 py-0.5 rounded text-[11px]">notane_pos</code>) akan dibuat ulang dalam kondisi bersih.</li>
+              <li>Seluruh migrasi skema database terbaru otomatis dijalankan kembali dari nomor 001.</li>
+              <li>Sistem akan kembali membuka <strong>Pengaturan Awal (Setup Wizard)</strong> agar Anda dapat mendaftarkan nama toko, outlet utama, dan akun administrator baru.</li>
+            </ul>
+          </div>
+
+          <!-- Checkbox Confirmation -->
+          <div class="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs">
+            <label class="flex items-start gap-2.5 text-xs text-slate-800 font-medium cursor-pointer select-none">
+              <input
+                v-model="confirmCheckedReset"
+                type="checkbox"
+                class="mt-0.5 rounded text-rose-600 focus:ring-rose-500 w-4 h-4 cursor-pointer"
+              />
+              <span>
+                Saya mengerti bahwa seluruh data transaksi dan produk di toko ini akan terhapus secara permanen dan tidak dapat dikembalikan.
+              </span>
+            </label>
+          </div>
+
+          <!-- Action Button -->
+          <div>
+            <button
+              type="button"
+              @click="handleFactoryReset"
+              :disabled="!confirmCheckedReset || isResetting"
+              class="w-full py-3 px-4 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer shadow-md"
+            >
+              <RefreshCw v-if="isResetting" class="w-4 h-4 animate-spin" />
+              <RotateCcw v-else class="w-4 h-4" />
+              <span>
+                {{ isResetting ? 'Sedang Mereset Database & Menyiapkan Ulang (Mohon Tunggu)...' : 'Hapus Semua Data & Reset Total Database' }}
+              </span>
+            </button>
           </div>
         </div>
       </div>

@@ -52,6 +52,7 @@ pub fn system_routes(state: AppState) -> Router {
         .route("/database/backup", post(export_database_backup_handler).get(export_database_backup_handler))
         .route("/database/inspect", post(inspect_database_backup_handler))
         .route("/database/restore", post(restore_database_backup_handler))
+        .route("/database/factory-reset", post(factory_reset_database_handler))
         .with_state(state)
 }
 
@@ -1919,6 +1920,106 @@ async fn restore_database_backup_handler(
         )
             .into_response(),
     }
+}
+
+async fn factory_reset_database_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let pool_opt = state.pool.read().await.clone();
+    if let Some(ref p) = pool_opt {
+        if headers.contains_key("Authorization") {
+            if let Err(resp) = crate::utils::jwt::require_any_permission(p, &headers, &["database:restore", "super_admin", "admin"]).await {
+                return resp.into_response();
+            }
+        }
+    }
+
+    let db_url = state.db_url.read().await.clone();
+    info!("Menerima permintaan Factory Reset Database...");
+
+    // 1. Dapatkan connection string ke database maintenance 'postgres'
+    let maintenance_url = if let Some(idx) = db_url.rfind('/') {
+        format!("{}/postgres", &db_url[..idx])
+    } else {
+        "postgres://postgres:postgres@127.0.0.1:15432/postgres".to_string()
+    };
+
+    // 2. Hubungkan ke database maintenance
+    let maint_pool = match crate::db::create_pool(&maintenance_url).await {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "success": false,
+                    "message": format!("Gagal menghubungi database maintenance: {}", e)
+                })),
+            ).into_response();
+        }
+    };
+
+    // 3. Putus seluruh koneksi aktif ke notane_pos dan buat ulang database
+    let terminate_sql = "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'notane_pos' AND pid <> pg_backend_pid();";
+    let _ = sqlx::query(terminate_sql).execute(&maint_pool).await;
+
+    if let Err(e) = sqlx::query("DROP DATABASE IF EXISTS notane_pos").execute(&maint_pool).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "message": format!("Gagal menghapus database lama: {}", e)
+            })),
+        ).into_response();
+    }
+
+    if let Err(e) = sqlx::query("CREATE DATABASE notane_pos").execute(&maint_pool).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "message": format!("Gagal membuat database baru: {}", e)
+            })),
+        ).into_response();
+    }
+
+    // 4. Hubungkan kembali ke database notane_pos yang baru
+    let new_pool = match crate::db::create_pool(&db_url).await {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "success": false,
+                    "message": format!("Gagal menghubungkan ke database baru: {}", e)
+                })),
+            ).into_response();
+        }
+    };
+
+    // 5. Jalankan seluruh migrasi awal (001 s/d yang terbaru)
+    if let Err(e) = crate::db::run_embedded_migrations(&new_pool).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "message": format!("Gagal menjalankan migrasi awal: {}", e)
+            })),
+        ).into_response();
+    }
+
+    // 6. Perbarui pool di AppState
+    state.set_pool(new_pool).await;
+
+    info!("✅ Factory Reset Database selesai. Seluruh data telah dikembalikan ke kondisi awal.");
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "success": true,
+            "message": "Database berhasil direset total ke kondisi awal. Silakan lakukan Pengaturan Awal (Setup Wizard)."
+        })),
+    ).into_response()
 }
 
 
