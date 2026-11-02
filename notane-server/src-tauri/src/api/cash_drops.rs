@@ -55,6 +55,7 @@ pub struct CashDropStatusSummary {
 }
 
 #[derive(Debug, sqlx::FromRow)]
+#[allow(dead_code)]
 struct ShiftCheckRow {
     id: Uuid,
     outlet_id: Option<Uuid>,

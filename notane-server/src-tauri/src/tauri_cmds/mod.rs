@@ -456,9 +456,14 @@ pub async fn select_folder(default_path: Option<String>) -> Result<Option<String
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        let output = std::process::Command::new("zenity")
-            .args(["--file-selection", "--directory", "--title=Pilih Direktori Penyimpanan Notane"])
-            .output();
+        let mut cmd = std::process::Command::new("zenity");
+        cmd.args(["--file-selection", "--directory", "--title=Pilih Direktori Penyimpanan Notane"]);
+        if let Some(ref p) = default_path {
+            if !p.trim().is_empty() {
+                cmd.arg(format!("--filename={}", p.trim()));
+            }
+        }
+        let output = cmd.output();
 
         if let Ok(out) = output {
             if out.status.success() {

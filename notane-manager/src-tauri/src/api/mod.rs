@@ -125,6 +125,7 @@ struct LicenseVerifyRow {
 }
 
 #[derive(Debug, sqlx::FromRow)]
+#[allow(dead_code)]
 struct LatestReleaseRow {
     id: String,
     version: String,

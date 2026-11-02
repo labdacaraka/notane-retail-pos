@@ -81,6 +81,7 @@ pub fn create_admin_router(_state: ApiState) -> Router<ApiState> {
 // AUTH HANDLERS
 // ------------------------------------------------------------------------------
 #[derive(Debug, sqlx::FromRow)]
+#[allow(dead_code)]
 struct UserDbRow {
     id: String,
     username: String,

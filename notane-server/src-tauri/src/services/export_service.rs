@@ -95,7 +95,7 @@ async fn execute_export_job(
         .set_background_color("1E293B")
         .set_font_color("FFFFFF");
 
-    let mut total_exported_rows: usize = 0;
+    let total_exported_rows: usize;
 
     match job.module.as_str() {
         "sales" => {

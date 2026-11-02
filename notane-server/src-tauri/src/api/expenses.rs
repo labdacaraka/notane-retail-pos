@@ -342,6 +342,7 @@ async fn update_expense_category_handler(
 }
 
 #[derive(serde::Deserialize)]
+#[allow(dead_code)]
 struct AccountOptionQuery {
     pub outlet_id: Option<Uuid>,
 }
