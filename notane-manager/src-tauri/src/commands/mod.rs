@@ -576,7 +576,8 @@ pub async fn get_releases(state: tauri::State<'_, AppState>) -> Result<Vec<AppRe
     let rows = sqlx::query_as::<_, AppRelease>(
         "SELECT id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
-                has_db_migration, is_published, component, min_server_version, created_at
+                has_db_migration, is_published, component, min_server_version,
+                file_path, file_size, original_filename, created_at
          FROM provider_app_releases
          ORDER BY created_at DESC"
     )
@@ -604,19 +605,28 @@ pub async fn create_release(
     let signature = sign_message(&priv_key, &sign_target)
         .map_err(|e| AppError::Crypto(e))?;
 
+    let download_url = if payload.download_url.trim().is_empty()
+        || payload.download_url.starts_with("/api/v1/updates/download")
+    {
+        format!("/api/v1/updates/download/{}", id)
+    } else {
+        payload.download_url.trim().to_string()
+    };
+
     sqlx::query(
         &sql("INSERT INTO provider_app_releases (
             id, version, release_name, changelog, release_date, download_url,
             checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
-            has_db_migration, is_published, component, min_server_version, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)")
+            has_db_migration, is_published, component, min_server_version,
+            file_path, file_size, original_filename, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)")
     )
     .bind(&id)
     .bind(payload.version.trim())
     .bind(&payload.release_name)
     .bind(&payload.changelog)
     .bind(&release_date)
-    .bind(&payload.download_url)
+    .bind(&download_url)
     .bind(payload.checksum_sha256.trim())
     .bind(&signature)
     .bind(if payload.is_mandatory { 1 } else { 0 })
@@ -624,6 +634,9 @@ pub async fn create_release(
     .bind(if payload.has_db_migration { 1 } else { 0 })
     .bind(&component)
     .bind(&payload.min_server_version)
+    .bind(&payload.file_path)
+    .bind(payload.file_size)
+    .bind(&payload.original_filename)
     .bind(&now_str)
     .execute(&state.pool)
     .await?;
@@ -634,7 +647,7 @@ pub async fn create_release(
         release_name: payload.release_name,
         changelog: payload.changelog,
         release_date,
-        download_url: payload.download_url,
+        download_url,
         checksum_sha256: payload.checksum_sha256,
         signature_ed25519: signature,
         is_mandatory: if payload.is_mandatory { 1 } else { 0 },
@@ -643,6 +656,9 @@ pub async fn create_release(
         is_published: 1,
         component,
         min_server_version: payload.min_server_version,
+        file_path: payload.file_path,
+        file_size: payload.file_size,
+        original_filename: payload.original_filename,
         created_at: now_str,
     })
 }

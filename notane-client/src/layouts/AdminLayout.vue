@@ -10,7 +10,18 @@ import { useLicenseStore } from '@/stores/licenseStore'
 import UserProfileSecurityModal from '@/components/common/UserProfileSecurityModal.vue'
 import ClientUpdateModal from '@/components/common/ClientUpdateModal.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+
+// Posisi scroll horizontal ribbon menu persisten across navigasi halaman
+let sharedNavScrollLeft = 0
+const NAV_SCROLL_STORAGE_KEY = 'notane_admin_nav_scroll_left'
+
+try {
+  const saved = typeof window !== 'undefined' ? sessionStorage.getItem(NAV_SCROLL_STORAGE_KEY) : null
+  if (saved !== null) {
+    sharedNavScrollLeft = Number(saved) || 0
+  }
+} catch (_) {}
 
 const router = useRouter()
 const route = useRoute()
@@ -23,6 +34,92 @@ const licenseStore = useLicenseStore()
 const showSecurityModal = ref(false)
 const showLocationDropdown = ref(false)
 const showClientUpdateModal = ref(false)
+
+// Nav Ribbon References & Scroll State
+const navRef = ref<HTMLElement | null>(null)
+const canScrollLeft = ref(false)
+const canScrollRight = ref(false)
+
+function updateScrollButtons() {
+  if (!navRef.value) return
+  const { scrollLeft, scrollWidth, clientWidth } = navRef.value
+  canScrollLeft.value = scrollLeft > 10
+  canScrollRight.value = scrollLeft < scrollWidth - clientWidth - 10
+}
+
+function handleNavScroll() {
+  if (navRef.value) {
+    sharedNavScrollLeft = navRef.value.scrollLeft
+    try {
+      sessionStorage.setItem(NAV_SCROLL_STORAGE_KEY, String(sharedNavScrollLeft))
+    } catch (_) {}
+    updateScrollButtons()
+  }
+}
+
+function handleNavWheel(e: WheelEvent) {
+  if (!navRef.value) return
+  // Jika scrolling lebih dominan vertikal, ubah ke horizontal scroll ribbon
+  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+    navRef.value.scrollLeft += e.deltaY
+    sharedNavScrollLeft = navRef.value.scrollLeft
+    try {
+      sessionStorage.setItem(NAV_SCROLL_STORAGE_KEY, String(sharedNavScrollLeft))
+    } catch (_) {}
+    updateScrollButtons()
+  }
+}
+
+function scrollNav(direction: 'left' | 'right') {
+  if (!navRef.value) return
+  const scrollAmount = Math.max(260, Math.floor(navRef.value.clientWidth * 0.75))
+  navRef.value.scrollBy({
+    left: direction === 'left' ? -scrollAmount : scrollAmount,
+    behavior: 'smooth',
+  })
+}
+
+function restoreNavScroll() {
+  nextTick(() => {
+    if (!navRef.value) return
+
+    // 1. Pulihkan posisi scroll yang tersimpan
+    if (sharedNavScrollLeft > 0) {
+      navRef.value.scrollLeft = sharedNavScrollLeft
+    }
+
+    // 2. Pastikan tombol menu aktif (sesuai route aktif saat ini) terlihat di viewport jika berada di luar
+    requestAnimationFrame(() => {
+      if (!navRef.value) return
+      const activeBtn = navRef.value.querySelector<HTMLElement>('[data-active="true"]')
+      if (activeBtn) {
+        const navRect = navRef.value.getBoundingClientRect()
+        const btnRect = activeBtn.getBoundingClientRect()
+
+        const isLeftHidden = btnRect.left < navRect.left + 20
+        const isRightHidden = btnRect.right > navRect.right - 20
+
+        if (isLeftHidden || isRightHidden) {
+          activeBtn.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+          })
+          setTimeout(() => {
+            if (navRef.value) {
+              sharedNavScrollLeft = navRef.value.scrollLeft
+              try {
+                sessionStorage.setItem(NAV_SCROLL_STORAGE_KEY, String(sharedNavScrollLeft))
+              } catch (_) {}
+              updateScrollButtons()
+            }
+          }, 350)
+        }
+      }
+      updateScrollButtons()
+    })
+  })
+}
 
 const isDisconnected = computed(() => {
   if (networkStore.nodeRole === 'SERVER') return false
@@ -85,12 +182,26 @@ const networkMenu = {
 }
 
 onMounted(async () => {
+  window.addEventListener('resize', updateScrollButtons)
   await networkStore.checkConnection()
   authStore.fetchCurrentUser()
   locationStore.fetchAccessibleOutlets()
   storeBrandingStore.fetchBranding()
   licenseStore.fetchLicenseInfo()
+
+  restoreNavScroll()
 })
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateScrollButtons)
+})
+
+watch(
+  () => route.path,
+  () => {
+    restoreNavScroll()
+  }
+)
 
 function handleLogout() {
   authStore.logout()
@@ -104,6 +215,12 @@ function handleMenuNavigate(item: { path: string; name: string; isLocked?: boole
       'warning'
     )
     return
+  }
+  if (navRef.value) {
+    sharedNavScrollLeft = navRef.value.scrollLeft
+    try {
+      sessionStorage.setItem(NAV_SCROLL_STORAGE_KEY, String(sharedNavScrollLeft))
+    } catch (_) {}
   }
   router.push(item.path)
 }
@@ -332,135 +449,165 @@ async function handleExitImpersonation() {
     />
 
     <!-- 2. TOP DESKTOP COMMAND TILES RIBBON ("Kotak-Kotak di Atas") -->
-    <nav class="bg-slate-200/90 border-b border-slate-300 px-3 py-2 shrink-0 overflow-x-auto shadow-inner">
-      <div class="flex items-center gap-2 min-w-max">
-        <!-- GROUP 1: OPERASIONAL & MASTER DATA BISNIS -->
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            v-for="item in operationalMenus"
-            :key="item.path"
-            @click="handleMenuNavigate(item)"
-            class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[86px] h-[62px] text-center gap-1 cursor-pointer"
-            :class="item.isLocked
-              ? 'bg-slate-100/70 hover:bg-slate-200/60 text-slate-400 border-dashed border-slate-300 opacity-60 hover:opacity-85'
-              : route.path === item.path
-                ? 'bg-amber-100 text-amber-950 border-amber-500 shadow-sm ring-2 ring-amber-400/50 scale-[1.02]'
-                : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-amber-300 active:scale-95'"
-            :title="item.isLocked ? `Modul ${item.name} (Perlu Upgrade Lisensi)` : item.name"
-          >
-            <!-- Badge Upgrade -->
-            <span
-              v-if="item.isLocked"
-              class="absolute -top-1.5 -right-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-mono text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-xs uppercase tracking-wider border border-amber-600"
-            >
-              Upgrade
-            </span>
+    <div class="relative bg-slate-200/90 border-b border-slate-300 shrink-0 shadow-inner group">
+      <!-- Tombol Navigasi Scroll Kiri -->
+      <button
+        v-show="canScrollLeft"
+        type="button"
+        @click="scrollNav('left')"
+        class="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 w-7 h-10 bg-white/95 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-300 hover:border-amber-400 shadow-md rounded-lg flex items-center justify-center transition cursor-pointer active:scale-95"
+        title="Scroll menu ke kiri"
+      >
+        <Icon icon="fluent:chevron-left-16-filled" class="w-4 h-4" />
+      </button>
 
-            <Icon
-              :icon="item.icon"
-              class="w-6 h-6 transition-transform duration-150 drop-shadow-xs"
-              :class="item.isLocked ? 'grayscale opacity-60' : 'group-hover:scale-110'"
-            />
-            <span
-              class="text-[10px] leading-tight tracking-tight font-bold whitespace-nowrap"
+      <!-- Container Menu Horizontal -->
+      <nav
+        ref="navRef"
+        @scroll="handleNavScroll"
+        @wheel.passive="handleNavWheel"
+        class="px-3 py-2 overflow-x-auto scroll-smooth"
+      >
+        <div class="flex items-center gap-2 min-w-max">
+          <!-- GROUP 1: OPERASIONAL & MASTER DATA BISNIS -->
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              v-for="item in operationalMenus"
+              :key="item.path"
+              :data-active="route.path === item.path"
+              @click="handleMenuNavigate(item)"
+              class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[86px] h-[62px] text-center gap-1 cursor-pointer"
               :class="item.isLocked
-                ? 'text-slate-400 font-semibold'
+                ? 'bg-slate-100/70 hover:bg-slate-200/60 text-slate-400 border-dashed border-slate-300 opacity-60 hover:opacity-85'
                 : route.path === item.path
-                  ? 'text-amber-950 font-extrabold'
-                  : 'text-slate-700 group-hover:text-slate-900'"
+                  ? 'bg-amber-100 text-amber-950 border-amber-500 shadow-sm ring-2 ring-amber-400/50 scale-[1.02]'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-amber-300 active:scale-95'"
+              :title="item.isLocked ? `Modul ${item.name} (Perlu Upgrade Lisensi)` : item.name"
             >
-              {{ item.name }}
-            </span>
-            <div
-              v-if="route.path === item.path && !item.isLocked"
-              class="w-4 h-0.5 bg-amber-600 rounded-full"
-            ></div>
-          </button>
-        </div>
+              <!-- Badge Upgrade -->
+              <span
+                v-if="item.isLocked"
+                class="absolute -top-1.5 -right-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-mono text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-xs uppercase tracking-wider border border-amber-600"
+              >
+                Upgrade
+              </span>
 
-        <!-- DIVIDER ANTAR KELOMPOK -->
-        <div v-if="configMenus.length > 0" class="h-10 w-px bg-slate-300 mx-1"></div>
+              <Icon
+                :icon="item.icon"
+                class="w-6 h-6 transition-transform duration-150 drop-shadow-xs"
+                :class="item.isLocked ? 'grayscale opacity-60' : 'group-hover:scale-110'"
+              />
+              <span
+                class="text-[10px] leading-tight tracking-tight font-bold whitespace-nowrap"
+                :class="item.isLocked
+                  ? 'text-slate-400 font-semibold'
+                  : route.path === item.path
+                    ? 'text-amber-950 font-extrabold'
+                    : 'text-slate-700 group-hover:text-slate-900'"
+              >
+                {{ item.name }}
+              </span>
+              <div
+                v-if="route.path === item.path && !item.isLocked"
+                class="w-4 h-0.5 bg-amber-600 rounded-full"
+              ></div>
+            </button>
+          </div>
 
-        <!-- GROUP 2: PENGATURAN & AUDIT -->
-        <div v-if="configMenus.length > 0" class="flex items-center gap-2">
-          <button
-            type="button"
-            v-for="item in configMenus"
-            :key="item.path"
-            @click="handleMenuNavigate(item)"
-            class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[86px] h-[62px] text-center gap-1 cursor-pointer"
-            :class="item.isLocked
-              ? 'bg-slate-100/70 hover:bg-slate-200/60 text-slate-400 border-dashed border-slate-300 opacity-60 hover:opacity-85'
-              : route.path === item.path
-                ? 'bg-amber-100 text-amber-950 border-amber-500 shadow-sm ring-2 ring-amber-400/50 scale-[1.02]'
-                : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-amber-300 active:scale-95'"
-            :title="item.isLocked ? `Modul ${item.name} (Perlu Upgrade Lisensi)` : item.name"
-          >
-            <!-- Badge Upgrade -->
-            <span
-              v-if="item.isLocked"
-              class="absolute -top-1.5 -right-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-mono text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-xs uppercase tracking-wider border border-amber-600"
-            >
-              Upgrade
-            </span>
+          <!-- DIVIDER ANTAR KELOMPOK -->
+          <div v-if="configMenus.length > 0" class="h-10 w-px bg-slate-300 mx-1"></div>
 
-            <Icon
-              :icon="item.icon"
-              class="w-6 h-6 transition-transform duration-150 drop-shadow-xs"
-              :class="item.isLocked ? 'grayscale opacity-60' : 'group-hover:scale-110'"
-            />
-            <span
-              class="text-[10px] leading-tight tracking-tight font-bold whitespace-nowrap"
+          <!-- GROUP 2: PENGATURAN & AUDIT -->
+          <div v-if="configMenus.length > 0" class="flex items-center gap-2">
+            <button
+              type="button"
+              v-for="item in configMenus"
+              :key="item.path"
+              :data-active="route.path === item.path"
+              @click="handleMenuNavigate(item)"
+              class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[86px] h-[62px] text-center gap-1 cursor-pointer"
               :class="item.isLocked
-                ? 'text-slate-400 font-semibold'
+                ? 'bg-slate-100/70 hover:bg-slate-200/60 text-slate-400 border-dashed border-slate-300 opacity-60 hover:opacity-85'
                 : route.path === item.path
-                  ? 'text-amber-950 font-extrabold'
-                  : 'text-slate-700 group-hover:text-slate-900'"
+                  ? 'bg-amber-100 text-amber-950 border-amber-500 shadow-sm ring-2 ring-amber-400/50 scale-[1.02]'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-amber-300 active:scale-95'"
+              :title="item.isLocked ? `Modul ${item.name} (Perlu Upgrade Lisensi)` : item.name"
             >
-              {{ item.name }}
-            </span>
-            <div
-              v-if="route.path === item.path && !item.isLocked"
-              class="w-4 h-0.5 bg-amber-600 rounded-full"
-            ></div>
-          </button>
-        </div>
+              <!-- Badge Upgrade -->
+              <span
+                v-if="item.isLocked"
+                class="absolute -top-1.5 -right-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-mono text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-xs uppercase tracking-wider border border-amber-600"
+              >
+                Upgrade
+              </span>
 
-        <!-- DIVIDER ANTAR KELOMPOK -->
-        <!-- DIVIDER ANTAR KELOMPOK -->
-        <div class="h-10 w-px bg-slate-300 mx-1"></div>
+              <Icon
+                :icon="item.icon"
+                class="w-6 h-6 transition-transform duration-150 drop-shadow-xs"
+                :class="item.isLocked ? 'grayscale opacity-60' : 'group-hover:scale-110'"
+              />
+              <span
+                class="text-[10px] leading-tight tracking-tight font-bold whitespace-nowrap"
+                :class="item.isLocked
+                  ? 'text-slate-400 font-semibold'
+                  : route.path === item.path
+                    ? 'text-amber-950 font-extrabold'
+                    : 'text-slate-700 group-hover:text-slate-900'"
+              >
+                {{ item.name }}
+              </span>
+              <div
+                v-if="route.path === item.path && !item.isLocked"
+                class="w-4 h-0.5 bg-amber-600 rounded-full"
+              ></div>
+            </button>
+          </div>
 
-        <!-- GROUP 3: KONEKSI JARINGAN LAN -->
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            @click="handleMenuNavigate(networkMenu)"
-            class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[96px] h-[62px] text-center gap-1 cursor-pointer"
-            :class="route.path === networkMenu.path
-              ? 'bg-blue-100 text-blue-950 border-blue-500 shadow-sm ring-2 ring-blue-400/50 scale-[1.02]'
-              : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-blue-300 active:scale-95'"
-          >
-            <Icon
-              :icon="networkMenu.icon"
-              class="w-6 h-6 transition-transform duration-150 group-hover:scale-110 drop-shadow-xs"
-            />
-            <span
-              class="text-[10px] leading-tight tracking-tight font-bold whitespace-nowrap"
-              :class="route.path === networkMenu.path ? 'font-extrabold text-blue-950' : 'text-slate-700 group-hover:text-slate-900'"
+          <!-- DIVIDER ANTAR KELOMPOK -->
+          <div class="h-10 w-px bg-slate-300 mx-1"></div>
+
+          <!-- GROUP 3: KONEKSI JARINGAN LAN -->
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              :data-active="route.path === networkMenu.path"
+              @click="handleMenuNavigate(networkMenu)"
+              class="group flex flex-col items-center justify-center px-3.5 py-1.5 rounded-lg transition-all duration-150 relative border select-none min-w-[96px] h-[62px] text-center gap-1 cursor-pointer"
+              :class="route.path === networkMenu.path
+                ? 'bg-blue-100 text-blue-950 border-blue-500 shadow-sm ring-2 ring-blue-400/50 scale-[1.02]'
+                : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-300 shadow-xs hover:border-blue-300 active:scale-95'"
             >
-              {{ networkMenu.name }}
-            </span>
-            <div
-              v-if="route.path === networkMenu.path"
-              class="w-4 h-0.5 rounded-full bg-blue-600"
-            ></div>
-          </button>
+              <Icon
+                :icon="networkMenu.icon"
+                class="w-6 h-6 transition-transform duration-150 group-hover:scale-110 drop-shadow-xs"
+              />
+              <span
+                class="text-[10px] leading-tight tracking-tight font-bold whitespace-nowrap"
+                :class="route.path === networkMenu.path ? 'font-extrabold text-blue-950' : 'text-slate-700 group-hover:text-slate-900'"
+              >
+                {{ networkMenu.name }}
+              </span>
+              <div
+                v-if="route.path === networkMenu.path"
+                class="w-4 h-0.5 rounded-full bg-blue-600"
+              ></div>
+            </button>
+          </div>
         </div>
+      </nav>
 
-
-      </div>
-    </nav>
+      <!-- Tombol Navigasi Scroll Kanan -->
+      <button
+        v-show="canScrollRight"
+        type="button"
+        @click="scrollNav('right')"
+        class="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 w-7 h-10 bg-white/95 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-300 hover:border-amber-400 shadow-md rounded-lg flex items-center justify-center transition cursor-pointer active:scale-95"
+        title="Scroll menu ke kanan"
+      >
+        <Icon icon="fluent:chevron-right-16-filled" class="w-4 h-4" />
+      </button>
+    </div>
 
     <!-- 3. OFFLINE WARNING STRIP WHEN DISCONNECTED -->
     <div

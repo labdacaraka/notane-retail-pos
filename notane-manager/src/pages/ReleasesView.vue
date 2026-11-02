@@ -21,6 +21,9 @@ import {
   ArrowDown,
   Database,
   AlertCircle,
+  Upload,
+  Globe,
+  FileArchive,
 } from 'lucide-vue-next'
 import { z } from 'zod'
 
@@ -37,17 +40,27 @@ const isModalOpen = ref(false)
 const isSubmitting = ref(false)
 const formErrors = ref<Record<string, string>>({})
 
+// Upload state
+const uploadMode = ref<'file' | 'url'>('file')
+const isUploading = ref(false)
+const uploadProgress = ref(0)
+const uploadedFileName = ref('')
+const fileInput = ref<HTMLInputElement | null>(null)
+
 const releaseSchema = z.object({
   version: z.string().trim().min(1, 'Versi wajib diisi (contoh: 1.2.0)'),
   release_name: z.string().trim().min(2, 'Nama rilis wajib diisi'),
   changelog: z.string().trim().min(5, 'Changelog minimal 5 karakter'),
-  download_url: z.string().trim().url('Format URL unduhan tidak valid'),
+  download_url: z.string().trim().min(1, 'URL atau berkas unduhan wajib disediakan'),
   checksum_sha256: z.string().trim().min(10, 'Checksum SHA-256 wajib diisi'),
   is_mandatory: z.boolean(),
   min_license_tier: z.string(),
   has_db_migration: z.boolean(),
   component: z.enum(['server', 'client']),
   min_server_version: z.string().optional(),
+  file_path: z.string().optional(),
+  file_size: z.number().optional(),
+  original_filename: z.string().optional(),
 })
 
 const form = ref<{
@@ -61,6 +74,9 @@ const form = ref<{
   has_db_migration: boolean
   component: 'server' | 'client'
   min_server_version: string
+  file_path?: string
+  file_size?: number
+  original_filename?: string
 }>({
   version: '',
   release_name: '',
@@ -72,6 +88,9 @@ const form = ref<{
   has_db_migration: true,
   component: 'server',
   min_server_version: '1.1.0',
+  file_path: undefined,
+  file_size: undefined,
+  original_filename: undefined,
 })
 
 async function loadData(page?: number, pageSize?: number) {
@@ -107,32 +126,63 @@ function handleSort(column: 'created_at' | 'version' | 'release_name' | 'release
   loadData(1)
 }
 
+async function handleFileUpload(e: Event) {
+  const target = e.target as HTMLInputElement
+  if (!target.files || target.files.length === 0) return
+  const file = target.files[0]
+  isUploading.value = true
+  uploadProgress.value = 0
+  uploadedFileName.value = file.name
+
+  const res = await providerStore.uploadReleaseFile(file, (pct) => {
+    uploadProgress.value = pct
+  })
+  isUploading.value = false
+
+  if (res) {
+    form.value.file_path = res.file_path
+    form.value.original_filename = res.original_filename
+    form.value.file_size = res.file_size
+    form.value.checksum_sha256 = res.checksum_sha256
+    form.value.download_url = res.download_url
+  }
+}
+
 function openCreateModal(comp: 'server' | 'client' = 'server') {
+  uploadMode.value = 'file'
+  uploadedFileName.value = ''
+  uploadProgress.value = 0
   if (comp === 'client') {
     form.value = {
       version: '1.2.0',
       release_name: 'Notane Retail POS - Client Terminal UI Update',
       changelog: '1. Desain antarmuka baru kasir & POS responsif\n2. Indikator status real-time printer & barcode scanner\n3. Dukungan modal cek & perbarui antarmuka langsung',
-      download_url: 'https://update.notane.id/releases/client/v1.2.0/notane-client-ui.zip',
-      checksum_sha256: 'b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1',
+      download_url: '',
+      checksum_sha256: '',
       is_mandatory: false,
       min_license_tier: 'BASIC',
       has_db_migration: false,
       component: 'client',
       min_server_version: '1.1.0',
+      file_path: undefined,
+      file_size: undefined,
+      original_filename: undefined,
     }
   } else {
     form.value = {
       version: '1.2.0',
       release_name: 'Pembaruan Notane Server v1.2.0',
       changelog: '1. Peningkatan kecepatan simpan transaksi kasir\n2. Pembaruan struktur data laporan penjualan\n3. Peningkatan kestabilan sambungan jaringan toko',
-      download_url: 'https://update.notane.id/releases/server/v1.2.0/notane-server-core.zip',
-      checksum_sha256: 'a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890',
+      download_url: '',
+      checksum_sha256: '',
       is_mandatory: false,
       min_license_tier: 'BASIC',
       has_db_migration: true,
       component: 'server',
       min_server_version: '',
+      file_path: undefined,
+      file_size: undefined,
+      original_filename: undefined,
     }
   }
   formErrors.value = {}
@@ -355,19 +405,34 @@ async function confirmDelete(rel: AppRelease) {
             </div>
           </div>
 
-          <!-- Download URL -->
-          <div class="flex items-center justify-between pt-1 text-[11px] text-slate-400">
-            <div class="flex items-center gap-1.5 truncate max-w-[80%] font-mono">
-              <Download class="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span class="truncate">{{ rel.download_url }}</span>
+          <!-- Download URL & File Info -->
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-1 gap-2 text-[11px] text-slate-400">
+            <div class="flex flex-wrap items-center gap-2 font-mono">
+              <span v-if="rel.original_filename" class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold flex items-center gap-1">
+                <FileArchive class="w-3 h-3" />
+                <span>{{ rel.original_filename }} ({{ ((rel.file_size || 0) / (1024 * 1024)).toFixed(2) }} MB)</span>
+              </span>
+              <span class="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-semibold flex items-center gap-1">
+                <ShieldCheck class="w-3 h-3" />
+                <span>Tervalidasi Enkripsi Mesin & Lisensi</span>
+              </span>
+              <div class="flex items-center gap-1.5 truncate max-w-xs text-slate-500">
+                <Download class="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span class="truncate">{{ rel.download_url }}</span>
+              </div>
             </div>
             <a
+              v-if="rel.download_url.startsWith('http://') || rel.download_url.startsWith('https://')"
               :href="rel.download_url"
               target="_blank"
               class="text-brand-400 hover:text-brand-300 font-semibold underline shrink-0 cursor-pointer"
             >
-              Unduh Paket
+              Unduh Eksternal
             </a>
+            <span v-else class="text-[11px] text-emerald-400/90 font-medium shrink-0 flex items-center gap-1">
+              <CheckCircle2 class="w-3.5 h-3.5 text-emerald-400" />
+              <span>Siap Diunduh Aman via Server POS</span>
+            </span>
           </div>
         </div>
       </div>
@@ -483,8 +548,79 @@ async function confirmDelete(rel: AppRelease) {
             <span v-if="formErrors.changelog" class="text-[11px] text-rose-400 mt-0.5 block">{{ formErrors.changelog }}</span>
           </div>
 
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Alamat / Tautan Unduhan File ZIP *</label>
+          <!-- Mode Penyediaan Berkas -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold text-slate-300">Penyediaan Berkas Pembaruan *</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                @click="uploadMode = 'file'"
+                class="px-3 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5"
+                :class="uploadMode === 'file' ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'"
+              >
+                <Upload class="w-3.5 h-3.5" />
+                <span>Unggah Berkas (Aman)</span>
+              </button>
+              <button
+                type="button"
+                @click="uploadMode = 'url'"
+                class="px-3 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5"
+                :class="uploadMode === 'url' ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'"
+              >
+                <Globe class="w-3.5 h-3.5" />
+                <span>Tautan URL Eksternal</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Upload Berkas Dropzone -->
+          <div v-if="uploadMode === 'file'" class="space-y-2">
+            <div
+              @click="fileInput?.click()"
+              class="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition"
+              :class="form.file_path ? 'border-emerald-600/60 bg-emerald-950/20' : 'border-slate-700 hover:border-brand-500 bg-slate-950/50'"
+            >
+              <input
+                ref="fileInput"
+                type="file"
+                class="hidden"
+                @change="handleFileUpload"
+                accept=".zip,.tar.gz,.tar,.bin,.exe,.msi,.deb,.appimage,.dmg,.pkg"
+              />
+              <div v-if="!form.file_path && !isUploading" class="space-y-1">
+                <Upload class="w-7 h-7 text-slate-400 mx-auto" />
+                <div class="text-xs font-semibold text-slate-200">Klik untuk memilih berkas instalasi / update</div>
+                <div class="text-[11px] text-slate-500">Mendukung berkas .zip, .exe, .msi, .deb, .dmg, .appimage, dll.</div>
+              </div>
+              <div v-else-if="isUploading" class="space-y-2 py-2">
+                <RefreshCw class="w-6 h-6 text-brand-400 animate-spin mx-auto" />
+                <div class="text-xs text-slate-300 font-semibold">Mengunggah {{ uploadedFileName }} ({{ uploadProgress }}%)...</div>
+                <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div class="bg-brand-500 h-1.5 transition-all duration-200" :style="{ width: `${uploadProgress}%` }"></div>
+                </div>
+              </div>
+              <div v-else class="space-y-1 py-1">
+                <div class="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-xs">
+                  <CheckCircle2 class="w-4 h-4" />
+                  <span>Berkas Berhasil Terunggah</span>
+                </div>
+                <div class="text-xs text-slate-300 font-mono">{{ form.original_filename }}</div>
+                <div class="text-[11px] text-slate-400">
+                  Ukuran: {{ ((form.file_size || 0) / (1024 * 1024)).toFixed(2) }} MB | SHA-256 Otomatis Dihitung
+                </div>
+                <div class="pt-1">
+                  <span class="text-[11px] text-brand-400 underline hover:text-brand-300">Klik untuk mengganti berkas</span>
+                </div>
+              </div>
+            </div>
+            <span v-if="formErrors.download_url" class="text-[11px] text-rose-400 mt-0.5 block">
+              Silakan pilih dan unggah berkas rilis terlebih dahulu.
+            </span>
+          </div>
+
+          <!-- Tautan Unduhan Manual (URL) -->
+          <div v-else>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Alamat / Tautan Unduhan File *</label>
             <input
               v-model="form.download_url"
               type="url"
@@ -495,12 +631,20 @@ async function confirmDelete(rel: AppRelease) {
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Kode Keamanan File (SHA-256) *</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-semibold text-slate-300">Kode Keamanan File (SHA-256) *</label>
+              <span v-if="uploadMode === 'file' && form.checksum_sha256" class="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                <CheckCircle2 class="w-3 h-3" />
+                Dihitung Otomatis
+              </span>
+            </div>
             <input
               v-model="form.checksum_sha256"
+              :readonly="uploadMode === 'file' && !!form.checksum_sha256"
               type="text"
               placeholder="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500 font-mono text-[11px]"
+              :class="{ 'opacity-70 bg-slate-950/80': uploadMode === 'file' && form.checksum_sha256 }"
             />
             <span v-if="formErrors.checksum_sha256" class="text-[11px] text-rose-400 mt-0.5 block">{{ formErrors.checksum_sha256 }}</span>
           </div>

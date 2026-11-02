@@ -936,6 +936,76 @@ async fn apply_update(
         );
     }
 
+    // Unduh dan verifikasi berkas paket jika URL unduhan disediakan
+    if req.download_url.starts_with("http://") || req.download_url.starts_with("https://") {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(180))
+            .build()
+            .unwrap_or_default();
+
+        tracing::info!("Mengunduh berkas pembaruan resmi dari: {}", req.download_url);
+        match client.get(&req.download_url).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                match resp.bytes().await {
+                    Ok(bytes) => {
+                        use sha2::Digest;
+                        let mut hasher = sha2::Sha256::new();
+                        hasher.update(&bytes);
+                        let computed_hash = hex::encode(hasher.finalize());
+
+                        if !req.checksum_sha256.trim().is_empty() && !computed_hash.eq_ignore_ascii_case(req.checksum_sha256.trim()) {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(json!({
+                                    "status": "error",
+                                    "message": format!("Checksum berkas unduhan tidak cocok! Dihitung: {}, Rilis resmi: {}", computed_hash, req.checksum_sha256)
+                                })),
+                            );
+                        }
+
+                        // Simpan paket ke direktori updates
+                        if let Some(mut cache_dir) = dirs::data_local_dir() {
+                            cache_dir.push("notane-retail-pos");
+                            cache_dir.push("updates");
+                            let _ = tokio::fs::create_dir_all(&cache_dir).await;
+                            let target_file = cache_dir.join(format!("update-{}.pkg", req.target_version));
+                            let _ = tokio::fs::write(&target_file, &bytes).await;
+                            tracing::info!("Berkas pembaruan berhasil disimpan ke: {:?}", target_file);
+                        }
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(json!({
+                                "status": "error",
+                                "message": format!("Gagal membaca paket pembaruan: {}", e)
+                            })),
+                        );
+                    }
+                }
+            }
+            Ok(resp) => {
+                let err_text = resp.text().await.unwrap_or_default();
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "status": "error",
+                        "message": format!("Server provider menolak permintaan pembaruan: {}", err_text)
+                    })),
+                );
+            }
+            Err(e) => {
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({
+                        "status": "error",
+                        "message": format!("Gagal menghubungi provider untuk mengunduh rilis: {}", e)
+                    })),
+                );
+            }
+        }
+    }
+
     let pool_opt = state.pool.read().await.clone();
     let pool = match pool_opt {
         Some(p) => p,

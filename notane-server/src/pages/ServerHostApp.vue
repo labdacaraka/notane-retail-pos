@@ -29,6 +29,7 @@ import {
   DownloadCloud,
   Globe,
   ExternalLink,
+  Minimize2,
 } from 'lucide-vue-next'
 import { useNetworkStore } from '@/stores/networkStore'
 import { useLicenseStore } from '@/stores/licenseStore'
@@ -65,6 +66,16 @@ async function handleRestoreSuccess() {
   await licenseStore.fetchVersionInfo()
   await storeBrandingStore.fetchBranding()
   dialog.toast('Database toko berhasil dipulihkan secara penuh dari berkas cadangan!', 'success')
+}
+
+async function minimizeToTray() {
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window')
+    await getCurrentWindow().hide()
+    dialog.toast('Notane Server disembunyikan ke System Tray (Engine tetap berjalan aktif).', 'info')
+  } catch {
+    dialog.toast('Engine berjalan di latar belakang.', 'info')
+  }
 }
 
 // Store Branding State
@@ -550,6 +561,17 @@ const restartServer = async () => {
           <span class="w-2.5 h-2.5 rounded-full" :class="isServerRunning ? 'bg-emerald-500' : !isLicenseValid ? 'bg-rose-500' : 'bg-amber-500'"></span>
           <span>{{ isServerRunning ? 'SERVER AKTIF' : !isLicenseValid ? 'BELUM DIAKTIVASI' : 'SERVER BERHENTI' }}</span>
         </div>
+
+        <!-- Minimize ke System Tray -->
+        <button
+          type="button"
+          @click="minimizeToTray"
+          title="Sembunyikan jendela ke System Tray (Server tetap aktif di latar belakang)"
+          class="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+        >
+          <Minimize2 class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+          <span class="hidden sm:inline">Ke Tray</span>
+        </button>
 
         <!-- Switch Dark / Light Mode -->
         <ThemeToggle />

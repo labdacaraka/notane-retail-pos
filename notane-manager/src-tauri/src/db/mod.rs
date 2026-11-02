@@ -6,6 +6,24 @@ use tracing::info;
 
 pub type DbPool = sqlx::AnyPool;
 
+pub fn sql(q: &str) -> String {
+    if std::env::var("MANAGER_DATABASE_URL").is_ok() {
+        let mut count = 1;
+        let mut result = String::new();
+        for ch in q.chars() {
+            if ch == '?' {
+                result.push_str(&format!("${}", count));
+                count += 1;
+            } else {
+                result.push(ch);
+            }
+        }
+        result
+    } else {
+        q.to_string()
+    }
+}
+
 pub async fn init_db(db_path: Option<PathBuf>) -> Result<DbPool, sqlx::Error> {
     sqlx::any::install_default_drivers();
 
@@ -196,6 +214,9 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
             is_published INTEGER NOT NULL DEFAULT 1,
             component TEXT NOT NULL DEFAULT 'server',
             min_server_version TEXT,
+            file_path TEXT,
+            file_size INTEGER,
+            original_filename TEXT,
             created_at TEXT NOT NULL
         );"
     ).execute(pool).await?;
@@ -239,6 +260,15 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
         .execute(pool)
         .await;
     let _ = sqlx::query("ALTER TABLE provider_app_releases ADD COLUMN min_server_version TEXT;")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_app_releases ADD COLUMN file_path TEXT;")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_app_releases ADD COLUMN file_size INTEGER;")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE provider_app_releases ADD COLUMN original_filename TEXT;")
         .execute(pool)
         .await;
 

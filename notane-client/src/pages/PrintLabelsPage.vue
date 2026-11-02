@@ -514,7 +514,8 @@ function buildPrintDocumentHtml(): string {
       color: #000000 !important;
       display: flex !important;
       flex-direction: column !important;
-      justify-content: space-between !important;
+      justify-content: flex-start !important;
+      overflow: hidden !important;
     }
 
     .mode-a4 .price-tag-card {
@@ -529,12 +530,12 @@ function buildPrintDocumentHtml(): string {
     .mode-a4.template-sticker .price-tag-card {
       min-height: 25mm !important;
       height: 25mm !important;
-      padding: 1.5mm !important;
+      padding: 1.2mm 1.5mm !important;
     }
     .mode-a4.template-compact .price-tag-card {
       min-height: 20mm !important;
       height: 20mm !important;
-      padding: 1mm !important;
+      padding: 0.8mm 1mm !important;
     }
 
     .mode-roll.template-shelf .price-tag-card {
@@ -545,97 +546,170 @@ function buildPrintDocumentHtml(): string {
     .mode-roll.template-sticker .price-tag-card {
       width: 40mm !important;
       height: 25mm !important;
-      padding: 1.5mm !important;
+      padding: 1.2mm 1.5mm !important;
     }
     .mode-roll.template-compact .price-tag-card {
       width: 30mm !important;
       height: 20mm !important;
-      padding: 1mm !important;
+      padding: 0.8mm 1mm !important;
     }
 
+    /* Store Header */
     .tag-store-header {
-      font-size: 7pt;
       font-weight: 900;
       text-transform: uppercase;
       text-align: center;
       border-bottom: 1px solid #000000;
-      padding-bottom: 0.5mm;
-      line-height: 1;
+      line-height: 1.15;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      flex-shrink: 0;
+    }
+    .template-shelf .tag-store-header {
+      font-size: 7pt;
+      padding-bottom: 0.5mm;
+    }
+    .template-sticker .tag-store-header {
+      font-size: 5.5pt;
+      padding-bottom: 0.3mm;
+      border-bottom-width: 0.5px;
+    }
+    .template-compact .tag-store-header {
+      font-size: 4.8pt;
+      padding-bottom: 0.2mm;
+      border-bottom-width: 0.5px;
     }
 
+    /* Product Name */
     .tag-product-name {
-      font-size: 8.5pt;
       font-weight: 900;
-      line-height: 1.1;
-      margin-top: 1mm;
+      line-height: 1.15;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
+      word-break: break-word;
+      flex-shrink: 0;
     }
-
+    .template-shelf .tag-product-name {
+      font-size: 8.5pt;
+      margin-top: 1mm;
+      max-height: 7mm;
+    }
     .template-sticker .tag-product-name {
-      font-size: 7pt;
+      font-size: 6.5pt;
+      margin-top: 0.5mm;
+      max-height: 5.2mm;
     }
-
     .template-compact .tag-product-name {
-      font-size: 6pt;
+      font-size: 5.2pt;
+      margin-top: 0.3mm;
+      max-height: 4.2mm;
     }
 
+    /* Meta Info (SKU & Category) */
     .tag-meta-info {
-      font-size: 6pt;
       font-family: monospace;
       color: #333333;
       display: flex;
       justify-content: space-between;
-      line-height: 1;
+      line-height: 1.1;
+      overflow: hidden;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .template-shelf .tag-meta-info {
+      font-size: 6pt;
       margin-top: 0.5mm;
     }
+    .template-sticker .tag-meta-info {
+      font-size: 5pt;
+      margin-top: 0.3mm;
+    }
+    .template-compact .tag-meta-info {
+      font-size: 4.5pt;
+      margin-top: 0.2mm;
+    }
 
+    /* Barcode Area */
     .tag-barcode-container {
-      margin: 1mm 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
+    }
+    .template-shelf .tag-barcode-container {
+      margin: 1mm 0;
+    }
+    .template-sticker .tag-barcode-container {
+      margin: 0.4mm 0;
+    }
+    .template-compact .tag-barcode-container {
+      margin: 0.2mm 0;
     }
 
     .tag-barcode-svg {
-      width: 90%;
-      height: 7mm;
+      width: 92%;
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
     }
-
+    .template-shelf .tag-barcode-svg {
+      height: 7mm;
+    }
     .template-sticker .tag-barcode-svg {
-      height: 5mm;
+      height: 4.2mm;
     }
-
     .template-compact .tag-barcode-svg {
-      height: 4mm;
+      height: 3.2mm;
     }
 
     .tag-barcode-text {
       font-family: monospace;
-      font-size: 6.5pt;
       font-weight: bold;
-      letter-spacing: 1px;
+      letter-spacing: 0.8px;
       line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .template-shelf .tag-barcode-text {
+      font-size: 6.5pt;
       margin-top: 0.3mm;
     }
+    .template-sticker .tag-barcode-text {
+      font-size: 5pt;
+      margin-top: 0.2mm;
+    }
+    .template-compact .tag-barcode-text {
+      font-size: 4.5pt;
+      margin-top: 0.1mm;
+      letter-spacing: 0.4px;
+    }
 
+    /* Price Row */
     .tag-price-row {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
       border-top: 1px dashed #000000;
+      margin-top: auto !important;
+      flex-shrink: 0;
+    }
+    .template-shelf .tag-price-row {
       padding-top: 1mm;
-      margin-top: auto;
+    }
+    .template-sticker .tag-price-row {
+      padding-top: 0.5mm;
+      border-top-width: 0.5px;
+    }
+    .template-compact .tag-price-row {
+      padding-top: 0.3mm;
+      border-top-width: 0.5px;
     }
 
     .tag-price-amount {
@@ -644,38 +718,66 @@ function buildPrintDocumentHtml(): string {
     }
 
     .currency-symbol {
-      font-size: 7pt;
       font-weight: bold;
       margin-right: 0.5mm;
+    }
+    .template-shelf .currency-symbol {
+      font-size: 7pt;
+    }
+    .template-sticker .currency-symbol {
+      font-size: 5.5pt;
+    }
+    .template-compact .currency-symbol {
+      font-size: 4.8pt;
     }
 
     .price-val {
       font-family: monospace;
-      font-size: 13pt;
       font-weight: 900;
       line-height: 1;
     }
-
-    .template-sticker .price-val {
-      font-size: 9.5pt;
+    .template-shelf .price-val {
+      font-size: 13pt;
     }
-
+    .template-sticker .price-val {
+      font-size: 9pt;
+    }
     .template-compact .price-val {
-      font-size: 8pt;
+      font-size: 7.5pt;
     }
 
     .unit-badge {
-      font-size: 6.5pt;
       font-weight: bold;
       text-transform: uppercase;
     }
+    .template-shelf .unit-badge {
+      font-size: 6.5pt;
+    }
+    .template-sticker .unit-badge {
+      font-size: 5pt;
+    }
+    .template-compact .unit-badge {
+      font-size: 4.5pt;
+    }
 
+    /* Date Footer */
     .tag-footer-date {
-      font-size: 5.5pt;
       color: #444444;
       text-align: right;
       line-height: 1;
+      flex-shrink: 0;
+    }
+    .template-shelf .tag-footer-date {
+      font-size: 5.5pt;
       margin-top: 0.5mm;
+    }
+    .template-sticker .tag-footer-date {
+      font-size: 4.5pt;
+      margin-top: 0.3mm;
+    }
+    .template-compact .tag-footer-date {
+      font-size: 4pt;
+      margin-top: 0.2mm;
     }
   </style>
 </head>
@@ -1398,29 +1500,32 @@ async function handlePrintLabels() {
               <div
                 v-for="(prod, idx) in flatLabelsList"
                 :key="`${prod.id}-${idx}`"
-                class="bg-white border border-slate-400 rounded shadow-sm overflow-hidden text-slate-900 transition-all select-none relative w-full"
+                class="bg-white border border-slate-400 rounded shadow-sm overflow-hidden text-slate-900 transition-all select-none relative w-full flex flex-col justify-start"
                 :class="{
                   'max-w-[240px] p-2.5': labelTemplate === 'shelf_standard' && a4GridColumns <= 2,
                   'max-w-[180px] p-2': labelTemplate === 'product_sticker' || a4GridColumns === 3,
                   'max-w-[140px] p-1.5': labelTemplate === 'compact_jewelry' || a4GridColumns >= 4,
                 }"
               >
-                <div class="absolute top-1 right-1 px-1 py-0.2 rounded bg-slate-100 text-[8px] font-mono text-slate-500 font-bold border border-slate-200">
-                  #{{ idx + 1 }}
-                </div>
-
-                <!-- Top Store Name -->
-                <div
-                  v-if="showOutletName"
-                  class="text-[9px] font-black uppercase text-center border-b border-slate-800 pb-0.5 tracking-wider truncate pr-6"
-                >
-                  {{ activeStoreDisplayTitle }}
+                <!-- Top Header: Store Title & Index Badge (Side by side in flex row, never overlapping) -->
+                <div class="flex items-center justify-between border-b border-slate-800 pb-0.5 gap-1 mb-0.5 shrink-0">
+                  <div
+                    v-if="showOutletName"
+                    class="font-black uppercase tracking-wider truncate flex-1 text-center"
+                    :class="labelTemplate === 'shelf_standard' ? 'text-[9px]' : labelTemplate === 'product_sticker' ? 'text-[8px]' : 'text-[7.5px]'"
+                  >
+                    {{ activeStoreDisplayTitle }}
+                  </div>
+                  <div v-else class="flex-1"></div>
+                  <span class="px-1 py-0.2 rounded bg-slate-100 text-[8px] font-mono text-slate-500 font-bold border border-slate-200 shrink-0">
+                    #{{ idx + 1 }}
+                  </span>
                 </div>
 
                 <!-- Product Name -->
                 <div
-                  class="font-black leading-tight text-slate-950 mt-1 line-clamp-2"
-                  :class="labelTemplate === 'shelf_standard' ? 'text-xs' : 'text-[11px]'"
+                  class="font-black leading-tight text-slate-950 line-clamp-2 shrink-0"
+                  :class="labelTemplate === 'shelf_standard' ? 'text-xs mt-1' : labelTemplate === 'product_sticker' ? 'text-[10px] mt-0.5' : 'text-[9px] mt-0.5'"
                 >
                   {{ prod.name }}
                 </div>
@@ -1428,39 +1533,51 @@ async function handlePrintLabels() {
                 <!-- SKU & Category -->
                 <div
                   v-if="showSku"
-                  class="text-[8px] text-slate-600 font-mono mt-0.5 flex justify-between"
+                  class="text-slate-600 font-mono flex justify-between overflow-hidden truncate shrink-0"
+                  :class="labelTemplate === 'shelf_standard' ? 'text-[8px] mt-0.5' : 'text-[7px] mt-0.5'"
                 >
-                  <span>{{ prod.sku }}</span>
-                  <span>{{ prod.category_name }}</span>
+                  <span class="truncate">{{ prod.sku }}</span>
+                  <span v-if="prod.category_name" class="truncate">{{ prod.category_name }}</span>
                 </div>
 
                 <!-- Barcode SVG Render -->
                 <div
                   v-if="showBarcodeLines && prod.barcode"
-                  class="my-1 flex flex-col items-center justify-center"
+                  class="flex flex-col items-center justify-center shrink-0"
+                  :class="labelTemplate === 'shelf_standard' ? 'my-1' : 'my-0.5'"
                 >
                   <div
                     class="w-full flex items-center justify-center overflow-hidden"
-                    :style="{ height: labelTemplate === 'shelf_standard' ? '28px' : '20px' }"
+                    :style="{ height: labelTemplate === 'shelf_standard' ? '28px' : labelTemplate === 'product_sticker' ? '18px' : '14px' }"
                     v-html="generateCode128Svg(prod.barcode, 30)"
                   ></div>
-                  <div class="font-mono text-[9px] font-bold tracking-widest text-slate-900 leading-none mt-0.5">
+                  <div
+                    class="font-mono font-bold tracking-wider text-slate-900 leading-none truncate"
+                    :class="labelTemplate === 'shelf_standard' ? 'text-[9px] mt-0.5' : 'text-[7.5px] mt-0.5'"
+                  >
                     {{ prod.barcode }}
                   </div>
                 </div>
 
                 <!-- Giant Price Display -->
-                <div class="mt-1 pt-1 border-t border-dashed border-slate-300 flex items-baseline justify-between">
-                  <div>
-                    <span class="text-[9px] font-bold text-slate-600 mr-0.5">Rp</span>
+                <div class="mt-auto pt-1 border-t border-dashed border-slate-300 flex items-baseline justify-between shrink-0">
+                  <div class="flex items-baseline">
+                    <span
+                      class="font-bold text-slate-600 mr-0.5"
+                      :class="labelTemplate === 'shelf_standard' ? 'text-[9px]' : 'text-[7.5px]'"
+                    >Rp</span>
                     <span
                       class="font-mono font-black text-slate-950 tracking-tight"
-                      :class="labelTemplate === 'shelf_standard' ? 'text-base' : 'text-xs'"
+                      :class="labelTemplate === 'shelf_standard' ? 'text-base' : labelTemplate === 'product_sticker' ? 'text-xs' : 'text-[11px]'"
                     >
                       {{ formatCurrency(prod.base_selling_price) }}
                     </span>
                   </div>
-                  <span v-if="showUnitName" class="text-[8px] font-bold text-slate-600 uppercase">
+                  <span
+                    v-if="showUnitName"
+                    class="font-bold text-slate-600 uppercase"
+                    :class="labelTemplate === 'shelf_standard' ? 'text-[8px]' : 'text-[7px]'"
+                  >
                     /{{ prod.unit_code || 'PCS' }}
                   </span>
                 </div>
@@ -1468,7 +1585,8 @@ async function handlePrintLabels() {
                 <!-- Bottom Footer Date -->
                 <div
                   v-if="showPrintDate"
-                  class="text-[7px] text-slate-400 text-right mt-1 font-mono leading-none"
+                  class="text-slate-400 text-right font-mono leading-none shrink-0"
+                  :class="labelTemplate === 'shelf_standard' ? 'text-[7px] mt-1' : 'text-[6.5px] mt-0.5'"
                 >
                   Dicetak: {{ printDateStr }}
                 </div>
@@ -1488,7 +1606,7 @@ async function handlePrintLabels() {
 
             <!-- Single Tag Card Showcase -->
             <div
-              class="bg-white border border-slate-400 rounded shadow-md overflow-hidden text-slate-900 transition-all select-none"
+              class="bg-white border border-slate-400 rounded shadow-md overflow-hidden text-slate-900 transition-all select-none flex flex-col justify-start"
               :class="{
                 'w-[240px] p-2.5': labelTemplate === 'shelf_standard',
                 'w-[180px] p-2': labelTemplate === 'product_sticker',
@@ -1498,15 +1616,16 @@ async function handlePrintLabels() {
               <!-- Top Store Name -->
               <div
                 v-if="showOutletName"
-                class="text-[9px] font-black uppercase text-center border-b border-slate-800 pb-0.5 tracking-wider truncate"
+                class="font-black uppercase text-center border-b border-slate-800 pb-0.5 tracking-wider truncate shrink-0"
+                :class="labelTemplate === 'shelf_standard' ? 'text-[9px]' : labelTemplate === 'product_sticker' ? 'text-[8px]' : 'text-[7.5px]'"
               >
                 {{ activeStoreDisplayTitle }}
               </div>
 
               <!-- Product Name -->
               <div
-                class="font-black leading-tight text-slate-950 mt-1 line-clamp-2"
-                :class="labelTemplate === 'shelf_standard' ? 'text-xs' : 'text-[11px]'"
+                class="font-black leading-tight text-slate-950 line-clamp-2 shrink-0"
+                :class="labelTemplate === 'shelf_standard' ? 'text-xs mt-1' : labelTemplate === 'product_sticker' ? 'text-[10px] mt-0.5' : 'text-[9px] mt-0.5'"
               >
                 {{ flatLabelsList[0]?.name }}
               </div>
@@ -1514,39 +1633,51 @@ async function handlePrintLabels() {
               <!-- SKU & Category -->
               <div
                 v-if="showSku"
-                class="text-[8px] text-slate-600 font-mono mt-0.5 flex justify-between"
+                class="text-slate-600 font-mono flex justify-between overflow-hidden truncate shrink-0"
+                :class="labelTemplate === 'shelf_standard' ? 'text-[8px] mt-0.5' : 'text-[7px] mt-0.5'"
               >
-                <span>{{ flatLabelsList[0]?.sku }}</span>
-                <span>{{ flatLabelsList[0]?.category_name }}</span>
+                <span class="truncate">{{ flatLabelsList[0]?.sku }}</span>
+                <span v-if="flatLabelsList[0]?.category_name" class="truncate">{{ flatLabelsList[0]?.category_name }}</span>
               </div>
 
               <!-- Barcode SVG Render -->
               <div
                 v-if="showBarcodeLines && flatLabelsList[0]?.barcode"
-                class="my-1.5 flex flex-col items-center justify-center"
+                class="flex flex-col items-center justify-center shrink-0"
+                :class="labelTemplate === 'shelf_standard' ? 'my-1.5' : 'my-0.5'"
               >
                 <div
                   class="w-full flex items-center justify-center overflow-hidden"
-                  :style="{ height: labelTemplate === 'shelf_standard' ? '30px' : '22px' }"
+                  :style="{ height: labelTemplate === 'shelf_standard' ? '30px' : labelTemplate === 'product_sticker' ? '20px' : '15px' }"
                   v-html="generateCode128Svg(flatLabelsList[0]?.barcode, 32)"
                 ></div>
-                <div class="font-mono text-[9px] font-bold tracking-widest text-slate-900 leading-none mt-0.5">
+                <div
+                  class="font-mono font-bold tracking-wider text-slate-900 leading-none truncate"
+                  :class="labelTemplate === 'shelf_standard' ? 'text-[9px] mt-0.5' : 'text-[7.5px] mt-0.5'"
+                >
                   {{ flatLabelsList[0]?.barcode }}
                 </div>
               </div>
 
               <!-- Giant Price Display -->
-              <div class="mt-1 pt-1 border-t border-dashed border-slate-300 flex items-baseline justify-between">
-                <div>
-                  <span class="text-[9px] font-bold text-slate-600 mr-0.5">Rp</span>
+              <div class="mt-auto pt-1 border-t border-dashed border-slate-300 flex items-baseline justify-between shrink-0">
+                <div class="flex items-baseline">
+                  <span
+                    class="font-bold text-slate-600 mr-0.5"
+                    :class="labelTemplate === 'shelf_standard' ? 'text-[9px]' : 'text-[7.5px]'"
+                  >Rp</span>
                   <span
                     class="font-mono font-black text-slate-950 tracking-tight"
-                    :class="labelTemplate === 'shelf_standard' ? 'text-lg' : 'text-sm'"
+                    :class="labelTemplate === 'shelf_standard' ? 'text-lg' : labelTemplate === 'product_sticker' ? 'text-xs' : 'text-[11px]'"
                   >
                     {{ formatCurrency(flatLabelsList[0]?.base_selling_price) }}
                   </span>
                 </div>
-                <span v-if="showUnitName" class="text-[8px] font-bold text-slate-600 uppercase">
+                <span
+                  v-if="showUnitName"
+                  class="font-bold text-slate-600 uppercase"
+                  :class="labelTemplate === 'shelf_standard' ? 'text-[8px]' : 'text-[7px]'"
+                >
                   /{{ flatLabelsList[0]?.unit_code || 'PCS' }}
                 </span>
               </div>
@@ -1554,7 +1685,8 @@ async function handlePrintLabels() {
               <!-- Bottom Footer Date -->
               <div
                 v-if="showPrintDate"
-                class="text-[7px] text-slate-400 text-right mt-1 font-mono leading-none"
+                class="text-slate-400 text-right font-mono leading-none shrink-0"
+                :class="labelTemplate === 'shelf_standard' ? 'text-[7px] mt-1' : 'text-[6.5px] mt-0.5'"
               >
                 Dicetak: {{ printDateStr }}
               </div>
@@ -1854,105 +1986,178 @@ async function handlePrintLabels() {
     color: #000000 !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: space-between !important;
+    justify-content: flex-start !important;
+    overflow: hidden !important;
   }
 
-  /* Dimensi Template: Shelf Standard (65x35mm) */
-  .template-shelf .price-tag-card {
+  .mode-a4 .price-tag-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .mode-a4.template-shelf .price-tag-card {
+    min-height: 35mm !important;
+    height: 35mm !important;
+    padding: 2mm !important;
+  }
+  .mode-a4.template-sticker .price-tag-card {
+    min-height: 25mm !important;
+    height: 25mm !important;
+    padding: 1.2mm 1.5mm !important;
+  }
+  .mode-a4.template-compact .price-tag-card {
+    min-height: 20mm !important;
+    height: 20mm !important;
+    padding: 0.8mm 1mm !important;
+  }
+
+  .mode-roll.template-shelf .price-tag-card {
     width: 65mm !important;
     height: 35mm !important;
     padding: 2mm !important;
   }
-
-  /* Dimensi Template: Product Sticker (40x25mm) */
-  .template-sticker .price-tag-card {
+  .mode-roll.template-sticker .price-tag-card {
     width: 40mm !important;
     height: 25mm !important;
-    padding: 1.5mm !important;
+    padding: 1.2mm 1.5mm !important;
   }
-
-  /* Dimensi Template: Compact Jewelry (30x20mm) */
-  .template-compact .price-tag-card {
+  .mode-roll.template-compact .price-tag-card {
     width: 30mm !important;
     height: 20mm !important;
-    padding: 1mm !important;
+    padding: 0.8mm 1mm !important;
   }
 
   /* Elemen-elemen di Dalam Label */
   .tag-store-header {
-    font-size: 7pt !important;
     font-weight: 900 !important;
     text-transform: uppercase !important;
     text-align: center !important;
     border-bottom: 1px solid #000000 !important;
-    padding-bottom: 0.5mm !important;
-    line-height: 1 !important;
+    line-height: 1.15 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    flex-shrink: 0 !important;
+  }
+  .template-shelf .tag-store-header {
+    font-size: 7pt !important;
+    padding-bottom: 0.5mm !important;
+  }
+  .template-sticker .tag-store-header {
+    font-size: 5.5pt !important;
+    padding-bottom: 0.3mm !important;
+    border-bottom-width: 0.5px !important;
+  }
+  .template-compact .tag-store-header {
+    font-size: 4.8pt !important;
+    padding-bottom: 0.2mm !important;
+    border-bottom-width: 0.5px !important;
   }
 
   .tag-product-name {
-    font-size: 8.5pt !important;
     font-weight: 900 !important;
-    line-height: 1.1 !important;
-    margin-top: 1mm !important;
+    line-height: 1.15 !important;
     display: -webkit-box !important;
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    word-break: break-word !important;
+    flex-shrink: 0 !important;
   }
-
+  .template-shelf .tag-product-name {
+    font-size: 8.5pt !important;
+    margin-top: 1mm !important;
+    max-height: 7mm !important;
+  }
   .template-sticker .tag-product-name {
-    font-size: 7pt !important;
+    font-size: 6.5pt !important;
+    margin-top: 0.5mm !important;
+    max-height: 5.2mm !important;
   }
-
   .template-compact .tag-product-name {
-    font-size: 6pt !important;
+    font-size: 5.2pt !important;
+    margin-top: 0.3mm !important;
+    max-height: 4.2mm !important;
   }
 
   .tag-meta-info {
-    font-size: 6pt !important;
     font-family: monospace !important;
     color: #333333 !important;
     display: flex !important;
     justify-content: space-between !important;
-    line-height: 1 !important;
+    line-height: 1.1 !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  .template-shelf .tag-meta-info {
+    font-size: 6pt !important;
     margin-top: 0.5mm !important;
+  }
+  .template-sticker .tag-meta-info {
+    font-size: 5pt !important;
+    margin-top: 0.3mm !important;
+  }
+  .template-compact .tag-meta-info {
+    font-size: 4.5pt !important;
+    margin-top: 0.2mm !important;
   }
 
   .tag-barcode-container {
-    margin: 1mm 0 !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  .template-shelf .tag-barcode-container {
+    margin: 1mm 0 !important;
+  }
+  .template-sticker .tag-barcode-container {
+    margin: 0.4mm 0 !important;
+  }
+  .template-compact .tag-barcode-container {
+    margin: 0.2mm 0 !important;
   }
 
   .tag-barcode-svg {
-    width: 90% !important;
-    height: 7mm !important;
+    width: 92% !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    overflow: hidden !important;
   }
-
+  .template-shelf .tag-barcode-svg {
+    height: 7mm !important;
+  }
   .template-sticker .tag-barcode-svg {
-    height: 5mm !important;
+    height: 4.2mm !important;
   }
-
   .template-compact .tag-barcode-svg {
-    height: 4mm !important;
+    height: 3.2mm !important;
   }
 
   .tag-barcode-text {
     font-family: monospace !important;
-    font-size: 6.5pt !important;
     font-weight: bold !important;
-    letter-spacing: 1px !important;
+    letter-spacing: 0.8px !important;
     line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .template-shelf .tag-barcode-text {
+    font-size: 6.5pt !important;
     margin-top: 0.3mm !important;
+  }
+  .template-sticker .tag-barcode-text {
+    font-size: 5pt !important;
+    margin-top: 0.2mm !important;
+  }
+  .template-compact .tag-barcode-text {
+    font-size: 4.5pt !important;
+    margin-top: 0.1mm !important;
+    letter-spacing: 0.4px !important;
   }
 
   .tag-price-row {
@@ -1960,8 +2165,19 @@ async function handlePrintLabels() {
     align-items: baseline !important;
     justify-content: space-between !important;
     border-top: 1px dashed #000000 !important;
-    padding-top: 1mm !important;
     margin-top: auto !important;
+    flex-shrink: 0 !important;
+  }
+  .template-shelf .tag-price-row {
+    padding-top: 1mm !important;
+  }
+  .template-sticker .tag-price-row {
+    padding-top: 0.5mm !important;
+    border-top-width: 0.5px !important;
+  }
+  .template-compact .tag-price-row {
+    padding-top: 0.3mm !important;
+    border-top-width: 0.5px !important;
   }
 
   .tag-price-amount {
@@ -1970,38 +2186,65 @@ async function handlePrintLabels() {
   }
 
   .currency-symbol {
-    font-size: 7pt !important;
     font-weight: bold !important;
     margin-right: 0.5mm !important;
+  }
+  .template-shelf .currency-symbol {
+    font-size: 7pt !important;
+  }
+  .template-sticker .currency-symbol {
+    font-size: 5.5pt !important;
+  }
+  .template-compact .currency-symbol {
+    font-size: 4.8pt !important;
   }
 
   .price-val {
     font-family: monospace !important;
-    font-size: 13pt !important;
     font-weight: 900 !important;
     line-height: 1 !important;
   }
-
-  .template-sticker .price-val {
-    font-size: 9.5pt !important;
+  .template-shelf .price-val {
+    font-size: 13pt !important;
   }
-
+  .template-sticker .price-val {
+    font-size: 9pt !important;
+  }
   .template-compact .price-val {
-    font-size: 8pt !important;
+    font-size: 7.5pt !important;
   }
 
   .unit-badge {
-    font-size: 6.5pt !important;
     font-weight: bold !important;
     text-transform: uppercase !important;
   }
+  .template-shelf .unit-badge {
+    font-size: 6.5pt !important;
+  }
+  .template-sticker .unit-badge {
+    font-size: 5pt !important;
+  }
+  .template-compact .unit-badge {
+    font-size: 4.5pt !important;
+  }
 
   .tag-footer-date {
-    font-size: 5.5pt !important;
     color: #444444 !important;
     text-align: right !important;
     line-height: 1 !important;
+    flex-shrink: 0 !important;
+  }
+  .template-shelf .tag-footer-date {
+    font-size: 5.5pt !important;
     margin-top: 0.5mm !important;
+  }
+  .template-sticker .tag-footer-date {
+    font-size: 4.5pt !important;
+    margin-top: 0.3mm !important;
+  }
+  .template-compact .tag-footer-date {
+    font-size: 4pt !important;
+    margin-top: 0.2mm !important;
   }
 }
 </style>

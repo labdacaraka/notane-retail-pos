@@ -92,6 +92,9 @@ export interface AppRelease {
   is_published: number
   component: 'server' | 'client'
   min_server_version?: string
+  file_path?: string
+  file_size?: number
+  original_filename?: string
   created_at: string
 }
 
@@ -608,6 +611,38 @@ export const useProviderStore = defineStore('provider', () => {
     }
   }
 
+  async function uploadReleaseFile(file: File, onProgress?: (pct: number) => void): Promise<{
+    file_path: string
+    original_filename: string
+    file_size: number
+    checksum_sha256: string
+    download_url: string
+  } | null> {
+    isLoading.value = true
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const { data } = await apiClient.post('/api/v1/admin/releases/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total && onProgress) {
+            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            onProgress(percent)
+          }
+        },
+      })
+      successMessage.value = `Berkas rilis "${data.original_filename}" berhasil diunggah (${(data.file_size / (1024 * 1024)).toFixed(2)} MB)`
+      return data
+    } catch (e: any) {
+      errorMessage.value = e?.message || 'Gagal mengunggah berkas rilis'
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   async function createRelease(payload: {
     version: string
     release_name: string
@@ -619,6 +654,9 @@ export const useProviderStore = defineStore('provider', () => {
     has_db_migration: boolean
     component?: 'server' | 'client'
     min_server_version?: string
+    file_path?: string
+    file_size?: number
+    original_filename?: string
   }) {
     isLoading.value = true
     try {
@@ -770,6 +808,7 @@ export const useProviderStore = defineStore('provider', () => {
     fetchDevices,
     unbindDevice,
     fetchReleases,
+    uploadReleaseFile,
     createRelease,
     deleteRelease,
     fetchAuditLogs,

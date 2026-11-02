@@ -329,6 +329,9 @@ pub struct AppRelease {
     pub is_published: i64,     // 1 or 0
     pub component: String,     // 'server' or 'client'
     pub min_server_version: Option<String>,
+    pub file_path: Option<String>,
+    pub file_size: Option<i64>,
+    pub original_filename: Option<String>,
     pub created_at: String,
 }
 
@@ -350,6 +353,9 @@ pub struct CreateReleaseDto {
     pub has_db_migration: bool,
     pub component: Option<String>, // defaults to "server"
     pub min_server_version: Option<String>,
+    pub file_path: Option<String>,
+    pub file_size: Option<i64>,
+    pub original_filename: Option<String>,
 }
 
 // ==============================================================================

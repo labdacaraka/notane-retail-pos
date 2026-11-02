@@ -162,6 +162,28 @@ impl UpdateService {
             Ok(res) if res.status().is_success() => {
                 if let Ok(mut server_resp) = res.json::<UpdateCheckResponse>().await {
                     server_resp.license_status = license_info.status;
+
+                    // Buat token terenkripsi yang membawa nomor mesin dan nomor lisensi
+                    if let Some(ref d_url) = server_resp.download_url {
+                        let token_payload = crate::utils::ota::OtaDownloadPayload {
+                            license_key: license_info.license_key.clone().unwrap_or_default(),
+                            machine_id: license_info.current_hardware_id.clone(),
+                            timestamp: chrono::Utc::now().timestamp(),
+                            component: Some(target_component.clone()),
+                            current_version: Some(current_ver.clone()),
+                        };
+                        let master_pub_key = get_master_public_key_hex();
+                        if let Ok(enc_token) = crate::utils::ota::encrypt_ota_payload(&token_payload, &master_pub_key) {
+                            let full_url = if d_url.starts_with("http://") || d_url.starts_with("https://") {
+                                d_url.clone()
+                            } else {
+                                format!("{}{}", license_info.provider_server_url.trim_end_matches('/'), d_url)
+                            };
+                            let sep = if full_url.contains('?') { "&" } else { "?" };
+                            server_resp.download_url = Some(format!("{}{}token={}", full_url, sep, enc_token));
+                        }
+                    }
+
                     return server_resp;
                 }
             }

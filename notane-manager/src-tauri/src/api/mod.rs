@@ -148,6 +148,7 @@ pub fn create_api_router(state: ApiState) -> Router {
         .route("/api/v1/license/activate", post(handle_activate))
         .route("/api/v1/license/verify", post(handle_verify))
         .route("/api/v1/updates/check", post(handle_update_check))
+        .route("/api/v1/updates/download/{id}", get(handle_update_download))
         .nest("/api/v1/admin", admin_routes);
 
     let dist_dir = std::env::var("WEB_DIST").unwrap_or_else(|_| "dist".to_string());
@@ -699,6 +700,259 @@ async fn handle_update_check(
         "can_update": can_update,
         "message": update_message
     }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DownloadQuery {
+    pub token: Option<String>,
+}
+
+async fn handle_update_download(
+    State(state): State<ApiState>,
+    axum::extract::Path(release_id_or_version): axum::extract::Path<String>,
+    headers: HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<DownloadQuery>,
+) -> impl IntoResponse {
+    let token = query.token
+        .or_else(|| headers.get("X-Notane-Token").and_then(|v| v.to_str().ok().map(|s| s.to_string())))
+        .or_else(|| headers.get("Authorization").and_then(|v| v.to_str().ok().and_then(|s| s.strip_prefix("Bearer ")).map(|s| s.to_string())));
+
+    let token_str = match token {
+        Some(t) if !t.trim().is_empty() => t.trim().to_string(),
+        _ => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "status": "error",
+                    "code": "MISSING_ENCRYPTED_TOKEN",
+                    "message": "Akses pembaruan ditolak: Token enkripsi nomor mesin dan nomor lisensi wajib disertakan."
+                })),
+            ).into_response();
+        }
+    };
+
+    // 1. Dekripsi parameter token menggunakan kunci master
+    let master_pub_key = crate::crypto::ed25519::DEFAULT_MASTER_PUBLIC_KEY_HEX;
+    let payload = match crate::crypto::ota::decrypt_ota_payload(&token_str, master_pub_key) {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "status": "error",
+                    "code": "INVALID_ENCRYPTION_TOKEN",
+                    "message": format!("Akses ditolak: Dekripsi token otorisasi gagal ({})", e)
+                })),
+            ).into_response();
+        }
+    };
+
+    // 2. Proteksi Anti-Replay: timestamp harus dalam rentang 10 menit
+    let now_ts = Utc::now().timestamp();
+    if (now_ts - payload.timestamp).abs() > 600 {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "status": "error",
+                "code": "EXPIRED_TOKEN_TIMESTAMP",
+                "message": "Akses ditolak: Token otorisasi telah kedaluwarsa (> 10 menit). Silakan sinkronkan jam sistem Anda."
+            })),
+        ).into_response();
+    }
+
+    // 3. Validasi Lisensi di Database Notane Manager
+    let lic_query = crate::db::sql("SELECT id, status, claimed_hardware_id, expires_at FROM provider_licenses WHERE license_key = ?");
+    let lic_row = sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(&lic_query)
+        .bind(payload.license_key.trim())
+        .fetch_optional(&state.pool)
+        .await;
+
+    let (lic_id, lic_status, claimed_hwid, expires_at) = match lic_row {
+        Ok(Some(r)) => r,
+        _ => {
+            log_audit(
+                &state.pool,
+                Some(&payload.license_key),
+                Some(&payload.machine_id),
+                "DOWNLOAD_UPDATE",
+                None,
+                "REJECTED",
+                "Nomor lisensi tidak terdaftar di database provider",
+            ).await;
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "status": "error",
+                    "code": "LICENSE_NOT_FOUND",
+                    "message": "Nomor lisensi tidak terdaftar pada Server Provider Notane."
+                })),
+            ).into_response();
+        }
+    };
+
+    if lic_status == "SUSPENDED" || lic_status == "REVOKED" {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "status": "error",
+                "code": "LICENSE_INACTIVE",
+                "message": format!("Lisensi Anda tidak aktif (Status: {}). Hubungi penyedia lisensi.", lic_status)
+            })),
+        ).into_response();
+    }
+
+    // Periksa masa berlaku jika ada
+    if let Some(ref exp_str) = expires_at {
+        if let Ok(exp_date) = chrono::DateTime::parse_from_rfc3339(exp_str) {
+            if Utc::now() > exp_date.with_timezone(&Utc) {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "status": "error",
+                        "code": "LICENSE_EXPIRED",
+                        "message": "Lisensi telah kedaluwarsa. Perpanjang lisensi Anda untuk mendapatkan paket pembaruan."
+                    })),
+                ).into_response();
+            }
+        }
+    }
+
+    // 4. Validasi Hardware / Machine ID
+    let mut machine_matched = false;
+    if let Some(ref chw) = claimed_hwid {
+        if chw.trim().eq_ignore_ascii_case(payload.machine_id.trim()) {
+            machine_matched = true;
+        }
+    }
+
+    if !machine_matched {
+        let dev_query = crate::db::sql("SELECT COUNT(*) FROM provider_device_activations WHERE license_id = ? AND hardware_id = ? AND is_active = 1");
+        let active_dev_count: Result<(i64,), _> = sqlx::query_as(&dev_query)
+            .bind(&lic_id)
+            .bind(payload.machine_id.trim())
+            .fetch_one(&state.pool)
+            .await;
+
+        if let Ok((cnt,)) = active_dev_count {
+            if cnt > 0 {
+                machine_matched = true;
+            }
+        }
+    }
+
+    if !machine_matched {
+        log_audit(
+            &state.pool,
+            Some(&payload.license_key),
+            Some(&payload.machine_id),
+            "DOWNLOAD_UPDATE",
+            None,
+            "REJECTED",
+            "Nomor mesin tidak cocok dengan lisensi terdaftar",
+        ).await;
+
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "status": "error",
+                "code": "HARDWARE_ID_MISMATCH",
+                "message": "Akses ditolak: Nomor mesin (Hardware ID) ini tidak cocok dengan lisensi terdaftar."
+            })),
+        ).into_response();
+    }
+
+    // 5. Cari rilis aplikasi yang diminta
+    let rel_query = crate::db::sql(
+        "SELECT id, version, download_url, file_path, file_size, original_filename
+         FROM provider_app_releases
+         WHERE id = ? OR version = ?"
+    );
+    let release_row = sqlx::query_as::<_, (String, String, String, Option<String>, Option<i64>, Option<String>)>(&rel_query)
+        .bind(&release_id_or_version)
+        .bind(&release_id_or_version)
+        .fetch_optional(&state.pool)
+        .await;
+
+    let (_rel_id, rel_ver, download_url, file_path, file_size, orig_name) = match release_row {
+        Ok(Some(r)) => r,
+        _ => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "status": "error",
+                    "code": "RELEASE_NOT_FOUND",
+                    "message": "Berkas rilis yang diminta tidak ditemukan."
+                })),
+            ).into_response();
+        }
+    };
+
+    // 6. Alirkan berkas dari penyimpanan lokal jika tersedia
+    if let Some(ref fp) = file_path {
+        let p = std::path::Path::new(fp);
+        if p.exists() && p.is_file() {
+            match tokio::fs::File::open(p).await {
+                Ok(file) => {
+                    log_audit(
+                        &state.pool,
+                        Some(&payload.license_key),
+                        Some(&payload.machine_id),
+                        "DOWNLOAD_UPDATE",
+                        None,
+                        "SUCCESS",
+                        &format!("Berhasil mengunduh rilis v{} ({})", rel_ver, orig_name.as_deref().unwrap_or("file")),
+                    ).await;
+
+                    let filename = orig_name.unwrap_or_else(|| format!("notane-release-{}.zip", rel_ver));
+                    let stream = tokio_util::io::ReaderStream::new(file);
+                    let body = axum::body::Body::from_stream(stream);
+
+                    let mut resp = body.into_response();
+                    let headers = resp.headers_mut();
+                    headers.insert(
+                        axum::http::header::CONTENT_TYPE,
+                        axum::http::HeaderValue::from_static("application/octet-stream"),
+                    );
+                    let disposition = format!("attachment; filename=\"{}\"", filename);
+                    if let Ok(val) = axum::http::HeaderValue::from_str(&disposition) {
+                        headers.insert(axum::http::header::CONTENT_DISPOSITION, val);
+                    }
+                    if let Some(sz) = file_size {
+                        headers.insert(
+                            axum::http::header::CONTENT_LENGTH,
+                            axum::http::HeaderValue::from(sz),
+                        );
+                    }
+                    return resp;
+                }
+                Err(e) => {
+                    tracing::error!("Gagal membuka file rilis di {}: {}", fp, e);
+                }
+            }
+        }
+    }
+
+    // 7. Jika rilis menggunakan tautan eksternal (fallback)
+    if download_url.starts_with("http://") || download_url.starts_with("https://") {
+        log_audit(
+            &state.pool,
+            Some(&payload.license_key),
+            Some(&payload.machine_id),
+            "DOWNLOAD_UPDATE",
+            None,
+            "REDIRECT",
+            &format!("Redirect ke tautan rilis v{}", rel_ver),
+        ).await;
+        return axum::response::Redirect::temporary(&download_url).into_response();
+    }
+
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({
+            "status": "error",
+            "message": "File fisik pembaruan belum diunggah atau tidak ditemukan di server provider."
+        })),
+    ).into_response()
 }
 
 async fn log_audit(

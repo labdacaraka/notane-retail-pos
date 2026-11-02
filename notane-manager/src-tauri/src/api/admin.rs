@@ -10,13 +10,15 @@ use crate::models::{
 use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
+    response::IntoResponse,
     routing::{delete, get, post, put},
     Json, Router,
 };
 use chrono::{Duration, Utc};
 use rand::Rng;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::Digest;
 use validator::Validate;
 use crate::db::adapt_sql;
 
@@ -68,6 +70,7 @@ pub fn create_admin_router(_state: ApiState) -> Router<ApiState> {
         // Releases
         .route("/releases", get(admin_get_releases).post(admin_create_release))
         .route("/releases/{id}", delete(admin_delete_release))
+        .route("/releases/upload", post(admin_upload_release_file))
         // Audit Logs
         .route("/audit-logs", get(admin_get_audit_logs))
         // Offline Signer
@@ -1336,7 +1339,8 @@ async fn admin_get_releases(
     let select_sql = format!(
         "SELECT id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
-                has_db_migration, is_published, component, min_server_version, created_at
+                has_db_migration, is_published, component, min_server_version,
+                file_path, file_size, original_filename, created_at
          FROM provider_app_releases
          {}
          ORDER BY {} {}
@@ -1365,6 +1369,96 @@ async fn admin_get_releases(
     }))
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UploadReleaseFileResponse {
+    pub file_path: String,
+    pub original_filename: String,
+    pub file_size: i64,
+    pub checksum_sha256: String,
+    pub download_url: String,
+}
+
+async fn admin_upload_release_file(
+    State(_state): State<ApiState>,
+    mut multipart: axum::extract::Multipart,
+) -> impl axum::response::IntoResponse {
+    let mut dir = dirs::data_local_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    dir.push("notane-license-manager");
+    dir.push("releases");
+    if let Err(e) = tokio::fs::create_dir_all(&dir).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "status": "error", "message": format!("Gagal membuat folder penyimpanan rilis: {}", e) })),
+        ).into_response();
+    }
+
+    let mut saved_filename = String::new();
+    let mut original_name = String::new();
+    let mut total_size: usize = 0;
+    let mut hasher = sha2::Sha256::new();
+    let file_id = uuid::Uuid::new_v4().to_string();
+
+    while let Ok(Some(mut field)) = multipart.next_field().await {
+        let name = field.name().unwrap_or_default().to_string();
+        if name == "file" || field.file_name().is_some() {
+            let file_name = field.file_name().unwrap_or("release-package.bin").to_string();
+            original_name = file_name.clone();
+
+            let sanitized: String = file_name
+                .chars()
+                .map(|c| if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '_' })
+                .collect();
+            saved_filename = format!("{}_{}", &file_id[..8], sanitized);
+            let target_path = dir.join(&saved_filename);
+
+            let mut out_file = match tokio::fs::File::create(&target_path).await {
+                Ok(f) => f,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({ "status": "error", "message": format!("Gagal membuat file di disk server: {}", e) })),
+                    ).into_response();
+                }
+            };
+
+            use tokio::io::AsyncWriteExt;
+            while let Ok(Some(chunk)) = field.chunk().await {
+                total_size += chunk.len();
+                sha2::Digest::update(&mut hasher, &chunk);
+                if let Err(e) = out_file.write_all(&chunk).await {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({ "status": "error", "message": format!("Gagal menulis stream berkas: {}", e) })),
+                    ).into_response();
+                }
+            }
+            break;
+        }
+    }
+
+    if saved_filename.is_empty() || total_size == 0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "status": "error", "message": "Tidak ada berkas yang diunggah atau ukuran berkas kosong" })),
+        ).into_response();
+    }
+
+    let checksum_sha256 = hex::encode(sha2::Digest::finalize(hasher));
+    let target_path = dir.join(&saved_filename);
+    let path_str = target_path.to_string_lossy().to_string();
+
+    (
+        StatusCode::OK,
+        Json(json!(UploadReleaseFileResponse {
+            file_path: path_str,
+            original_filename: original_name,
+            file_size: total_size as i64,
+            checksum_sha256,
+            download_url: format!("/api/v1/updates/download/{}", file_id),
+        })),
+    ).into_response()
+}
+
 async fn admin_create_release(
     State(state): State<ApiState>,
     Json(payload): Json<CreateReleaseDto>,
@@ -1384,19 +1478,28 @@ async fn admin_create_release(
     let signature = sign_message(&priv_key, &sign_target)
         .map_err(|e| err_response(AppError::Crypto(e)))?;
 
+    let download_url = if payload.download_url.trim().is_empty()
+        || payload.download_url.starts_with("/api/v1/updates/download")
+    {
+        format!("/api/v1/updates/download/{}", id)
+    } else {
+        payload.download_url.trim().to_string()
+    };
+
     sqlx::query(
         &sql("INSERT INTO provider_app_releases (
             id, version, release_name, changelog, release_date, download_url,
             checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
-            has_db_migration, is_published, component, min_server_version, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)")
+            has_db_migration, is_published, component, min_server_version,
+            file_path, file_size, original_filename, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)")
     )
     .bind(&id)
     .bind(payload.version.trim())
     .bind(&payload.release_name)
     .bind(&payload.changelog)
     .bind(&release_date)
-    .bind(&payload.download_url)
+    .bind(&download_url)
     .bind(payload.checksum_sha256.trim())
     .bind(&signature)
     .bind(if payload.is_mandatory { 1 } else { 0 })
@@ -1404,6 +1507,9 @@ async fn admin_create_release(
     .bind(if payload.has_db_migration { 1 } else { 0 })
     .bind(&component)
     .bind(&payload.min_server_version)
+    .bind(&payload.file_path)
+    .bind(payload.file_size)
+    .bind(&payload.original_filename)
     .bind(&now_str)
     .execute(&state.pool)
     .await
@@ -1415,7 +1521,7 @@ async fn admin_create_release(
         release_name: payload.release_name,
         changelog: payload.changelog,
         release_date,
-        download_url: payload.download_url,
+        download_url,
         checksum_sha256: payload.checksum_sha256,
         signature_ed25519: signature,
         is_mandatory: if payload.is_mandatory { 1 } else { 0 },
@@ -1424,6 +1530,9 @@ async fn admin_create_release(
         is_published: 1,
         component,
         min_server_version: payload.min_server_version,
+        file_path: payload.file_path,
+        file_size: payload.file_size,
+        original_filename: payload.original_filename,
         created_at: now_str,
     }))
 }
