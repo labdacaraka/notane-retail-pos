@@ -31,15 +31,15 @@ CREATE TABLE IF NOT EXISTS license_sync_logs (
 CREATE INDEX IF NOT EXISTS idx_license_sync_logs_created_at ON license_sync_logs (created_at DESC);
 
 -- Registrasi Hak Akses RBAC Sesuai Zero-Trust Protocol
-INSERT INTO permissions (slug, name, module, description, created_at)
+INSERT INTO permissions (code, description)
 VALUES 
-    ('system:license_sync', 'Sinkronisasi Lisensi Provider', 'system', 'Mengizinkan sinkronisasi manual status lisensi toko dengan server provider', CURRENT_TIMESTAMP),
-    ('system:license_logs', 'Lihat Riwayat Lisensi', 'system', 'Melihat log riwayat verifikasi dan sinkronisasi server lisensi', CURRENT_TIMESTAMP)
-ON CONFLICT (slug) DO NOTHING;
+    ('system:license_sync', 'Mengizinkan sinkronisasi manual status lisensi toko dengan server provider'),
+    ('system:license_logs', 'Melihat log riwayat verifikasi dan sinkronisasi server lisensi')
+ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r, permissions p
-WHERE r.name IN ('SUPERADMIN', 'ADMIN') AND p.slug IN ('system:license_sync', 'system:license_logs')
+WHERE r.name IN ('SUPERADMIN', 'STORE_MANAGER') AND p.code IN ('system:license_sync', 'system:license_logs')
 ON CONFLICT DO NOTHING;
 

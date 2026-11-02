@@ -26,6 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_cust_display_banners_active
     ON customer_display_banners(is_active, display_order ASC, created_at DESC);
 
 -- Trigger auto-update timestamp
+DROP TRIGGER IF EXISTS trg_update_timestamp_cust_display_banners ON customer_display_banners;
 CREATE TRIGGER trg_update_timestamp_cust_display_banners
     BEFORE UPDATE ON customer_display_banners
     FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();

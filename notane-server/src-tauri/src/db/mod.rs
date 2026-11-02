@@ -95,6 +95,9 @@ pub async fn run_embedded_migrations(pool: &PgPool) -> Result<(), Box<dyn std::e
         ("064_license_resilience_and_sync_logs", include_str!("../../migrations/064_license_resilience_and_sync_logs.sql")),
         ("065_sales_rounding_amount", include_str!("../../migrations/065_sales_rounding_amount.sql")),
         ("066_fix_sales_returns_columns_and_reason_codes", include_str!("../../migrations/066_fix_sales_returns_columns_and_reason_codes.sql")),
+        ("067_customer_display_banners", include_str!("../../migrations/067_customer_display_banners.sql")),
+        ("068_other_income_transactions", include_str!("../../migrations/068_other_income_transactions.sql")),
+        ("069_business_analytics_permissions", include_str!("../../migrations/069_business_analytics_permissions.sql")),
     ];
 
     // 2. Ambil daftar migrasi yang sudah pernah dieksekusi
