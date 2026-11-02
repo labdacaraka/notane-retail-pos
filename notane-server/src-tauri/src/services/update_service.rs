@@ -171,6 +171,8 @@ impl UpdateService {
                             timestamp: chrono::Utc::now().timestamp(),
                             component: Some(target_component.clone()),
                             current_version: Some(current_ver.clone()),
+                            os: Some(env::consts::OS.to_string()),
+                            arch: Some(env::consts::ARCH.to_string()),
                         };
                         let master_pub_key = get_master_public_key_hex();
                         if let Ok(enc_token) = crate::utils::ota::encrypt_ota_payload(&token_payload, &master_pub_key) {

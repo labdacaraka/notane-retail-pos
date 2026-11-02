@@ -1208,37 +1208,37 @@ onMounted(() => {
           </div>
 
           <!-- Interactive Simulation Box -->
-          <div class="bg-slate-900 text-white rounded-2xl p-5 shadow-md space-y-3 flex flex-col justify-between">
+          <div class="bg-amber-50/70 dark:bg-slate-900 text-slate-800 dark:text-white rounded-2xl p-5 border border-amber-200 dark:border-slate-800 shadow-sm space-y-3 flex flex-col justify-between">
             <div>
-              <div class="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+              <div class="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-bold text-xs uppercase tracking-wider">
                 <Sparkles class="w-4 h-4" />
                 <span>Simulasi Realtime di Kasir POS</span>
               </div>
-              <p class="text-xs text-slate-300 mt-1">
+              <p class="text-xs text-slate-600 dark:text-slate-300 mt-1">
                 Contoh jika pelanggan belanja senilai <strong>Rp 100.000</strong> dan memiliki <strong>1.000 Poin</strong> (Rp 100.000):
               </p>
 
-              <div class="space-y-1.5 mt-3 text-xs bg-slate-800/80 p-3.5 rounded-xl border border-slate-700 font-mono">
-                <div class="flex justify-between text-slate-300">
+              <div class="space-y-1.5 mt-3 text-xs bg-white dark:bg-slate-800/80 p-3.5 rounded-xl border border-amber-200 dark:border-slate-700 font-mono">
+                <div class="flex justify-between text-slate-600 dark:text-slate-300">
                   <span>Total Tagihan:</span>
-                  <span class="font-bold">Rp 100.000</span>
+                  <span class="font-bold text-slate-900 dark:text-white">Rp 100.000</span>
                 </div>
-                <div class="flex justify-between text-amber-400">
+                <div class="flex justify-between text-amber-700 dark:text-amber-400">
                   <span>Maksimal Poin ({{ loyaltyForm.max_point_usage_percent }}%):</span>
                   <span class="font-bold">-{{ formatCurrency(100000 * loyaltyForm.max_point_usage_percent / 100, true) }}</span>
                 </div>
-                <div class="flex justify-between text-slate-400 text-[11px]">
+                <div class="flex justify-between text-slate-500 dark:text-slate-400 text-[11px]">
                   <span>Poin Dipotong:</span>
                   <span>{{ Math.round((100000 * loyaltyForm.max_point_usage_percent / 100) / (loyaltyForm.point_value_rupiah || 100)) }} Poin</span>
                 </div>
-                <div class="pt-1.5 border-t border-slate-700 flex justify-between text-emerald-400 font-bold text-sm">
+                <div class="pt-1.5 border-t border-slate-200 dark:border-slate-700 flex justify-between text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                   <span>Wajib Bayar Lainnya:</span>
                   <span>{{ formatCurrency(100000 - (100000 * loyaltyForm.max_point_usage_percent / 100), true) }}</span>
                 </div>
               </div>
             </div>
 
-            <p class="text-[10.5px] text-slate-400 italic">
+            <p class="text-[10.5px] text-slate-500 dark:text-slate-400 italic">
               * Sisa {{ formatCurrency(100000 - (100000 * loyaltyForm.max_point_usage_percent / 100), true) }} dapat dibayar kasir menggunakan Tunai, QRIS, atau EDC BCA/Mandiri.
             </p>
           </div>

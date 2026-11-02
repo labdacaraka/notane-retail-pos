@@ -82,14 +82,14 @@ function goToSettings() {
           class="w-80 sm:w-96 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[500px] animate-in fade-in"
         >
           <!-- Title Bar -->
-          <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+          <div class="px-4 py-3 bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-white flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
-              <div class="p-1 rounded-lg bg-emerald-500/20 text-emerald-400">
+              <div class="p-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
                 <FileSpreadsheet class="w-4 h-4" />
               </div>
               <div class="text-xs font-bold leading-tight">
                 <div>Antrean Ekspor Excel</div>
-                <div class="text-[10px] text-slate-400 font-normal">
+                <div class="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
                   {{ exportStore.jobs.length }} berkas
                 </div>
               </div>
@@ -100,7 +100,7 @@ function goToSettings() {
                 v-if="completedJobs.length > 0 || failedJobs.length > 0"
                 type="button"
                 @click="exportStore.clearCompletedJobs()"
-                class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 text-[10px] flex items-center gap-1 transition cursor-pointer"
+                class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-[10px] flex items-center gap-1 transition cursor-pointer"
                 title="Bersihkan riwayat selesai"
               >
                 <Trash2 class="w-3.5 h-3.5" />
@@ -109,7 +109,7 @@ function goToSettings() {
               <button
                 type="button"
                 @click="exportStore.isWidgetOpen = false"
-                class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition cursor-pointer"
                 title="Tutup Panel"
               >
                 <ChevronDown class="w-4 h-4" />
@@ -265,7 +265,7 @@ function goToSettings() {
         :class="[
           activeProcessingJobs.length > 0
             ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700'
-            : 'bg-slate-900 hover:bg-slate-800 text-white border-slate-700',
+            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white dark:border-slate-700',
         ]"
       >
         <div class="relative">

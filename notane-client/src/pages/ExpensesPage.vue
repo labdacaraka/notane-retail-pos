@@ -1030,24 +1030,24 @@ async function handleSaveCategory() {
           <div class="flex min-h-full items-center justify-center p-3 sm:p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] text-left pointer-events-auto my-8">
               <!-- Modal Header -->
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-3">
-              <div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700">
-                <Icon icon="streamline:money-cash-bag-dollar-bag-payment-cash-money-finance" class="w-5 h-5 text-amber-400" />
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                  <div class="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                    <Icon icon="streamline:money-cash-bag-dollar-bag-payment-cash-money-finance" class="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 class="text-base font-bold tracking-tight text-slate-900 dark:text-white">Catat Pengeluaran Operasional</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Catat kas keluar dan beban operasional toko.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="showCreateModal = false"
+                  class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X class="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <h3 class="text-base font-bold tracking-tight">Catat Pengeluaran Operasional</h3>
-                <p class="text-xs text-slate-400">Catat kas keluar dan beban operasional toko.</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              @click="showCreateModal = false"
-              class="text-white/80 hover:text-white p-1.5 rounded-xl hover:bg-white/20 transition cursor-pointer"
-            >
-              <X class="w-5 h-5" />
-            </button>
-          </div>
 
           <!-- Modal Body -->
           <form @submit.prevent="handleSaveExpense" class="p-5 sm:p-6 overflow-y-auto space-y-4 text-xs">
@@ -1341,29 +1341,29 @@ async function handleSaveCategory() {
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col text-left pointer-events-auto my-8">
               <!-- Header -->
-          <div class="px-6 py-4 bg-slate-800 text-white flex items-center justify-between print:hidden">
-            <div class="flex items-center gap-2">
-              <Icon icon="fluent:receipt-24-filled" class="w-5 h-5 text-amber-400" />
-              <span class="font-black text-sm">Bukti Kas Keluar (Voucher Pengeluaran)</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                @click="printExpenseVoucher"
-                class="bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-              >
-                <Printer class="w-3.5 h-3.5" />
-                <span>Cetak</span>
-              </button>
-              <button
-                type="button"
-                @click="showDetailModal = false"
-                class="text-slate-400 hover:text-white p-1 rounded-lg transition cursor-pointer"
-              >
-                <X class="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-700 flex items-center justify-between print:hidden">
+                <div class="flex items-center gap-2">
+                  <Icon icon="fluent:receipt-24-filled" class="w-5 h-5 text-amber-500" />
+                  <span class="font-black text-sm text-slate-900 dark:text-white">Bukti Kas Keluar (Voucher Pengeluaran)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    @click="printExpenseVoucher"
+                    class="bg-slate-200 hover:bg-slate-300 dark:bg-white/20 dark:hover:bg-white/30 text-slate-800 dark:text-white px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <Printer class="w-3.5 h-3.5" />
+                    <span>Cetak</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="showDetailModal = false"
+                    class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                  >
+                    <X class="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
 
           <!-- Printable Voucher Body -->
           <div class="p-6 space-y-4 text-xs text-slate-800" id="printable-voucher">

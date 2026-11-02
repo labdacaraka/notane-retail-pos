@@ -95,7 +95,7 @@ async function confirmUnbind(dev: DeviceActivation) {
             v-model="searchQuery"
             type="text"
             placeholder="Cari nomor lisensi, perangkat, atau nama kasir..."
-            class="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-inner"
+            class="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-xs"
           />
         </div>
 
@@ -104,44 +104,44 @@ async function confirmUnbind(dev: DeviceActivation) {
           @click="loadData()"
           :disabled="providerStore.isLoading"
           title="Muat Ulang Data"
-          class="p-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl transition cursor-pointer"
+          class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition cursor-pointer shadow-xs"
         >
           <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': providerStore.isLoading }" />
         </button>
 
         <!-- Status Filter -->
-        <div class="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 gap-1">
+        <div class="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 gap-1 shadow-xs">
           <button
             v-for="flt in (['ALL', 'ACTIVE', 'INACTIVE'] as const)"
             :key="flt"
             @click="selectedStatus = flt"
             class="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer"
-            :class="selectedStatus === flt ? 'bg-brand-500 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'"
+            :class="selectedStatus === flt ? 'bg-brand-500 text-white font-semibold' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'"
           >
             {{ flt }}
           </button>
         </div>
       </div>
 
-      <div class="text-xs text-slate-400 font-mono">
-        Total Perangkat: <span class="text-brand-400 font-bold">{{ formatNumber(providerStore.devicesPagination.total_items) }}</span>
+      <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">
+        Total Perangkat: <span class="text-brand-600 dark:text-brand-400 font-bold">{{ formatNumber(providerStore.devicesPagination.total_items) }}</span>
       </div>
     </div>
 
     <!-- Empty State -->
     <div
       v-if="!providerStore.isLoading && providerStore.devicesPagination.total_items === 0"
-      class="py-16 text-center rounded-2xl glass-panel border border-slate-800"
+      class="py-16 text-center rounded-2xl glass-panel border border-slate-200 dark:border-slate-800 shadow-xs"
     >
-      <Cpu class="w-12 h-12 text-slate-600 mx-auto mb-3" />
-      <div class="text-sm font-semibold text-slate-300">Belum Ada Node Server Terikat</div>
+      <Cpu class="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-3" />
+      <div class="text-sm font-semibold text-slate-800 dark:text-slate-300">Belum Ada Node Server Terikat</div>
       <div class="text-xs text-slate-500 mt-1">
         {{ searchQuery || selectedStatus !== 'ALL' ? 'Tidak ada data perangkat server yang cocok dengan pencarian.' : 'Saat aplikasi Notane Server toko pertama kali mengaktivasi lisensi, Hardware ID server akan otomatis terdaftar di sini.' }}
       </div>
       <button
         v-if="searchQuery || selectedStatus !== 'ALL'"
         @click="searchQuery = ''; selectedStatus = 'ALL'; loadData(1)"
-        class="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+        class="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white dark:border-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
       >
         Reset Filter
       </button>
@@ -149,20 +149,20 @@ async function confirmUnbind(dev: DeviceActivation) {
 
     <!-- Table of Bound Devices -->
     <div v-else class="space-y-3">
-      <div class="glass-panel border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div class="glass-panel border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
-              <tr class="bg-slate-900/90 text-slate-400 border-b border-slate-800 select-none text-[11px]">
+              <tr class="bg-slate-50 dark:bg-slate-900/90 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 select-none text-[11px]">
                 <th
                   @click="handleSort('device_name')"
-                  class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
+                  class="py-3 px-4 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
                     <span>Perangkat & Pelanggan</span>
-                    <ArrowUp v-if="sortBy === 'device_name' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowDown v-else-if="sortBy === 'device_name' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
+                    <ArrowUp v-if="sortBy === 'device_name' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowDown v-else-if="sortBy === 'device_name' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowUpDown v-else class="w-3 h-3 text-slate-400 dark:text-slate-600" />
                   </div>
                 </th>
 
@@ -220,22 +220,22 @@ async function confirmUnbind(dev: DeviceActivation) {
               </tr>
             </thead>
 
-            <tbody class="divide-y divide-slate-800/60">
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-800/60">
               <tr
                 v-for="d in providerStore.devicesPagination.items"
                 :key="d.id"
-                class="hover:bg-slate-800/40 transition-colors"
+                class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
               >
                 <!-- Terminal & Client -->
-                <td class="py-3.5 px-4 font-medium text-slate-200">
+                <td class="py-3.5 px-4 font-medium text-slate-800 dark:text-slate-200">
                   <div class="flex items-center gap-2.5">
-                    <div class="p-2 rounded-lg bg-blue-500/10 text-blue-400 shrink-0">
+                    <div class="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
                       <Monitor class="w-4 h-4" />
                     </div>
                     <div>
-                      <div class="font-bold text-white">{{ d.device_name || 'Terminal Kasir' }}</div>
-                      <div class="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                        <Building class="w-3 h-3 text-slate-500" />
+                      <div class="font-bold text-slate-900 dark:text-white">{{ d.device_name || 'Terminal Kasir' }}</div>
+                      <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Building class="w-3 h-3 text-slate-400 dark:text-slate-500" />
                         <span>{{ d.client_name || 'Klien Umum' }}</span>
                       </div>
                     </div>
@@ -244,23 +244,23 @@ async function confirmUnbind(dev: DeviceActivation) {
 
                 <!-- HWID -->
                 <td class="py-3.5 px-4 font-mono text-xs">
-                  <span class="font-semibold text-slate-200 bg-slate-950 px-2 py-1 rounded border border-slate-800 select-all block truncate max-w-[200px]" :title="d.hardware_id">
+                  <span class="font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-950 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 select-all block truncate max-w-[200px]" :title="d.hardware_id">
                     {{ d.hardware_id }}
                   </span>
                 </td>
 
                 <!-- License Key -->
                 <td class="py-3.5 px-4 font-mono text-xs">
-                  <span class="text-brand-400 font-bold flex items-center gap-1.5">
+                  <span class="text-brand-600 dark:text-brand-400 font-bold flex items-center gap-1.5">
                     <KeyRound class="w-3.5 h-3.5 text-brand-500" />
                     <span>{{ d.license_key || '-' }}</span>
                   </span>
                 </td>
 
                 <!-- IP & OS -->
-                <td class="py-3.5 px-4 text-[11px] text-slate-400 space-y-0.5">
-                  <div class="flex items-center gap-1 text-slate-300 font-mono">
-                    <Wifi class="w-3 h-3 text-slate-500" />
+                <td class="py-3.5 px-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">
+                  <div class="flex items-center gap-1 text-slate-700 dark:text-slate-300 font-mono">
+                    <Wifi class="w-3 h-3 text-slate-400 dark:text-slate-500" />
                     <span>{{ d.ip_address || '127.0.0.1' }}</span>
                   </div>
                   <div class="truncate max-w-[160px] text-slate-500" :title="d.os_info || 'Unknown OS'">
@@ -269,12 +269,12 @@ async function confirmUnbind(dev: DeviceActivation) {
                 </td>
 
                 <!-- Last Ping -->
-                <td class="py-3.5 px-4 text-[11px] font-mono text-slate-400 whitespace-nowrap">
-                  <div class="flex items-center gap-1.5 text-slate-300">
-                    <Clock class="w-3 h-3 text-slate-500" />
+                <td class="py-3.5 px-4 text-[11px] font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  <div class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                    <Clock class="w-3 h-3 text-slate-400 dark:text-slate-500" />
                     <span>{{ new Date(d.last_ping_at).toLocaleTimeString() }}</span>
                   </div>
-                  <div class="text-[10px] text-slate-500">
+                  <div class="text-[10px] text-slate-400 dark:text-slate-500">
                     {{ new Date(d.last_ping_at).toLocaleDateString() }}
                   </div>
                 </td>
@@ -284,8 +284,8 @@ async function confirmUnbind(dev: DeviceActivation) {
                   <span
                     class="px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1"
                     :class="d.is_active === 1
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'"
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30'
+                      : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'"
                   >
                     <CheckCircle2 v-if="d.is_active === 1" class="w-3 h-3" />
                     <XCircle v-else class="w-3 h-3" />

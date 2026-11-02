@@ -578,24 +578,24 @@ onMounted(() => {
               class="relative bg-white border border-slate-300 w-full max-w-xl rounded-2xl shadow-2xl flex flex-col text-slate-900 overflow-hidden max-h-[92vh] text-left pointer-events-auto my-8 print:max-w-none print:shadow-none print:border-none print:w-[80mm] print:m-0 print:p-0"
             >
               <!-- Header Modal -->
-          <div class="bg-slate-900 px-6 py-4 flex items-center justify-between text-white shrink-0 print:hidden">
-            <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
-                <Printer class="w-4 h-4" />
+              <div class="bg-slate-50 dark:bg-slate-900 px-6 py-4 flex items-center justify-between text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 shrink-0 print:hidden">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
+                    <Printer class="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 class="font-extrabold text-sm leading-tight text-slate-900 dark:text-white">Laporan Penutupan Shift (Z-Report)</h4>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Audit rekonsiliasi kasir & breakdown penerimaan</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="showDetailModal = false"
+                  class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition cursor-pointer"
+                >
+                  <X class="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <h4 class="font-extrabold text-sm leading-tight">Laporan Penutupan Shift (Z-Report)</h4>
-                <p class="text-[10px] text-slate-400 mt-0.5">Audit rekonsiliasi kasir & breakdown penerimaan</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              @click="showDetailModal = false"
-              class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition cursor-pointer"
-            >
-              <X class="w-5 h-5" />
-            </button>
-          </div>
 
           <!-- Modal Body (Scrollable) -->
           <div class="flex-1 overflow-y-auto p-6 space-y-4 print:p-1 print:max-h-none print:overflow-visible">

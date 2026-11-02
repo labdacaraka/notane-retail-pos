@@ -77,6 +77,32 @@ export interface DeviceActivation {
   is_active: number
 }
 
+export interface ReleaseAsset {
+  id: string
+  release_id: string
+  platform: string
+  os: string
+  arch: string
+  download_url: string
+  checksum_sha256: string
+  signature_ed25519: string
+  file_path?: string
+  file_size?: number
+  original_filename?: string
+  created_at: string
+}
+
+export interface ReleaseAssetDto {
+  platform: string
+  os: string
+  arch: string
+  download_url?: string
+  checksum_sha256: string
+  file_path?: string
+  file_size?: number
+  original_filename?: string
+}
+
 export interface AppRelease {
   id: string
   version: string
@@ -96,6 +122,7 @@ export interface AppRelease {
   file_size?: number
   original_filename?: string
   created_at: string
+  assets?: ReleaseAsset[]
 }
 
 export interface AuditLog {
@@ -647,8 +674,8 @@ export const useProviderStore = defineStore('provider', () => {
     version: string
     release_name: string
     changelog: string
-    download_url: string
-    checksum_sha256: string
+    download_url?: string
+    checksum_sha256?: string
     is_mandatory: boolean
     min_license_tier: string
     has_db_migration: boolean
@@ -657,6 +684,7 @@ export const useProviderStore = defineStore('provider', () => {
     file_path?: string
     file_size?: number
     original_filename?: string
+    assets?: ReleaseAssetDto[]
   }) {
     isLoading.value = true
     try {

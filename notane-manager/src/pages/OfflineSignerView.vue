@@ -100,7 +100,7 @@ async function copySignature() {
               v-model="licenseKey"
               type="text"
               placeholder="Contoh: NTN-ENT-2026-X899"
-              class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-brand-500"
+              class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
             />
             <div v-if="providerStore.licenses.length > 0" class="flex flex-wrap gap-1.5 text-[11px]">
               <span class="text-slate-500">Pilih cepat:</span>
@@ -109,7 +109,7 @@ async function copySignature() {
                 :key="lic.id"
                 type="button"
                 @click="licenseKey = lic.license_key"
-                class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono transition-colors"
+                class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-mono transition-colors border border-slate-200 dark:border-slate-700/60"
               >
                 {{ lic.license_key }}
               </button>
@@ -119,15 +119,15 @@ async function copySignature() {
 
         <!-- Hardware ID (HWID) Input -->
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-            <Cpu class="w-3.5 h-3.5 text-blue-400" />
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+            <Cpu class="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
             <span>Hardware ID Mesin Server (notane-server) *</span>
           </label>
           <input
             v-model="hardwareId"
             type="text"
             placeholder="Contoh: NOTANE-HWID-A1B2-C3D4-E5F6-7890"
-            class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-brand-500"
+            class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
           />
           <span class="text-[11px] text-slate-500 mt-1 block">
             Salin Hardware ID dari menu Lisensi pada aplikasi Notane Server toko (Bukan komputer kasir client).
@@ -135,7 +135,7 @@ async function copySignature() {
         </div>
       </div>
 
-      <div v-if="validationError" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+      <div v-if="validationError" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 dark:text-rose-400 text-xs flex items-center gap-2">
         <AlertCircle class="w-4 h-4 shrink-0" />
         <span>{{ validationError }}</span>
       </div>
@@ -144,7 +144,7 @@ async function copySignature() {
         <button
           @click="handleGenerate"
           :disabled="isGenerating"
-          class="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-brand-600/30 flex items-center gap-2"
+          class="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-brand-600/30 flex items-center gap-2 cursor-pointer"
         >
           <ShieldCheck class="w-4 h-4" />
           <span>{{ isGenerating ? 'Membuat Kode...' : 'Buat Kode Aktivasi Toko' }}</span>
@@ -153,15 +153,15 @@ async function copySignature() {
     </div>
 
     <!-- Sign Result Output -->
-    <div v-if="signResult" class="p-6 rounded-2xl glass-panel border border-brand-500/30 space-y-5 animate-in fade-in duration-200">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+    <div v-if="signResult" class="p-6 rounded-2xl glass-panel border border-slate-200 dark:border-brand-500/30 space-y-5 animate-in fade-in duration-200 shadow-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
         <div class="flex items-center gap-2">
-          <div class="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+          <div class="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
             <ShieldCheck class="w-4 h-4" />
           </div>
-          <span class="font-bold text-sm text-white">Kode Aktivasi Berhasil Dibuat!</span>
+          <span class="font-bold text-sm text-slate-900 dark:text-white">Kode Aktivasi Berhasil Dibuat!</span>
         </div>
-        <span class="text-[11px] font-mono text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded">
+        <span class="text-[11px] font-mono text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-2 py-0.5 rounded border border-brand-200 dark:border-brand-500/20">
           Tanda Tangan Terverifikasi
         </span>
       </div>
@@ -169,10 +169,10 @@ async function copySignature() {
       <!-- Output 1: License Token JSON -->
       <div>
         <div class="flex items-center justify-between mb-1.5">
-          <label class="text-xs font-semibold text-slate-300">1. Kode Lisensi Toko</label>
+          <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">1. Kode Lisensi Toko</label>
           <button
             @click="copyToken"
-            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-brand-400 text-xs font-semibold flex items-center gap-1 transition-colors"
+            class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-brand-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-brand-400 text-xs font-semibold flex items-center gap-1 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
           >
             <component :is="copiedToken ? Check : Copy" class="w-3.5 h-3.5" />
             <span>{{ copiedToken ? 'Tersalin!' : 'Salin Kode' }}</span>
@@ -182,17 +182,17 @@ async function copySignature() {
           readonly
           :value="signResult.license_token_json"
           rows="3"
-          class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-slate-300 select-all focus:outline-none"
+          class="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono text-xs text-slate-800 dark:text-slate-300 select-all focus:outline-none"
         ></textarea>
       </div>
 
       <!-- Output 2: Cryptographic Signature Hex -->
       <div>
         <div class="flex items-center justify-between mb-1.5">
-          <label class="text-xs font-semibold text-slate-300">2. Kode Tanda Tangan Lisensi</label>
+          <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">2. Kode Tanda Tangan Lisensi</label>
           <button
             @click="copySignature"
-            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-brand-400 text-xs font-semibold flex items-center gap-1 transition-colors"
+            class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-brand-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-brand-400 text-xs font-semibold flex items-center gap-1 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
           >
             <component :is="copiedSignature ? Check : Copy" class="w-3.5 h-3.5" />
             <span>{{ copiedSignature ? 'Tersalin!' : 'Salin Tanda Tangan' }}</span>
@@ -201,14 +201,14 @@ async function copySignature() {
         <input
           readonly
           :value="signResult.signature_hex"
-          class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-brand-300 select-all focus:outline-none"
+          class="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono text-xs text-brand-700 dark:text-brand-300 select-all focus:outline-none"
         />
       </div>
 
       <!-- Instruction Note -->
-      <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 space-y-1">
-        <div class="font-semibold text-slate-200">Cara Aktivasi di Komputer Toko:</div>
-        <ol class="list-decimal list-inside space-y-0.5 text-slate-400">
+      <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+        <div class="font-semibold text-slate-800 dark:text-slate-200">Cara Aktivasi di Komputer Toko:</div>
+        <ol class="list-decimal list-inside space-y-0.5 text-slate-600 dark:text-slate-400">
           <li>Buka aplikasi Notane Server atau Notane POS, lalu buka menu <strong>Lisensi</strong>.</li>
           <li>Pilih tab <strong>Aktivasi Manual</strong>, lalu tempelkan <strong>Kode Lisensi Toko</strong> dan <strong>Kode Tanda Tangan Lisensi</strong> di atas.</li>
           <li>Klik <strong>Simpan Lisensi Toko</strong>. Aplikasi akan memverifikasi keamanan secara otomatis tanpa perlu internet.</li>

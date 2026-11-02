@@ -311,8 +311,36 @@ pub struct DeviceActivation {
 }
 
 // ==============================================================================
-// APP RELEASE (OTA Updates)
+// APP RELEASE & ASSETS (OTA Updates)
 // ==============================================================================
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ReleaseAsset {
+    pub id: String,
+    pub release_id: String,
+    pub platform: String,
+    pub os: String,
+    pub arch: String,
+    pub download_url: String,
+    pub checksum_sha256: String,
+    pub signature_ed25519: String,
+    pub file_path: Option<String>,
+    pub file_size: Option<i64>,
+    pub original_filename: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+pub struct ReleaseAssetDto {
+    pub platform: String,
+    pub os: String,
+    pub arch: String,
+    pub download_url: Option<String>,
+    pub checksum_sha256: String,
+    pub file_path: Option<String>,
+    pub file_size: Option<i64>,
+    pub original_filename: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct AppRelease {
     pub id: String,
@@ -333,6 +361,9 @@ pub struct AppRelease {
     pub file_size: Option<i64>,
     pub original_filename: Option<String>,
     pub created_at: String,
+    #[sqlx(skip)]
+    #[serde(default)]
+    pub assets: Vec<ReleaseAsset>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
@@ -346,8 +377,10 @@ pub struct CreateReleaseDto {
     #[validate(length(min = 5, message = "Changelog minimal 5 karakter"))]
     pub changelog: String,
 
-    pub download_url: String,
-    pub checksum_sha256: String,
+    #[serde(default)]
+    pub download_url: Option<String>,
+    #[serde(default)]
+    pub checksum_sha256: Option<String>,
     pub is_mandatory: bool,
     pub min_license_tier: String,
     pub has_db_migration: bool,
@@ -356,6 +389,8 @@ pub struct CreateReleaseDto {
     pub file_path: Option<String>,
     pub file_size: Option<i64>,
     pub original_filename: Option<String>,
+    #[serde(default)]
+    pub assets: Vec<ReleaseAssetDto>,
 }
 
 // ==============================================================================

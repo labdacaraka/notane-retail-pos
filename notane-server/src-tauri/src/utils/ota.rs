@@ -15,6 +15,10 @@ pub struct OtaDownloadPayload {
     pub timestamp: i64,
     pub component: Option<String>,
     pub current_version: Option<String>,
+    #[serde(default)]
+    pub os: Option<String>,
+    #[serde(default)]
+    pub arch: Option<String>,
 }
 
 pub fn derive_ota_key(master_pub_key_hex: &str) -> [u8; 32] {

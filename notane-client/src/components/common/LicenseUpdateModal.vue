@@ -99,19 +99,19 @@ async function handleApplyUpdate() {
         <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150 text-left pointer-events-auto my-8">
       
       <!-- Modal Header -->
-      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+      <div class="px-6 py-4 bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-            <ShieldCheck class="w-5 h-5 text-emerald-400" />
+          <div class="w-10 h-10 rounded-xl bg-white dark:bg-white/10 flex items-center justify-center border border-slate-200 dark:border-white/20 shadow-xs">
+            <ShieldCheck class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
             <h3 class="font-bold text-base tracking-tight flex items-center gap-2">
               <span>Lisensi & Pembaruan Sistem</span>
-              <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">
+              <span class="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">
                 v{{ licenseStore.versionInfo.version }}
               </span>
             </h3>
-            <p class="text-xs text-slate-400">
+            <p class="text-xs text-slate-500 dark:text-slate-400">
               Informasi lisensi toko dan status pembaruan
             </p>
           </div>
@@ -119,7 +119,7 @@ async function handleApplyUpdate() {
 
         <button
           @click="emit('close')"
-          class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+          class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 transition cursor-pointer"
         >
           ✕
         </button>

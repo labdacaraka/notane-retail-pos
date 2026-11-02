@@ -59,26 +59,26 @@ const displayedPages = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-slate-900/80 border border-slate-800/80 rounded-xl text-xs text-slate-400">
+  <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 rounded-xl text-xs text-slate-600 dark:text-slate-400 shadow-xs">
     <!-- Info & Page Size -->
     <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
       <div class="flex items-center gap-1.5">
         <span>Menampilkan</span>
-        <span class="font-bold text-slate-200">{{ formatNumber(fromItem) }}</span>
+        <span class="font-bold text-slate-900 dark:text-slate-200">{{ formatNumber(fromItem) }}</span>
         <span>-</span>
-        <span class="font-bold text-slate-200">{{ formatNumber(toItem) }}</span>
+        <span class="font-bold text-slate-900 dark:text-slate-200">{{ formatNumber(toItem) }}</span>
         <span>dari</span>
-        <span class="font-bold text-slate-200">{{ formatNumber(totalItems) }}</span>
+        <span class="font-bold text-slate-900 dark:text-slate-200">{{ formatNumber(totalItems) }}</span>
         <span>data</span>
       </div>
 
-      <div class="flex items-center gap-1.5 pl-3 border-l border-slate-800">
+      <div class="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-800">
         <label class="text-[11px] text-slate-500">Per hal:</label>
         <select
           :value="pageSize"
           @change="handlePageSizeChange"
           :disabled="isLoading"
-          class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-brand-500 cursor-pointer disabled:opacity-50"
+          class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-brand-500 cursor-pointer disabled:opacity-50"
         >
           <option v-for="opt in pageSizeOptions" :key="opt" :value="opt">
             {{ opt }}
@@ -95,7 +95,7 @@ const displayedPages = computed(() => {
         @click="changePage(1)"
         :disabled="page <= 1 || isLoading"
         title="Halaman Pertama"
-        class="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+        class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
       >
         <ChevronsLeft class="w-3.5 h-3.5" />
       </button>
@@ -106,7 +106,7 @@ const displayedPages = computed(() => {
         @click="changePage(page - 1)"
         :disabled="page <= 1 || isLoading"
         title="Sebelumnya"
-        class="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+        class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
       >
         <ChevronLeft class="w-3.5 h-3.5" />
       </button>
@@ -122,7 +122,7 @@ const displayedPages = computed(() => {
           class="w-7 h-7 rounded-lg text-xs font-semibold flex items-center justify-center transition cursor-pointer"
           :class="p === page
             ? 'bg-brand-600 text-white font-bold shadow-xs'
-            : 'border border-slate-800 hover:bg-slate-800 text-slate-300'"
+            : 'border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'"
         >
           {{ p }}
         </button>
@@ -134,7 +134,7 @@ const displayedPages = computed(() => {
         @click="changePage(page + 1)"
         :disabled="page >= totalPages || isLoading"
         title="Selanjutnya"
-        class="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+        class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
       >
         <ChevronRight class="w-3.5 h-3.5" />
       </button>
@@ -145,7 +145,7 @@ const displayedPages = computed(() => {
         @click="changePage(totalPages)"
         :disabled="page >= totalPages || isLoading"
         title="Halaman Terakhir"
-        class="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+        class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
       >
         <ChevronsRight class="w-3.5 h-3.5" />
       </button>

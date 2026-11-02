@@ -180,16 +180,16 @@ function nextPage() {
       class="bg-white border border-slate-300 w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col text-slate-900 max-h-[90vh] overflow-hidden"
     >
       <!-- Header -->
-      <div class="bg-slate-900 px-6 py-4 flex items-center justify-between text-white shrink-0">
+      <div class="bg-slate-50 dark:bg-slate-900 px-6 py-4 flex items-center justify-between text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 shrink-0">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
             <Clock class="w-5 h-5" />
           </div>
           <div>
-            <h3 class="font-extrabold text-base leading-tight">
+            <h3 class="font-extrabold text-base leading-tight text-slate-900 dark:text-white">
               {{ authStore.isSupervisor ? 'Riwayat Seluruh Shift Kasir' : 'Riwayat Shift Saya' }}
             </h3>
-            <p class="text-xs text-slate-400 mt-0.5">
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {{ authStore.isSupervisor
                 ? 'Pantau shift aktif, rekap penutupan laci kasir, selisih kas, & cetak ulang Z-Report.'
                 : 'Daftar riwayat sesi shift kasir Anda, rincian kas, dan cetak ulang laporan Z-Report.' }}
@@ -199,7 +199,7 @@ function nextPage() {
         <button
           type="button"
           @click="emit('close')"
-          class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition cursor-pointer"
+          class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition cursor-pointer"
         >
           <X class="w-5 h-5" />
         </button>
@@ -488,17 +488,17 @@ function nextPage() {
       class="bg-white border border-slate-300 w-full max-w-lg rounded-2xl shadow-2xl flex flex-col text-slate-900 overflow-hidden print:max-w-none print:shadow-none print:border-none print:w-[80mm] print:m-0 print:p-0"
     >
       <!-- Header -->
-      <div class="bg-slate-900 p-4 text-center text-white relative">
+      <div class="bg-slate-50 dark:bg-slate-900 p-4 text-center text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 relative">
         <button
           type="button"
           @click="selectedZReport = null"
-          class="absolute left-3 top-3.5 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer print:hidden"
+          class="absolute left-3 top-3.5 text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer print:hidden"
           title="Kembali ke daftar shift"
         >
           <ChevronLeft class="w-5 h-5" />
         </button>
-        <h4 class="font-extrabold text-sm tracking-wide">📋 LAPORAN PENUTUPAN SHIFT</h4>
-        <p class="text-[10px] text-slate-400 mt-0.5">Z-REPORT — NOTANE RETAIL POS</p>
+        <h4 class="font-extrabold text-sm tracking-wide text-slate-900 dark:text-white">📋 LAPORAN PENUTUPAN SHIFT</h4>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Z-REPORT — NOTANE RETAIL POS</p>
       </div>
 
       <!-- Scrollable content -->
@@ -577,7 +577,7 @@ function nextPage() {
             </template>
 
             <!-- Grand Total row -->
-            <div class="flex items-center justify-between px-3 py-2.5 text-[12px] bg-slate-800 text-white">
+            <div class="flex items-center justify-between px-3 py-2.5 text-[12px] bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border-t border-slate-200 dark:border-slate-700">
               <span class="font-bold">Total Penjualan Bersih (Net Sales)</span>
               <span class="font-bold">{{ formatCurrency(selectedZReport.total_net_sales ?? 0) }}</span>
             </div>

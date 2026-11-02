@@ -222,7 +222,7 @@ function formatDate(isoStr: string): string {
       class="bg-white border border-slate-300 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-900 animate-in fade-in zoom-in-95 duration-150"
     >
       <!-- Header -->
-      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+      <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 overflow-hidden">
             <img
@@ -235,13 +235,13 @@ function formatDate(isoStr: string): string {
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h3 class="text-base font-black tracking-tight text-white">Manajemen Multi-Barcode</h3>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+              <h3 class="text-base font-black tracking-tight text-slate-900 dark:text-white">Manajemen Multi-Barcode</h3>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-400/30">
                 Ganti Kemasan / Alias
               </span>
             </div>
-            <p class="text-xs text-slate-300 truncate max-w-md">
-              {{ product?.name }} <span class="font-mono text-emerald-300 font-bold">({{ product?.sku }})</span>
+            <p class="text-xs text-slate-500 dark:text-slate-400 truncate max-w-md">
+              {{ product?.name }} <span class="font-mono text-emerald-600 dark:text-emerald-300 font-bold">({{ product?.sku }})</span>
             </p>
           </div>
         </div>
@@ -249,7 +249,7 @@ function formatDate(isoStr: string): string {
         <button
           type="button"
           @click="emit('close')"
-          class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+          class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
         >
           <X class="w-5 h-5" />
         </button>

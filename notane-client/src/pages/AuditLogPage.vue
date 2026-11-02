@@ -628,9 +628,9 @@ onUnmounted(() => {
             <h4 class="font-bold text-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
               URL Endpoint & Aksi
             </h4>
-            <div class="bg-slate-900 text-emerald-400 p-2.5 rounded-lg font-mono text-[11px] break-all select-all">
+            <div class="bg-slate-100 dark:bg-slate-900 text-emerald-800 dark:text-emerald-400 p-2.5 rounded-lg font-mono text-[11px] break-all select-all border border-slate-200 dark:border-slate-800">
               {{ selectedLog.log.action }}
-              <span v-if="selectedLog.log.endpoint && selectedLog.log.endpoint !== selectedLog.log.action" class="block text-slate-400 text-[10px] mt-1">
+              <span v-if="selectedLog.log.endpoint && selectedLog.log.endpoint !== selectedLog.log.action" class="block text-slate-500 dark:text-slate-400 text-[10px] mt-1">
                 URI: {{ selectedLog.log.endpoint }}
               </span>
             </div>
@@ -653,9 +653,9 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <div class="bg-slate-950 text-slate-200 rounded-xl p-3 font-mono text-[11px] overflow-x-auto max-h-56 border border-slate-800">
+            <div class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 rounded-xl p-3 font-mono text-[11px] overflow-x-auto max-h-56 border border-slate-200 dark:border-slate-800">
               <pre v-if="selectedLog.log.new_values">{{ JSON.stringify(selectedLog.log.new_values, null, 2) }}</pre>
-              <div v-else class="text-slate-500 italic">Tidak ada rincian data tambahan pada aktivitas ini.</div>
+              <div v-else class="text-slate-400 dark:text-slate-500 italic">Tidak ada rincian data tambahan pada aktivitas ini.</div>
             </div>
           </div>
         </div>

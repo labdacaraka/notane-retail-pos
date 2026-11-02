@@ -471,7 +471,7 @@ function toggleOpenDrawer() {
             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               Pratinjau Struk Terakhir (Waktu: {{ printerStore.lastPrintTime }})
             </label>
-            <div class="bg-slate-900 text-emerald-400 p-3 rounded-xl font-mono text-[11px] whitespace-pre-wrap max-h-36 overflow-y-auto border border-slate-800 shadow-inner">
+            <div class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-emerald-400 p-3 rounded-xl font-mono text-[11px] whitespace-pre-wrap max-h-36 overflow-y-auto border border-slate-200 dark:border-slate-800 shadow-inner">
               {{ printerStore.lastPrintedText }}
             </div>
           </div>

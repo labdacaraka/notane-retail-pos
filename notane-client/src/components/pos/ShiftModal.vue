@@ -448,9 +448,9 @@ function paymentIcon(category: string): string {
       class="bg-white border border-slate-300 w-full max-w-lg rounded-2xl shadow-2xl flex flex-col text-slate-900 overflow-hidden print:max-w-none print:shadow-none print:border-none print:w-[80mm] print:m-0 print:p-0"
     >
       <!-- Header -->
-      <div class="bg-slate-800 p-4 text-center text-white">
-        <h4 class="font-bold text-sm tracking-wide">📋 LAPORAN PENUTUPAN SHIFT</h4>
-        <p class="text-[10px] text-slate-400 mt-0.5">Z-REPORT — NOTANE RETAIL POS</p>
+      <div class="bg-slate-50 dark:bg-slate-800 p-4 text-center text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-700">
+        <h4 class="font-bold text-sm tracking-wide text-slate-900 dark:text-white">📋 LAPORAN PENUTUPAN SHIFT</h4>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Z-REPORT — NOTANE RETAIL POS</p>
       </div>
 
       <!-- Scrollable content -->
@@ -544,7 +544,7 @@ function paymentIcon(category: string): string {
             </template>
 
             <!-- Grand Total row -->
-            <div class="flex items-center justify-between px-3 py-2.5 text-[12px] bg-slate-800 text-white">
+            <div class="flex items-center justify-between px-3 py-2.5 text-[12px] bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border-t border-slate-200 dark:border-slate-700">
               <span class="font-bold">Total Penjualan Seluruh Shift</span>
               <span class="font-bold">{{ formatCurrency(zReport.total_net_sales ?? 0) }}</span>
             </div>

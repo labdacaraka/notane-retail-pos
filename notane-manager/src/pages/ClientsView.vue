@@ -172,7 +172,7 @@ function goToCreateLicense(clientId: string) {
             v-model="searchQuery"
             type="text"
             placeholder="Cari nama, perusahaan, atau email klien..."
-            class="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-inner"
+            class="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-xs"
           />
         </div>
 
@@ -181,7 +181,7 @@ function goToCreateLicense(clientId: string) {
           @click="loadData()"
           :disabled="providerStore.isLoading"
           title="Muat Ulang Data"
-          class="p-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl transition cursor-pointer"
+          class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition cursor-pointer shadow-xs"
         >
           <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': providerStore.isLoading }" />
         </button>
@@ -189,10 +189,10 @@ function goToCreateLicense(clientId: string) {
 
       <div class="flex items-center gap-2 self-end sm:self-auto">
         <!-- View Mode Switcher -->
-        <div class="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 text-slate-400">
+        <div class="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 text-slate-500 dark:text-slate-400 shadow-xs">
           <button
             @click="viewMode = 'table'"
-            :class="viewMode === 'table' ? 'bg-slate-800 text-white font-bold' : 'hover:text-slate-200'"
+            :class="viewMode === 'table' ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold' : 'hover:text-slate-800 dark:hover:text-slate-200'"
             class="px-2.5 py-1 rounded-lg text-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <TableIcon class="w-3.5 h-3.5" />
@@ -200,7 +200,7 @@ function goToCreateLicense(clientId: string) {
           </button>
           <button
             @click="viewMode = 'grid'"
-            :class="viewMode === 'grid' ? 'bg-slate-800 text-white font-bold' : 'hover:text-slate-200'"
+            :class="viewMode === 'grid' ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold' : 'hover:text-slate-800 dark:hover:text-slate-200'"
             class="px-2.5 py-1 rounded-lg text-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <LayoutGrid class="w-3.5 h-3.5" />
@@ -248,96 +248,96 @@ function goToCreateLicense(clientId: string) {
 
     <!-- TABLE VIEW (SERVER-SIDE SORTING & PAGING) -->
     <div v-else-if="viewMode === 'table'" class="space-y-3">
-      <div class="glass-panel border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div class="glass-panel border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
-              <tr class="bg-slate-900/90 text-slate-400 border-b border-slate-800 select-none">
+              <tr class="bg-slate-50 dark:bg-slate-900/90 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 select-none">
                 <th
                   @click="handleSort('client_name')"
-                  class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
+                  class="py-3 px-4 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
                     <span>Nama Klien / PIC</span>
-                    <ArrowUp v-if="sortBy === 'client_name' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowDown v-else-if="sortBy === 'client_name' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
+                    <ArrowUp v-if="sortBy === 'client_name' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowDown v-else-if="sortBy === 'client_name' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowUpDown v-else class="w-3 h-3 text-slate-400 dark:text-slate-600" />
                   </div>
                 </th>
 
                 <th
                   @click="handleSort('company_name')"
-                  class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
+                  class="py-3 px-4 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
                     <span>Perusahaan / Brand</span>
-                    <ArrowUp v-if="sortBy === 'company_name' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowDown v-else-if="sortBy === 'company_name' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
+                    <ArrowUp v-if="sortBy === 'company_name' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowDown v-else-if="sortBy === 'company_name' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowUpDown v-else class="w-3 h-3 text-slate-400 dark:text-slate-600" />
                   </div>
                 </th>
 
                 <th
                   @click="handleSort('email')"
-                  class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
+                  class="py-3 px-4 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
                     <span>Kontak & Email</span>
-                    <ArrowUp v-if="sortBy === 'email' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
+                    <ArrowUp v-if="sortBy === 'email' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                     <ArrowDown v-else-if="sortBy === 'email' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
+                    <ArrowUpDown v-else class="w-3 h-3 text-slate-400 dark:text-slate-600" />
                   </div>
                 </th>
 
-                <th class="py-3 px-4 font-semibold text-slate-400">Alamat</th>
+                <th class="py-3 px-4 font-semibold text-slate-500 dark:text-slate-400">Alamat</th>
 
                 <th
                   @click="handleSort('created_at')"
-                  class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
+                  class="py-3 px-4 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
                     <span>Terdaftar</span>
-                    <ArrowUp v-if="sortBy === 'created_at' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowDown v-else-if="sortBy === 'created_at' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
+                    <ArrowUp v-if="sortBy === 'created_at' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowDown v-else-if="sortBy === 'created_at' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowUpDown v-else class="w-3 h-3 text-slate-400 dark:text-slate-600" />
                   </div>
                 </th>
 
-                <th class="py-3 px-4 font-semibold text-right text-slate-400">Aksi</th>
+                <th class="py-3 px-4 font-semibold text-right text-slate-500 dark:text-slate-400">Aksi</th>
               </tr>
             </thead>
 
-            <tbody class="divide-y divide-slate-800/60">
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-800/60">
               <tr
                 v-for="c in providerStore.clientsPagination.items"
                 :key="c.id"
-                class="hover:bg-slate-800/40 transition-colors group"
+                class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group"
               >
                 <!-- Client Name -->
-                <td class="py-3.5 px-4 font-medium text-slate-200">
+                <td class="py-3.5 px-4 font-medium text-slate-800 dark:text-slate-200">
                   <div class="flex items-center gap-2">
-                    <div class="w-7 h-7 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
+                    <div class="w-7 h-7 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
                       {{ c.client_name.charAt(0).toUpperCase() }}
                     </div>
                     <div>
-                      <div class="font-bold text-white">{{ c.client_name }}</div>
+                      <div class="font-bold text-slate-900 dark:text-white">{{ c.client_name }}</div>
                       <div class="text-[10px] font-mono text-slate-500">{{ c.id.slice(0, 8) }}...</div>
                     </div>
                   </div>
                 </td>
 
                 <!-- Company -->
-                <td class="py-3.5 px-4 text-slate-300">
-                  <div class="flex items-center gap-1.5 font-semibold text-brand-400">
+                <td class="py-3.5 px-4 text-slate-700 dark:text-slate-300">
+                  <div class="flex items-center gap-1.5 font-semibold text-brand-600 dark:text-brand-400">
                     <Building class="w-3.5 h-3.5 shrink-0" />
                     <span>{{ c.company_name }}</span>
                   </div>
                 </td>
 
                 <!-- Contacts -->
-                <td class="py-3.5 px-4 text-slate-300">
+                <td class="py-3.5 px-4 text-slate-700 dark:text-slate-300">
                   <div class="space-y-0.5">
-                    <div class="flex items-center gap-1.5 text-slate-300">
+                    <div class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
                       <Mail class="w-3 h-3 text-slate-500" />
                       <span class="font-mono text-[11px]">{{ c.email }}</span>
                     </div>
@@ -411,13 +411,13 @@ function goToCreateLicense(clientId: string) {
         <div
           v-for="c in providerStore.clientsPagination.items"
           :key="c.id"
-          class="p-5 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between"
+          class="p-5 rounded-2xl glass-panel border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between shadow-xs"
         >
           <div class="space-y-3">
             <div class="flex items-start justify-between">
               <div>
-                <h3 class="font-bold text-sm text-white">{{ c.client_name }}</h3>
-                <div class="text-xs text-brand-400 font-medium flex items-center gap-1 mt-0.5">
+                <h3 class="font-bold text-sm text-slate-900 dark:text-white">{{ c.client_name }}</h3>
+                <div class="text-xs text-brand-600 dark:text-brand-400 font-medium flex items-center gap-1 mt-0.5">
                   <Building class="w-3.5 h-3.5" />
                   <span>{{ c.company_name }}</span>
                 </div>
@@ -426,7 +426,7 @@ function goToCreateLicense(clientId: string) {
                 <button
                   @click="openEditModal(c)"
                   :disabled="!hasPermission('client:update')"
-                  class="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition cursor-pointer"
+                  class="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition cursor-pointer"
                   title="Edit Klien"
                 >
                   <Edit2 class="w-3.5 h-3.5" />
@@ -434,7 +434,7 @@ function goToCreateLicense(clientId: string) {
                 <button
                   @click="confirmDelete(c)"
                   :disabled="!hasPermission('client:delete')"
-                  class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition cursor-pointer"
+                  class="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition cursor-pointer"
                   title="Hapus Klien"
                 >
                   <Trash2 class="w-3.5 h-3.5" />
@@ -442,7 +442,7 @@ function goToCreateLicense(clientId: string) {
               </div>
             </div>
 
-            <div class="space-y-1.5 text-xs text-slate-400 pt-2 border-t border-slate-800/80">
+            <div class="space-y-1.5 text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800/80">
               <div class="flex items-center gap-2">
                 <Mail class="w-3.5 h-3.5 text-slate-500" />
                 <span class="truncate">{{ c.email }}</span>
@@ -487,76 +487,76 @@ function goToCreateLicense(clientId: string) {
     </div>
 
     <!-- Modal Create / Edit Client -->
-    <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-      <div class="w-full max-w-md rounded-2xl glass-panel border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div class="font-bold text-sm text-white">
+    <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+      <div class="w-full max-w-md rounded-2xl glass-panel border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div class="font-bold text-sm text-slate-900 dark:text-white">
             {{ isEditing ? 'Edit Data Klien Tenant' : 'Tambah Klien Tenant Baru' }}
           </div>
-          <button @click="isModalOpen = false" class="text-slate-400 hover:text-white cursor-pointer">
+          <button @click="isModalOpen = false" class="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
             <X class="w-4 h-4" />
           </button>
         </div>
 
         <form @submit.prevent="handleSubmit" class="space-y-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Nama Klien / Penanggung Jawab *</label>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nama Klien / Penanggung Jawab *</label>
             <input
               v-model="form.client_name"
               type="text"
               placeholder="Contoh: Budi Santoso"
-              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"
+              class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
             />
-            <span v-if="formErrors.client_name" class="text-[11px] text-rose-400 mt-0.5 block">{{ formErrors.client_name }}</span>
+            <span v-if="formErrors.client_name" class="text-[11px] text-rose-500 mt-0.5 block">{{ formErrors.client_name }}</span>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Nama Usaha / Perusahaan *</label>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nama Usaha / Perusahaan *</label>
             <input
               v-model="form.company_name"
               type="text"
               placeholder="Contoh: PT Mitra Retail Nusantara"
-              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"
+              class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
             />
-            <span v-if="formErrors.company_name" class="text-[11px] text-rose-400 mt-0.5 block">{{ formErrors.company_name }}</span>
+            <span v-if="formErrors.company_name" class="text-[11px] text-rose-500 mt-0.5 block">{{ formErrors.company_name }}</span>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Email Klien *</label>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Email Klien *</label>
             <input
               v-model="form.email"
               type="email"
               placeholder="budi@mitraretail.com"
-              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"
+              class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
             />
-            <span v-if="formErrors.email" class="text-[11px] text-rose-400 mt-0.5 block">{{ formErrors.email }}</span>
+            <span v-if="formErrors.email" class="text-[11px] text-rose-500 mt-0.5 block">{{ formErrors.email }}</span>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">No. Telepon / WhatsApp</label>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">No. Telepon / WhatsApp</label>
             <input
               v-model="form.phone"
               type="text"
               placeholder="08123456789"
-              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"
+              class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Alamat Kantor / Outlet</label>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Alamat Kantor / Outlet</label>
             <textarea
               v-model="form.address"
               rows="2"
               placeholder="Jl. Thamrin No. 45, Jakarta"
-              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-brand-500"
+              class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
             ></textarea>
           </div>
 
-          <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
+          <div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
             <button
               type="button"
               @click="isModalOpen = false"
-              class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer"
+              class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
             >
               Batal
             </button>

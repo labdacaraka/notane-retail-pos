@@ -1025,15 +1025,15 @@ onUnmounted(() => {
         <!-- Scrollable Centered Wrapper -->
         <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
           <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
-            <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
-          <div class="flex items-center gap-2">
-            <Icon icon="flat-color-icons:package" class="w-5 h-5" />
-            <span class="font-bold text-sm">Pilih Barang dari Master Produk</span>
-          </div>
-          <button @click="showProductPicker = false" class="text-slate-400 hover:text-white cursor-pointer">
-            <XCircle class="w-5 h-5" />
-          </button>
-        </div>
+              <div class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2">
+                  <Icon icon="flat-color-icons:package" class="w-5 h-5" />
+                  <span class="font-bold text-sm text-slate-900 dark:text-white">Pilih Barang dari Master Produk</span>
+                </div>
+                <button @click="showProductPicker = false" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+                  <XCircle class="w-5 h-5" />
+                </button>
+              </div>
 
         <div class="p-4 border-b border-slate-200 bg-slate-50 shrink-0">
           <div class="relative">

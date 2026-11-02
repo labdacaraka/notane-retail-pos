@@ -273,6 +273,27 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
         .await;
 
     sqlx::query(
+        "CREATE TABLE IF NOT EXISTS provider_release_assets (
+            id TEXT PRIMARY KEY,
+            release_id TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            os TEXT NOT NULL,
+            arch TEXT NOT NULL,
+            download_url TEXT NOT NULL,
+            checksum_sha256 TEXT NOT NULL,
+            signature_ed25519 TEXT NOT NULL,
+            file_path TEXT,
+            file_size INTEGER,
+            original_filename TEXT,
+            created_at TEXT NOT NULL
+        );"
+    ).execute(pool).await?;
+
+    let _ = sqlx::query("CREATE INDEX IF NOT EXISTS idx_provider_release_assets_rel_id ON provider_release_assets (release_id);")
+        .execute(pool)
+        .await;
+
+    sqlx::query(
         "CREATE TABLE IF NOT EXISTS provider_license_audit_logs (
             id TEXT PRIMARY KEY,
             license_key TEXT,

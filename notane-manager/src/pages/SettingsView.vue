@@ -126,48 +126,48 @@ async function handleSaveCredentials() {
       <div class="space-y-4">
         <!-- Alamat Host / Domain Publik -->
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-            <Radio class="w-3.5 h-3.5 text-emerald-400" />
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+            <Radio class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Alamat Host / Domain Publik</span>
           </label>
           <input
             :value="displayExternalUrl"
             readonly
             type="text"
-            class="w-full sm:w-96 px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs font-mono text-emerald-400 select-all focus:outline-none"
+            class="w-full sm:w-96 px-3 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-emerald-700 dark:text-emerald-400 select-all focus:outline-none"
           />
           <span class="text-[11px] text-slate-500 mt-1 block">
-            Dapat disesuaikan lewat environment variable <code class="text-brand-400">PROVIDER_URL</code> atau <code class="text-brand-400">HOST_IP</code> di <code class="text-slate-400">docker-compose.manager.yml</code>.
+            Dapat disesuaikan lewat environment variable <code class="text-brand-600 dark:text-brand-400">PROVIDER_URL</code> atau <code class="text-brand-600 dark:text-brand-400">HOST_IP</code> di <code class="text-slate-600 dark:text-slate-400">docker-compose.manager.yml</code>.
           </span>
         </div>
 
         <!-- Port Server -->
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-            <Server class="w-3.5 h-3.5 text-blue-400" />
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+            <Server class="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
             <span>Port Layanan Server</span>
           </label>
           <input
             v-model.number="form.server_port"
             type="number"
-            class="w-full sm:w-48 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-brand-500"
+            class="w-full sm:w-48 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
           />
           <span class="text-[11px] text-slate-500 mt-1 block">Default: 19090 (atau sesuaikan dengan konfigurasi VPS).</span>
         </div>
 
         <!-- Master Private Key (Warning!) -->
-        <div class="pt-4 border-t border-slate-800/80 space-y-2">
+        <div class="pt-4 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
           <div class="flex items-center justify-between">
-            <label class="block text-xs font-semibold text-rose-400 flex items-center gap-1.5">
-              <KeyRound class="w-3.5 h-3.5 text-rose-400" />
+            <label class="block text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+              <KeyRound class="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
               <span>Kunci Rahasia Utama (Private Key)</span>
             </label>
             <button
               @click="copyPrivateKey"
               type="button"
-              class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300 flex items-center gap-1"
+              class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-xs font-mono text-slate-700 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 flex items-center gap-1 cursor-pointer"
             >
-              <component :is="copiedPriv ? Check : Copy" class="w-3 h-3 text-brand-400" />
+              <component :is="copiedPriv ? Check : Copy" class="w-3 h-3 text-brand-600 dark:text-brand-400" />
               <span>{{ copiedPriv ? 'Tersalin' : 'Salin Kunci' }}</span>
             </button>
           </div>
@@ -175,10 +175,10 @@ async function handleSaveCredentials() {
           <input
             v-model="form.master_private_key"
             type="text"
-            class="w-full px-3 py-2 bg-slate-950 border border-rose-500/30 rounded-xl text-xs font-mono text-rose-300 focus:outline-none focus:border-rose-400 select-all"
+            class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-rose-300 dark:border-rose-500/30 rounded-xl text-xs font-mono text-rose-600 dark:text-rose-300 focus:outline-none focus:border-rose-400 select-all"
           />
 
-          <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2">
+          <div class="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
             <AlertTriangle class="w-4 h-4 shrink-0 mt-0.5" />
             <span>
               <strong>PENTING:</strong> Jaga kerahasiaan kunci ini. Kunci ini digunakan untuk menandatangani seluruh lisensi toko.
@@ -187,18 +187,18 @@ async function handleSaveCredentials() {
         </div>
 
         <!-- Master Public Key -->
-        <div class="pt-4 border-t border-slate-800/80 space-y-2">
+        <div class="pt-4 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
           <div class="flex items-center justify-between">
-            <label class="block text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <ShieldCheck class="w-3.5 h-3.5 text-emerald-400" />
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <ShieldCheck class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Kunci Publik Pasangan (Tersimpan di Aplikasi Toko)</span>
             </label>
             <button
               @click="copyPublicKey"
               type="button"
-              class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300 flex items-center gap-1"
+              class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-xs font-mono text-slate-700 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 flex items-center gap-1 cursor-pointer"
             >
-              <component :is="copiedPub ? Check : Copy" class="w-3 h-3 text-brand-400" />
+              <component :is="copiedPub ? Check : Copy" class="w-3 h-3 text-brand-600 dark:text-brand-400" />
               <span>{{ copiedPub ? 'Tersalin' : 'Salin Kunci' }}</span>
             </button>
           </div>
@@ -207,19 +207,19 @@ async function handleSaveCredentials() {
             readonly
             :value="form.master_public_key"
             type="text"
-            class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-emerald-400 focus:outline-none select-all"
+            class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-emerald-700 dark:text-emerald-400 focus:outline-none select-all"
           />
           <span class="text-[11px] text-slate-500 block">
-            Public key ini adalah verifier yang tersemat di binary Rust klien Notane POS (<code class="text-slate-400">NOTANE_MASTER_PUBLIC_KEY_HEX</code>).
+            Public key ini adalah verifier yang tersemat di binary Rust klien Notane POS (<code class="text-slate-600 dark:text-slate-400">NOTANE_MASTER_PUBLIC_KEY_HEX</code>).
           </span>
         </div>
       </div>
 
-      <div class="pt-4 border-t border-slate-800 flex justify-end">
+      <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
         <button
           @click="handleSave"
           :disabled="isSaving"
-          class="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-600/30 flex items-center gap-2"
+          class="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-600/30 flex items-center gap-2 cursor-pointer"
         >
           <Save class="w-4 h-4" />
           <span>{{ isSaving ? 'Menyimpan...' : 'Simpan Perubahan' }}</span>
@@ -228,59 +228,59 @@ async function handleSaveCredentials() {
     </div>
 
     <!-- Security & Administrator Credentials Card -->
-    <div class="p-6 rounded-2xl glass-panel border border-slate-800 space-y-5">
-      <div class="flex items-center gap-3 pb-4 border-b border-slate-800">
-        <div class="p-2.5 rounded-xl bg-purple-500/10 text-purple-400">
+    <div class="p-6 rounded-2xl glass-panel border border-slate-200 dark:border-slate-800 space-y-5 shadow-xs">
+      <div class="flex items-center gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+        <div class="p-2.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
           <KeyRound class="w-5 h-5" />
         </div>
         <div>
-          <h2 class="text-sm font-bold text-white">Keamanan Akun Administrator</h2>
-          <p class="text-xs text-slate-400">Ubah kata sandi akun dan PIN buka kunci cepat</p>
+          <h2 class="text-sm font-bold text-slate-900 dark:text-white">Keamanan Akun Administrator</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Ubah kata sandi akun dan PIN buka kunci cepat</p>
         </div>
       </div>
 
       <div v-if="authMessage" class="p-3 rounded-xl text-xs flex items-center gap-2"
-           :class="authSuccess ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300' : 'bg-rose-500/15 border border-rose-500/30 text-rose-300'">
+           :class="authSuccess ? 'bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300' : 'bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300'">
         <component :is="authSuccess ? Check : AlertTriangle" class="w-4 h-4 shrink-0" />
         <span>{{ authMessage }}</span>
       </div>
 
       <div class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Kata Sandi Saat Ini *</label>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Kata Sandi Saat Ini *</label>
           <input
             v-model="securityForm.old_password"
             type="password"
             placeholder="Masukkan kata sandi lama..."
-            class="w-full sm:w-72 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-brand-500"
+            class="w-full sm:w-72 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
           />
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Kata Sandi Baru (Opsional)</label>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Kata Sandi Baru (Opsional)</label>
             <input
               v-model="securityForm.new_password"
               type="password"
               placeholder="Minimal 4 karakter..."
-              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-brand-500"
+              class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">PIN Keamanan Baru (Opsional)</label>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">PIN Keamanan Baru (Opsional)</label>
             <input
               v-model="securityForm.new_pin"
               type="password"
               maxlength="10"
               placeholder="4-10 digit PIN..."
-              class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-brand-500"
+              class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
             />
           </div>
         </div>
       </div>
 
-      <div class="pt-4 border-t border-slate-800 flex justify-end">
+      <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
         <button
           @click="handleSaveCredentials"
           :disabled="isUpdatingAuth"

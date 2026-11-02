@@ -1511,23 +1511,23 @@ onUnmounted(() => {
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] text-left pointer-events-auto my-8">
               <!-- Modal Header -->
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="p-2 rounded-xl bg-slate-800 border border-slate-700">
-                <Icon icon="fluent:arrow-sync-24-regular" class="w-6 h-6 text-emerald-400" />
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                    <Icon icon="fluent:arrow-sync-24-regular" class="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-base text-slate-900 dark:text-white">Transfer Stok Antar Outlet</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-0.5">Pindahkan stok fisik ke cabang/gudang lain dan perbarui pencatatan persediaan.</p>
+                  </div>
+                </div>
+                <button
+                  @click="showCreateTransferModal = false"
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X class="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <h3 class="font-bold text-base">Transfer Stok Antar Outlet</h3>
-                <p class="text-slate-400 text-xs mt-0.5">Pindahkan stok fisik ke cabang/gudang lain dan perbarui pencatatan persediaan.</p>
-              </div>
-            </div>
-            <button
-              @click="showCreateTransferModal = false"
-              class="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition"
-            >
-              <X class="w-5 h-5" />
-            </button>
-          </div>
 
           <!-- Modal Body Form -->
           <div class="p-6 overflow-y-auto space-y-5 flex-1">
@@ -1795,15 +1795,15 @@ onUnmounted(() => {
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
               <!-- Header -->
-              <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-2">
-              <Icon icon="flat-color-icons:package" class="w-5 h-5" />
-              <span class="font-bold text-sm">Pilih Barang dari Master Produk</span>
-            </div>
-            <button @click="showTransferProductPicker = false" class="text-slate-400 hover:text-white transition cursor-pointer">
-              <X class="w-5 h-5" />
-            </button>
-          </div>
+              <div class="px-5 py-3.5 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2">
+                  <Icon icon="flat-color-icons:package" class="w-5 h-5" />
+                  <span class="font-bold text-sm text-slate-900 dark:text-white">Pilih Barang dari Master Produk</span>
+                </div>
+                <button @click="showTransferProductPicker = false" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+                  <X class="w-5 h-5" />
+                </button>
+              </div>
 
           <!-- Search Input Bar -->
           <div class="p-4 border-b border-slate-200 bg-slate-50 shrink-0">
@@ -1902,25 +1902,25 @@ onUnmounted(() => {
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
               <!-- Modal Header -->
-              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="p-2 rounded-xl bg-slate-800 border border-slate-700">
-                <PackageCheck class="w-6 h-6 text-emerald-400" />
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                    <PackageCheck class="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-base text-slate-900 dark:text-white">Penerimaan Barang Transfer</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-0.5">
+                      Verifikasi fisik kuantitas barang yang tiba sebelum masuk ke stok outlet tujuan.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  @click="showReceiveTransferModal = false"
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X class="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <h3 class="font-bold text-base">Penerimaan Barang Transfer</h3>
-                <p class="text-slate-400 text-xs mt-0.5">
-                  Verifikasi fisik kuantitas barang yang tiba sebelum masuk ke stok outlet tujuan.
-                </p>
-              </div>
-            </div>
-            <button
-              @click="showReceiveTransferModal = false"
-              class="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
-            >
-              <X class="w-5 h-5" />
-            </button>
-          </div>
 
           <!-- Modal Body Form -->
           <div class="p-6 overflow-y-auto space-y-5 flex-1">
@@ -2161,23 +2161,23 @@ onUnmounted(() => {
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
               <!-- Modal Header -->
-              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="p-2 rounded-xl bg-white/10">
-                <FileText class="w-5 h-5 text-emerald-400" />
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                    <FileText class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 class="font-extrabold text-base text-slate-900 dark:text-white">Surat Jalan & Rincian Dokumen Mutasi Transfer</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-0.5">Detail pelacakan perpindahan fisik barang, petugas, dan jurnal akuntansi terkait.</p>
+                  </div>
+                </div>
+                <button
+                  @click="showTransferDetailModal = false"
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X class="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <h3 class="font-extrabold text-base">Surat Jalan & Rincian Dokumen Mutasi Transfer</h3>
-                <p class="text-slate-400 text-xs mt-0.5">Detail pelacakan perpindahan fisik barang, petugas, dan jurnal akuntansi terkait.</p>
-              </div>
-            </div>
-            <button
-              @click="showTransferDetailModal = false"
-              class="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
-            >
-              <X class="w-5 h-5" />
-            </button>
-          </div>
 
           <!-- Modal Body Detail -->
           <div class="p-6 overflow-y-auto space-y-6 flex-1">

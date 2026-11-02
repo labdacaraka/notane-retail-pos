@@ -3578,30 +3578,30 @@ async function handleDeleteSupplier(supp: any) {
           <!-- Scrollable Centered Wrapper -->
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
-              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center">
-                <FileText class="w-5 h-5 text-blue-400" />
+                <FileText class="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Detail Faktur Penerimaan (GRN)</div>
-                <div class="text-base font-black tracking-tight flex items-center gap-2">
+                <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Detail Faktur Penerimaan (GRN)</div>
+                <div class="text-base font-black tracking-tight flex items-center gap-2 text-slate-900 dark:text-white">
                   <span>{{ selectedInvoice?.invoice_number }}</span>
                   <span
                     v-if="selectedInvoice?.payment_status === 'CANCELLED'"
-                    class="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-400/30 font-bold"
+                    class="text-[10px] bg-rose-500/20 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded border border-rose-400/30 font-bold"
                   >
                     DIBATALKAN
                   </span>
                   <span
                     v-else-if="selectedInvoice?.payment_status === 'PAID'"
-                    class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-bold"
+                    class="text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-bold"
                   >
                     LUNAS
                   </span>
                   <span
                     v-else
-                    class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-bold"
+                    class="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-bold"
                   >
                     BELUM LUNAS
                   </span>
@@ -3611,7 +3611,7 @@ async function handleDeleteSupplier(supp: any) {
             <button
               type="button"
               @click="showDetailModal = false"
-              class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
             >
               <X class="w-5 h-5" />
             </button>

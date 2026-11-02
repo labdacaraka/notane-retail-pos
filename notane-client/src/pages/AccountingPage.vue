@@ -4607,18 +4607,18 @@ onMounted(async () => {
           <!-- Scrollable Centered Wrapper -->
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn text-left pointer-events-auto my-8">
-              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <Lock class="w-5 h-5 text-amber-400" />
-              <div>
-                <h3 class="font-extrabold text-sm">Formulir Penutupan Buku Periode</h3>
-                <p class="text-[11px] text-slate-400">Menutup akun nominal dan memindahkan laba/rugi ke Laba Ditahan</p>
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                  <Lock class="w-5 h-5 text-amber-500" />
+                  <div>
+                    <h3 class="font-extrabold text-sm text-slate-900 dark:text-white">Formulir Penutupan Buku Periode</h3>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Menutup akun nominal dan memindahkan laba/rugi ke Laba Ditahan</p>
+                  </div>
+                </div>
+                <button @click="showClosingModal = false" class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+                  <X class="w-5 h-5" />
+                </button>
               </div>
-            </div>
-            <button @click="showClosingModal = false" class="text-slate-400 hover:text-white transition cursor-pointer">
-              <X class="w-5 h-5" />
-            </button>
-          </div>
 
           <div class="p-6 space-y-4 text-xs">
             <!-- Lingkup Outlet -->
@@ -5028,20 +5028,20 @@ onMounted(async () => {
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] animate-scaleIn text-left pointer-events-auto my-8">
               <!-- Header with Mode Switcher -->
-              <div class="px-6 py-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-xl bg-emerald-700 flex items-center justify-center text-emerald-300">
-                <Sparkles class="w-4 h-4" />
-              </div>
-              <div>
-                <h3 class="font-extrabold text-sm">Pencatatan Jurnal Penyesuaian Toko</h3>
-                <p class="text-[11px] text-slate-400">Penyesuaian kasir, stok opname, beban toko, atau koreksi pembukuan</p>
-              </div>
-            </div>
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
+                    <Sparkles class="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 class="font-extrabold text-sm text-slate-900 dark:text-white">Pencatatan Jurnal Penyesuaian Toko</h3>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Penyesuaian kasir, stok opname, beban toko, atau koreksi pembukuan</p>
+                  </div>
+                </div>
 
-            <!-- Mode Selector Switch -->
-            <div class="flex items-center gap-3">
-              <div class="inline-flex p-1 bg-slate-800 rounded-xl border border-slate-700">
+                <!-- Mode Selector Switch -->
+                <div class="flex items-center gap-3">
+                  <div class="inline-flex p-1 bg-slate-200 dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700">
                 <button
                   type="button"
                   @click="adjustmentMode = 'purpose'"
@@ -5763,20 +5763,20 @@ onMounted(async () => {
           <!-- Scrollable Centered Wrapper -->
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden text-left pointer-events-auto my-8">
-              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-xl bg-emerald-700 flex items-center justify-center text-amber-300">
-                <Coins class="w-4 h-4" />
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-700 dark:text-amber-300">
+                    <Coins class="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-sm text-slate-900 dark:text-white">Pencatatan Setoran Modal Usaha</h3>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Penerimaan dana investasi kas/bank dari pemilik atau investor</p>
+                  </div>
+                </div>
+                <button @click="showCapitalModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+                  <X class="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <h3 class="font-bold text-sm">Pencatatan Setoran Modal Usaha</h3>
-                <p class="text-[11px] text-slate-400">Penerimaan dana investasi kas/bank dari pemilik atau investor</p>
-              </div>
-            </div>
-            <button @click="showCapitalModal = false" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
-              <X class="w-5 h-5" />
-            </button>
-          </div>
 
           <form @submit.prevent="handleSaveCapital" class="p-6 space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -6060,24 +6060,24 @@ onMounted(async () => {
           <!-- Scrollable Centered Wrapper -->
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden text-left pointer-events-auto my-8">
-              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between print:hidden">
-            <div class="flex items-center gap-2">
-              <Printer class="w-4 h-4 text-emerald-400" />
-              <h3 class="font-bold text-sm">Bukti Kas Masuk (Setoran Modal)</h3>
-            </div>
-            <div class="flex items-center gap-2">
-              <button
-                @click="printCapitalVoucher"
-                class="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-              >
-                <Printer class="w-3.5 h-3.5" />
-                <span>Cetak / Print</span>
-              </button>
-              <button @click="showCapitalVoucherModal = false" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
-                <X class="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between print:hidden">
+                <div class="flex items-center gap-2">
+                  <Printer class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h3 class="font-bold text-sm text-slate-900 dark:text-white">Bukti Kas Masuk (Setoran Modal)</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="printCapitalVoucher"
+                    class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Printer class="w-3.5 h-3.5" />
+                    <span>Cetak / Print</span>
+                  </button>
+                  <button @click="showCapitalVoucherModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+                    <X class="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
 
           <!-- Printable Voucher Content -->
           <div id="printable-capital-voucher" class="p-8 space-y-6 text-slate-900 font-sans print:p-0">
@@ -6174,20 +6174,20 @@ onMounted(async () => {
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden text-left pointer-events-auto my-8">
               <!-- Header -->
-              <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <Landmark class="w-4 h-4 text-emerald-400" />
-              <h3 class="font-bold text-sm">
-                {{ bankModalMode === 'create' ? 'Tambah Rekening Bank Penerimaan' : 'Edit Rekening Bank' }}
-              </h3>
-            </div>
-            <button
-              @click="showBankModal = false"
-              class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-            >
-              <X class="w-5 h-5" />
-            </button>
-          </div>
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <Landmark class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h3 class="font-bold text-sm text-slate-900 dark:text-white">
+                    {{ bankModalMode === 'create' ? 'Tambah Rekening Bank Penerimaan' : 'Edit Rekening Bank' }}
+                  </h3>
+                </div>
+                <button
+                  @click="showBankModal = false"
+                  class="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X class="w-5 h-5" />
+                </button>
+              </div>
 
           <!-- Body -->
           <div class="p-6 space-y-4 text-xs font-sans">
@@ -6878,17 +6878,17 @@ onMounted(async () => {
         @click.self="showDetailDividendModal = false"
       >
         <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden my-6 max-h-[90vh] flex flex-col">
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
             <div class="flex items-center gap-2">
-              <Coins class="w-5 h-5 text-amber-300" />
+              <Coins class="w-5 h-5 text-amber-500" />
               <div>
-                <h3 class="font-extrabold text-sm">Bukti Pembagian Dividen Laba</h3>
-                <p class="text-[11px] text-slate-400 font-mono">{{ selectedDividendDetail.distribution_number }}</p>
+                <h3 class="font-extrabold text-sm text-slate-900 dark:text-white">Bukti Pembagian Dividen Laba</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{{ selectedDividendDetail.distribution_number }}</p>
               </div>
             </div>
             <button
               @click="showDetailDividendModal = false"
-              class="text-white/70 hover:text-white transition cursor-pointer"
+              class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
             >
               <X class="w-5 h-5" />
             </button>
@@ -7249,9 +7249,9 @@ onMounted(async () => {
                 </div>
 
                 <!-- Laba Bersih Final -->
-                <div class="flex justify-between items-center bg-slate-900 text-white px-5 py-3 rounded-xl font-black text-sm font-mono shadow-sm">
+                <div class="flex justify-between items-center bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 px-5 py-3 rounded-xl font-black text-sm font-mono shadow-xs">
                   <span>LABA BERSIH TAHUN/PERIODE BERJALAN (NET PROFIT)</span>
-                  <span class="text-base text-emerald-300">{{ formatCurrency(incomeStatement.net_profit) }}</span>
+                  <span class="text-base text-emerald-700 dark:text-emerald-300">{{ formatCurrency(incomeStatement.net_profit) }}</span>
                 </div>
               </div>
 

@@ -854,52 +854,52 @@ async function confirmVoid() {
           <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
             <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-left pointer-events-auto my-8">
               <!-- Modal Header -->
-          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
-                <Receipt class="w-5 h-5 text-amber-400" />
-              </div>
-              <div>
-                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rincian Faktur Penjualan</div>
-                <div class="text-base font-black tracking-tight flex items-center gap-2">
-                  <CopyableText :value="selectedSale?.invoice_number" label="No. Faktur" size="base" />
-                  <span
-                    v-if="selectedSale?.status === 'COMPLETED'"
-                    class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-bold"
-                  >
-                    COMPLETED
-                  </span>
-                  <span
-                    v-else-if="selectedSale?.status === 'VOID'"
-                    class="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-400/30 font-bold line-through"
-                  >
-                    VOIDED
-                  </span>
-                  <span
-                    v-if="selectedSale?.return_status === 'FULL'"
-                    class="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-400/30 font-bold flex items-center gap-1"
-                  >
-                    <RotateCcw class="w-3 h-3" />
-                    <span>RETUR TOTAL</span>
-                  </span>
-                  <span
-                    v-else-if="selectedSale?.return_status === 'PARTIAL'"
-                    class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-bold flex items-center gap-1"
-                  >
-                    <RotateCcw class="w-3 h-3" />
-                    <span>RETUR SEBAGIAN</span>
-                  </span>
+              <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+                    <Receipt class="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Rincian Faktur Penjualan</div>
+                    <div class="text-base font-black tracking-tight flex items-center gap-2 text-slate-900 dark:text-white">
+                      <CopyableText :value="selectedSale?.invoice_number" label="No. Faktur" size="base" />
+                      <span
+                        v-if="selectedSale?.status === 'COMPLETED'"
+                        class="text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30 font-bold"
+                      >
+                        COMPLETED
+                      </span>
+                      <span
+                        v-else-if="selectedSale?.status === 'VOID'"
+                        class="text-[10px] bg-rose-500/20 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded border border-rose-400/30 font-bold line-through"
+                      >
+                        VOIDED
+                      </span>
+                      <span
+                        v-if="selectedSale?.return_status === 'FULL'"
+                        class="text-[10px] bg-rose-500/20 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded border border-rose-400/30 font-bold flex items-center gap-1"
+                      >
+                        <RotateCcw class="w-3 h-3" />
+                        <span>RETUR TOTAL</span>
+                      </span>
+                      <span
+                        v-else-if="selectedSale?.return_status === 'PARTIAL'"
+                        class="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded border border-amber-400/30 font-bold flex items-center gap-1"
+                      >
+                        <RotateCcw class="w-3 h-3" />
+                        <span>RETUR SEBAGIAN</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  @click="showDetailModal = false"
+                  class="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X class="w-5 h-5" />
+                </button>
               </div>
-            </div>
-            <button
-              type="button"
-              @click="showDetailModal = false"
-              class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
-            >
-              <X class="w-5 h-5" />
-            </button>
-          </div>
 
           <!-- Modal Body (Scrollable) -->
           <div class="p-6 overflow-y-auto space-y-5 flex-1 min-h-0 text-xs">

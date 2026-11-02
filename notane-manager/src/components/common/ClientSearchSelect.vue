@@ -177,31 +177,31 @@ onUnmounted(() => {
     <!-- Trigger Button -->
     <div
       @click="toggleDropdown"
-      class="w-full px-3 py-2 bg-slate-950 border rounded-xl text-xs text-white flex items-center justify-between cursor-pointer transition-all select-none shadow-xs"
+      class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs text-slate-900 dark:text-white flex items-center justify-between cursor-pointer transition-all select-none shadow-xs"
       :class="[
-        error ? 'border-rose-500/80 ring-1 ring-rose-500/30' : isOpen ? 'border-brand-500 ring-1 ring-brand-500/30' : 'border-slate-800 hover:border-slate-700',
-        disabled ? 'opacity-50 cursor-not-allowed bg-slate-900' : ''
+        error ? 'border-rose-500/80 ring-1 ring-rose-500/30' : isOpen ? 'border-brand-500 ring-1 ring-brand-500/30' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700',
+        disabled ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900' : ''
       ]"
     >
       <!-- Left Content -->
       <div class="flex items-center gap-2.5 min-w-0 flex-1">
-        <div class="w-6 h-6 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-400 flex items-center justify-center shrink-0">
+        <div class="w-6 h-6 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
           <Building class="w-3.5 h-3.5" />
         </div>
 
         <div v-if="selectedClient" class="min-w-0 flex-1 text-left">
-          <div class="font-bold text-white truncate flex items-center gap-2">
+          <div class="font-bold text-slate-900 dark:text-white truncate flex items-center gap-2">
             <span>{{ selectedClient.client_name }}</span>
-            <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-normal">
+            <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-normal">
               {{ selectedClient.company_name }}
             </span>
           </div>
-          <div v-if="selectedClient.email || selectedClient.phone" class="text-[10px] text-slate-400 font-mono truncate">
+          <div v-if="selectedClient.email || selectedClient.phone" class="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
             {{ selectedClient.email || selectedClient.phone }}
           </div>
         </div>
 
-        <div v-else class="text-slate-500 text-xs truncate">
+        <div v-else class="text-slate-400 dark:text-slate-500 text-xs truncate">
           {{ placeholder }}
         </div>
       </div>
@@ -212,7 +212,7 @@ onUnmounted(() => {
           v-if="selectedClient && !disabled"
           type="button"
           @click="clearSelection"
-          class="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition"
+          class="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition"
           title="Hapus pilihan"
         >
           <X class="w-3.5 h-3.5" />
@@ -220,23 +220,23 @@ onUnmounted(() => {
 
         <ChevronDown
           class="w-4 h-4 text-slate-400 transition-transform duration-200"
-          :class="isOpen ? 'rotate-180 text-brand-400' : ''"
+          :class="isOpen ? 'rotate-180 text-brand-500' : ''"
         />
       </div>
     </div>
 
     <!-- Error message under dropdown -->
-    <span v-if="error" class="text-[11px] text-rose-400 mt-1 block">
+    <span v-if="error" class="text-[11px] text-rose-500 mt-1 block">
       {{ error }}
     </span>
 
     <!-- Dropdown Menu Floating Box -->
     <div
       v-if="isOpen"
-      class="absolute left-0 right-0 top-full mt-1.5 z-50 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
+      class="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
     >
       <!-- Search Input Header -->
-      <div class="p-2 border-b border-slate-800 bg-slate-950/80">
+      <div class="p-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80">
         <div class="relative">
           <Search class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
@@ -245,16 +245,16 @@ onUnmounted(() => {
             @input="handleSearchInput"
             type="text"
             :placeholder="searchPlaceholder"
-            class="w-full pl-8 pr-8 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 transition font-sans"
+            class="w-full pl-8 pr-8 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-brand-500 transition font-sans"
           />
           <div v-if="isLoading" class="absolute right-2.5 top-1/2 -translate-y-1/2">
-            <Loader2 class="w-3.5 h-3.5 text-brand-400 animate-spin" />
+            <Loader2 class="w-3.5 h-3.5 text-brand-500 animate-spin" />
           </div>
           <button
             v-else-if="searchQuery"
             type="button"
             @click="searchQuery = ''; fetchClients('')"
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white"
           >
             <X class="w-3 h-3" />
           </button>
@@ -262,15 +262,15 @@ onUnmounted(() => {
       </div>
 
       <!-- Clients List -->
-      <div class="max-h-60 overflow-y-auto divide-y divide-slate-800/60 p-1">
+      <div class="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 p-1">
         <div v-if="isLoading && clients.length === 0" class="py-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-          <Loader2 class="w-4 h-4 animate-spin text-brand-400" />
+          <Loader2 class="w-4 h-4 animate-spin text-brand-500" />
           <span>Mencari data klien...</span>
         </div>
 
         <div v-else-if="clients.length === 0" class="py-6 text-center text-xs text-slate-500">
           <p>Tidak ditemukan klien dengan kata kunci "{{ searchQuery }}"</p>
-          <p class="text-[10px] text-slate-600 mt-0.5">Pastikan kata kunci sesuai nama, perusahaan, atau email.</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Pastikan kata kunci sesuai nama, perusahaan, atau email.</p>
         </div>
 
         <div
@@ -279,48 +279,48 @@ onUnmounted(() => {
           :key="c.id"
           @click="selectClient(c)"
           class="p-2.5 rounded-lg flex items-center justify-between cursor-pointer transition text-left group"
-          :class="modelValue === c.id ? 'bg-brand-500/15 border border-brand-500/30' : 'hover:bg-slate-800/70 border border-transparent'"
+          :class="modelValue === c.id ? 'bg-brand-50 dark:bg-brand-500/15 border border-brand-200 dark:border-brand-500/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/70 border border-transparent'"
         >
           <div class="flex items-center gap-2.5 min-w-0 flex-1">
             <div
               class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs uppercase shrink-0 transition"
-              :class="modelValue === c.id ? 'bg-brand-500 text-white shadow-xs' : 'bg-slate-800 text-slate-300 group-hover:bg-slate-700'"
+              :class="modelValue === c.id ? 'bg-brand-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'"
             >
               {{ c.client_name.charAt(0) || 'C' }}
             </div>
 
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-white group-hover:text-brand-300 transition truncate">
+                <span class="text-xs font-bold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-300 transition truncate">
                   {{ c.client_name }}
                 </span>
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono truncate">
+                <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono truncate">
                   {{ c.company_name }}
                 </span>
               </div>
-              <div class="flex items-center gap-3 text-[10px] text-slate-400 font-mono mt-0.5">
+              <div class="flex items-center gap-3 text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                 <span v-if="c.email" class="flex items-center gap-1 truncate">
-                  <Mail class="w-2.5 h-2.5 text-slate-500 shrink-0" />
+                  <Mail class="w-2.5 h-2.5 text-slate-400 dark:text-slate-500 shrink-0" />
                   {{ c.email }}
                 </span>
                 <span v-if="c.phone" class="flex items-center gap-1 shrink-0">
-                  <Phone class="w-2.5 h-2.5 text-slate-500 shrink-0" />
+                  <Phone class="w-2.5 h-2.5 text-slate-400 dark:text-slate-500 shrink-0" />
                   {{ c.phone }}
                 </span>
               </div>
             </div>
           </div>
 
-          <div v-if="modelValue === c.id" class="ml-2 text-brand-400 shrink-0">
+          <div v-if="modelValue === c.id" class="ml-2 text-brand-600 dark:text-brand-400 shrink-0">
             <Check class="w-4 h-4" />
           </div>
         </div>
       </div>
 
       <!-- Footer Info -->
-      <div class="p-2 border-t border-slate-800 bg-slate-950/60 text-[10px] text-slate-400 flex items-center justify-between">
+      <div class="p-2 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
         <span>Menampilkan {{ clients.length }} klien</span>
-        <span class="font-mono text-slate-500">Pencarian Real-Time Sisi Server</span>
+        <span class="font-mono text-slate-400 dark:text-slate-500">Pencarian Real-Time Sisi Server</span>
       </div>
     </div>
   </div>

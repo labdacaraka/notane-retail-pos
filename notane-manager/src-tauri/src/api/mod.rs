@@ -82,6 +82,10 @@ pub struct UpdateCheckRequest {
     pub hardware_id: Option<String>,
     #[serde(alias = "licenseKey")]
     pub license_key: Option<String>,
+    #[serde(default)]
+    pub os: Option<String>,
+    #[serde(default)]
+    pub arch: Option<String>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -122,6 +126,7 @@ struct LicenseVerifyRow {
 
 #[derive(Debug, sqlx::FromRow)]
 struct LatestReleaseRow {
+    id: String,
     version: String,
     release_name: String,
     changelog: String,
@@ -628,7 +633,7 @@ async fn handle_update_check(
     let req_component = payload.component.as_deref().unwrap_or("server").to_lowercase();
 
     let latest_row = sqlx::query_as::<_, LatestReleaseRow>(
-        "SELECT version, release_name, changelog, release_date, download_url,
+        "SELECT id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, component, min_server_version
          FROM provider_app_releases
          WHERE is_published = 1 AND component = $1
@@ -665,6 +670,60 @@ async fn handle_update_check(
         }));
     }
 
+    // Periksa apakah ada aset spesifik platform OS dan Arsitektur yang cocok
+    let mut final_download_url = latest.download_url.clone();
+    let mut final_checksum = latest.checksum_sha256.clone();
+    let mut final_signature = latest.signature_ed25519.clone();
+    let mut matched_platform: Option<String> = None;
+
+    if req_component == "server" {
+        let assets_query = crate::db::sql(
+            "SELECT id, release_id, platform, os, arch, download_url, checksum_sha256, signature_ed25519, file_path, file_size, original_filename, created_at
+             FROM provider_release_assets WHERE release_id = ?"
+        );
+        let assets_res = sqlx::query_as::<_, crate::models::ReleaseAsset>(&assets_query)
+            .bind(&latest.id)
+            .fetch_all(&state.pool)
+            .await;
+
+        if let Ok(assets) = assets_res {
+            if !assets.is_empty() {
+                let req_os = payload.os.as_deref().unwrap_or("").trim().to_lowercase();
+                let req_arch = payload.arch.as_deref().unwrap_or("").trim().to_lowercase();
+
+                let matched_asset = assets.iter().find(|a| {
+                    let a_os = a.os.trim().to_lowercase();
+                    let a_arch = a.arch.trim().to_lowercase();
+
+                    let os_match = match (a_os.as_str(), req_os.as_str()) {
+                        (x, y) if x == y => true,
+                        ("macos" | "darwin", "macos" | "darwin") => true,
+                        ("all" | "universal", _) => true,
+                        _ => false,
+                    };
+
+                    let arch_match = match (a_arch.as_str(), req_arch.as_str()) {
+                        (x, y) if x == y => true,
+                        ("x86_64" | "x64" | "amd64", "x86_64" | "x64" | "amd64") => true,
+                        ("x86" | "i686" | "i386", "x86" | "i686" | "i386") => true,
+                        ("aarch64" | "arm64", "aarch64" | "arm64") => true,
+                        ("all" | "universal", _) => true,
+                        _ => false,
+                    };
+
+                    os_match && arch_match
+                });
+
+                if let Some(asset) = matched_asset {
+                    final_download_url = asset.download_url.clone();
+                    final_checksum = asset.checksum_sha256.clone();
+                    final_signature = asset.signature_ed25519.clone();
+                    matched_platform = Some(asset.platform.clone());
+                }
+            }
+        }
+    }
+
     // Periksa kompatibilitas server jika komponen adalah client
     let mut server_compatible = true;
     let mut can_update = true;
@@ -690,11 +749,12 @@ async fn handle_update_check(
         "release_name": latest.release_name,
         "changelog": latest.changelog,
         "release_date": latest.release_date,
-        "download_url": latest.download_url,
-        "checksum_sha256": latest.checksum_sha256,
-        "signature": latest.signature_ed25519,
+        "download_url": final_download_url,
+        "checksum_sha256": final_checksum,
+        "signature": final_signature,
         "is_mandatory": latest.is_mandatory == 1,
         "component": req_component,
+        "matched_platform": matched_platform,
         "min_server_version": latest.min_server_version,
         "server_compatible": server_compatible,
         "can_update": can_update,
@@ -861,30 +921,93 @@ async fn handle_update_download(
         ).into_response();
     }
 
-    // 5. Cari rilis aplikasi yang diminta
-    let rel_query = crate::db::sql(
-        "SELECT id, version, download_url, file_path, file_size, original_filename
-         FROM provider_app_releases
-         WHERE id = ? OR version = ?"
+    // 5. Cari rilis aplikasi atau aset spesifik yang diminta
+    let asset_query = crate::db::sql(
+        "SELECT id, release_id, platform, os, arch, download_url, file_path, file_size, original_filename
+         FROM provider_release_assets
+         WHERE id = ?"
     );
-    let release_row = sqlx::query_as::<_, (String, String, String, Option<String>, Option<i64>, Option<String>)>(&rel_query)
-        .bind(&release_id_or_version)
+    let asset_row = sqlx::query_as::<_, (String, String, String, String, String, String, Option<String>, Option<i64>, Option<String>)>(&asset_query)
         .bind(&release_id_or_version)
         .fetch_optional(&state.pool)
         .await;
 
-    let (_rel_id, rel_ver, download_url, file_path, file_size, orig_name) = match release_row {
-        Ok(Some(r)) => r,
-        _ => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(json!({
-                    "status": "error",
-                    "code": "RELEASE_NOT_FOUND",
-                    "message": "Berkas rilis yang diminta tidak ditemukan."
-                })),
-            ).into_response();
+    let (rel_ver, download_url, file_path, file_size, orig_name) = if let Ok(Some((_a_id, rel_id, _plat, _os, _arch, d_url, a_file_path, a_file_size, a_orig_name))) = asset_row {
+        // Ambil versi dari release induk
+        let ver_q = crate::db::sql("SELECT version FROM provider_app_releases WHERE id = ?");
+        let parent_ver: Option<(String,)> = sqlx::query_as(&ver_q).bind(&rel_id).fetch_optional(&state.pool).await.unwrap_or(None);
+        let v = parent_ver.map(|p| p.0).unwrap_or_else(|| "latest".to_string());
+        (v, d_url, a_file_path, a_file_size, a_orig_name)
+    } else {
+        // Cari di tabel utama provider_app_releases
+        let rel_query = crate::db::sql(
+            "SELECT id, version, download_url, file_path, file_size, original_filename
+             FROM provider_app_releases
+             WHERE id = ? OR version = ?"
+        );
+        let release_row = sqlx::query_as::<_, (String, String, String, Option<String>, Option<i64>, Option<String>)>(&rel_query)
+            .bind(&release_id_or_version)
+            .bind(&release_id_or_version)
+            .fetch_optional(&state.pool)
+            .await;
+
+        let (rel_id, rel_ver, download_url, mut f_path, mut f_size, mut f_orig_name) = match release_row {
+            Ok(Some(r)) => r,
+            _ => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "status": "error",
+                        "code": "RELEASE_NOT_FOUND",
+                        "message": "Berkas rilis yang diminta tidak ditemukan."
+                    })),
+                ).into_response();
+            }
+        };
+
+        // Jika request membawa os & arch terenkripsi di token, cari aset platform yang cocok
+        if let (Some(ref req_os), Some(ref req_arch)) = (&payload.os, &payload.arch) {
+            let assets_q = crate::db::sql(
+                "SELECT id, platform, os, arch, file_path, file_size, original_filename
+                 FROM provider_release_assets WHERE release_id = ?"
+            );
+            let assets_list = sqlx::query_as::<_, (String, String, String, String, Option<String>, Option<i64>, Option<String>)>(&assets_q)
+                .bind(&rel_id)
+                .fetch_all(&state.pool)
+                .await;
+
+            if let Ok(assets) = assets_list {
+                let req_os_clean = req_os.trim().to_lowercase();
+                let req_arch_clean = req_arch.trim().to_lowercase();
+                let matched = assets.into_iter().find(|(_, _, a_os, a_arch, _, _, _)| {
+                    let os_match = match (a_os.trim().to_lowercase().as_str(), req_os_clean.as_str()) {
+                        (x, y) if x == y => true,
+                        ("macos" | "darwin", "macos" | "darwin") => true,
+                        ("all" | "universal", _) => true,
+                        _ => false,
+                    };
+                    let arch_match = match (a_arch.trim().to_lowercase().as_str(), req_arch_clean.as_str()) {
+                        (x, y) if x == y => true,
+                        ("x86_64" | "x64" | "amd64", "x86_64" | "x64" | "amd64") => true,
+                        ("x86" | "i686" | "i386", "x86" | "i686" | "i386") => true,
+                        ("aarch64" | "arm64", "aarch64" | "arm64") => true,
+                        ("all" | "universal", _) => true,
+                        _ => false,
+                    };
+                    os_match && arch_match
+                });
+
+                if let Some((_, _, _, _, a_fp, a_fs, a_fn)) = matched {
+                    if a_fp.is_some() {
+                        f_path = a_fp;
+                        f_size = a_fs;
+                        f_orig_name = a_fn;
+                    }
+                }
+            }
         }
+
+        (rel_ver, download_url, f_path, f_size, f_orig_name)
     };
 
     // 6. Alirkan berkas dari penyimpanan lokal jika tersedia

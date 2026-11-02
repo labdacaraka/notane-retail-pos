@@ -76,7 +76,7 @@ function handleSort(column: 'created_at' | 'action' | 'status') {
             v-model="searchQuery"
             type="text"
             placeholder="Cari aksi, lisensi, HWID, atau IP..."
-            class="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-inner"
+            class="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-xs"
           />
         </div>
 
@@ -84,44 +84,44 @@ function handleSort(column: 'created_at' | 'action' | 'status') {
           @click="loadData()"
           :disabled="providerStore.isLoading"
           title="Muat Ulang Data"
-          class="p-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl transition cursor-pointer"
+          class="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl transition cursor-pointer shadow-xs"
         >
           <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': providerStore.isLoading }" />
         </button>
 
         <!-- Status Filter -->
-        <div class="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 gap-1">
+        <div class="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 gap-1 shadow-xs">
           <button
             v-for="st in (['ALL', 'SUCCESS', 'REJECTED', 'BLOCKED'] as const)"
             :key="st"
             @click="selectedStatus = st"
             class="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer"
-            :class="selectedStatus === st ? 'bg-brand-500 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'"
+            :class="selectedStatus === st ? 'bg-brand-500 text-white font-semibold' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'"
           >
             {{ st }}
           </button>
         </div>
       </div>
 
-      <div class="text-xs text-slate-400 font-mono">
-        Total Riwayat: <span class="text-brand-400 font-bold">{{ formatNumber(providerStore.auditLogsPagination.total_items) }}</span>
+      <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">
+        Total Riwayat: <span class="text-brand-600 dark:text-brand-400 font-bold">{{ formatNumber(providerStore.auditLogsPagination.total_items) }}</span>
       </div>
     </div>
 
     <!-- Empty State -->
     <div
       v-if="!providerStore.isLoading && providerStore.auditLogsPagination.total_items === 0"
-      class="py-16 text-center rounded-2xl glass-panel border border-slate-800"
+      class="py-16 text-center rounded-2xl glass-panel border border-slate-200 dark:border-slate-800 shadow-xs"
     >
-      <ShieldAlert class="w-12 h-12 text-slate-600 mx-auto mb-3" />
-      <div class="text-sm font-semibold text-slate-300">Belum Ada Catatan Audit</div>
+      <ShieldAlert class="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-3" />
+      <div class="text-sm font-semibold text-slate-800 dark:text-slate-300">Belum Ada Catatan Audit</div>
       <div class="text-xs text-slate-500 mt-1">
         {{ searchQuery || selectedStatus !== 'ALL' ? 'Tidak ada data audit yang cocok dengan filter pencarian.' : 'Seluruh percobaan aktivasi, verifikasi, atau tampering akan dicatat di sini secara otomatis.' }}
       </div>
       <button
         v-if="searchQuery || selectedStatus !== 'ALL'"
         @click="searchQuery = ''; selectedStatus = 'ALL'; loadData(1)"
-        class="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+        class="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white dark:border-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
       >
         Reset Filter
       </button>
@@ -129,58 +129,58 @@ function handleSort(column: 'created_at' | 'action' | 'status') {
 
     <!-- Table Logs -->
     <div v-else class="space-y-3">
-      <div class="glass-panel border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div class="glass-panel border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
-              <tr class="bg-slate-900/90 text-slate-400 border-b border-slate-800 select-none text-[11px]">
+              <tr class="bg-slate-50 dark:bg-slate-900/90 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 select-none text-[11px]">
                 <th
                   @click="handleSort('created_at')"
-                  class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
+                  class="py-3 px-4 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
                     <span>Waktu</span>
-                    <ArrowUp v-if="sortBy === 'created_at' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowDown v-else-if="sortBy === 'created_at' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
+                    <ArrowUp v-if="sortBy === 'created_at' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowDown v-else-if="sortBy === 'created_at' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowUpDown v-else class="w-3 h-3 text-slate-400 dark:text-slate-600" />
                   </div>
                 </th>
 
                 <th
                   @click="handleSort('action')"
-                  class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
+                  class="py-3 px-4 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
                     <span>Aksi</span>
-                    <ArrowUp v-if="sortBy === 'action' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowDown v-else-if="sortBy === 'action' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
+                    <ArrowUp v-if="sortBy === 'action' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowDown v-else-if="sortBy === 'action' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowUpDown v-else class="w-3 h-3 text-slate-400 dark:text-slate-600" />
                   </div>
                 </th>
 
                 <th
                   @click="handleSort('status')"
-                  class="py-3 px-4 font-semibold cursor-pointer hover:text-white transition"
+                  class="py-3 px-4 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white transition"
                 >
                   <div class="flex items-center gap-1.5">
                     <span>Status</span>
-                    <ArrowUp v-if="sortBy === 'status' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowDown v-else-if="sortBy === 'status' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-400" />
-                    <ArrowUpDown v-else class="w-3 h-3 text-slate-600" />
+                    <ArrowUp v-if="sortBy === 'status' && sortOrder === 'asc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowDown v-else-if="sortBy === 'status' && sortOrder === 'desc'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <ArrowUpDown v-else class="w-3 h-3 text-slate-400 dark:text-slate-600" />
                   </div>
                 </th>
 
-                <th class="py-3 px-4 font-semibold text-slate-400">Lisensi & HWID</th>
-                <th class="py-3 px-4 font-semibold text-slate-400">IP Pengirim</th>
-                <th class="py-3 px-4 font-semibold text-slate-400">Keterangan</th>
+                <th class="py-3 px-4 font-semibold text-slate-500 dark:text-slate-400">Lisensi & HWID</th>
+                <th class="py-3 px-4 font-semibold text-slate-500 dark:text-slate-400">IP Pengirim</th>
+                <th class="py-3 px-4 font-semibold text-slate-500 dark:text-slate-400">Keterangan</th>
               </tr>
             </thead>
 
-            <tbody class="divide-y divide-slate-800/60 font-mono">
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-800/60 font-mono">
               <tr
                 v-for="log in providerStore.auditLogsPagination.items"
                 :key="log.id"
-                class="hover:bg-slate-800/40 transition-colors"
+                class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
               >
                 <!-- Timestamp -->
                 <td class="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">

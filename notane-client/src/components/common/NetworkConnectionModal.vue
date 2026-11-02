@@ -124,15 +124,15 @@ const handleDisconnect = () => {
       <div class="flex min-h-full items-center justify-center p-4 text-center pointer-events-none">
         <div class="relative bg-white border-2 border-slate-400 shadow-2xl rounded-sm w-full max-w-lg overflow-hidden flex flex-col font-sans text-left pointer-events-auto my-8">
       <!-- Title Bar Retro -->
-      <div class="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-700 select-none">
+      <div class="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 select-none">
         <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full" :class="isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'"></div>
+          <div class="w-3 h-3 rounded-full" :class="isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"></div>
           <span class="font-bold text-xs tracking-wider uppercase">Konfigurasi Jaringan & Server Host</span>
         </div>
         <button
           type="button"
           @click="closeModal"
-          class="text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-0.5 rounded text-sm font-bold cursor-pointer"
+          class="text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 px-2 py-0.5 rounded text-sm font-bold cursor-pointer"
         >
           ✕
         </button>

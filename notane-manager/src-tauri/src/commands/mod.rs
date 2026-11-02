@@ -599,18 +599,85 @@ pub async fn create_release(
     let now_str = now.to_rfc3339();
     let release_date = now.format("%Y-%m-%d").to_string();
     let component = payload.component.clone().unwrap_or_else(|| "server".to_string());
-
     let priv_key = state.api_state.master_private_key.read().await;
-    let sign_target = format!("{}:{}", payload.version.trim(), payload.checksum_sha256.trim());
-    let signature = sign_message(&priv_key, &sign_target)
-        .map_err(|e| AppError::Crypto(e))?;
 
-    let download_url = if payload.download_url.trim().is_empty()
-        || payload.download_url.starts_with("/api/v1/updates/download")
-    {
-        format!("/api/v1/updates/download/{}", id)
+    let mut saved_assets: Vec<crate::models::ReleaseAsset> = Vec::new();
+
+    // 1. Simpan setiap aset multi-platform jika disediakan
+    for asset_dto in &payload.assets {
+        let asset_id = uuid::Uuid::new_v4().to_string();
+        let sign_target = format!("{}:{}", payload.version.trim(), asset_dto.checksum_sha256.trim());
+        let signature = sign_message(&priv_key, &sign_target)
+            .map_err(|e| AppError::Crypto(e))?;
+
+        let asset_download_url = if asset_dto.download_url.as_deref().unwrap_or("").trim().is_empty()
+            || asset_dto.download_url.as_deref().unwrap_or("").starts_with("/api/v1/updates/download")
+        {
+            format!("/api/v1/updates/download/{}", asset_id)
+        } else {
+            asset_dto.download_url.clone().unwrap()
+        };
+
+        sqlx::query(
+            &sql("INSERT INTO provider_release_assets (
+                id, release_id, platform, os, arch, download_url,
+                checksum_sha256, signature_ed25519, file_path, file_size, original_filename, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        )
+        .bind(&asset_id)
+        .bind(&id)
+        .bind(&asset_dto.platform)
+        .bind(&asset_dto.os)
+        .bind(&asset_dto.arch)
+        .bind(&asset_download_url)
+        .bind(asset_dto.checksum_sha256.trim())
+        .bind(&signature)
+        .bind(&asset_dto.file_path)
+        .bind(asset_dto.file_size)
+        .bind(&asset_dto.original_filename)
+        .bind(&now_str)
+        .execute(&state.pool)
+        .await?;
+
+        saved_assets.push(crate::models::ReleaseAsset {
+            id: asset_id,
+            release_id: id.clone(),
+            platform: asset_dto.platform.clone(),
+            os: asset_dto.os.clone(),
+            arch: asset_dto.arch.clone(),
+            download_url: asset_download_url,
+            checksum_sha256: asset_dto.checksum_sha256.clone(),
+            signature_ed25519: signature,
+            file_path: asset_dto.file_path.clone(),
+            file_size: asset_dto.file_size,
+            original_filename: asset_dto.original_filename.clone(),
+            created_at: now_str.clone(),
+        });
+    }
+
+    // 2. Tentukan field header (backward compatibility)
+    let (header_download_url, header_checksum, header_signature, header_file_path, header_file_size, header_original_filename) = if let Some(first_asset) = saved_assets.first() {
+        (
+            first_asset.download_url.clone(),
+            first_asset.checksum_sha256.clone(),
+            first_asset.signature_ed25519.clone(),
+            first_asset.file_path.clone(),
+            first_asset.file_size,
+            first_asset.original_filename.clone(),
+        )
     } else {
-        payload.download_url.trim().to_string()
+        let chk = payload.checksum_sha256.clone().unwrap_or_default();
+        let sign_target = format!("{}:{}", payload.version.trim(), chk.trim());
+        let sig = sign_message(&priv_key, &sign_target)
+            .map_err(|e| AppError::Crypto(e))?;
+        let d_url = if payload.download_url.as_deref().unwrap_or("").trim().is_empty()
+            || payload.download_url.as_deref().unwrap_or("").starts_with("/api/v1/updates/download")
+        {
+            format!("/api/v1/updates/download/{}", id)
+        } else {
+            payload.download_url.clone().unwrap_or_default()
+        };
+        (d_url, chk, sig, payload.file_path.clone(), payload.file_size, payload.original_filename.clone())
     };
 
     sqlx::query(
@@ -626,17 +693,17 @@ pub async fn create_release(
     .bind(&payload.release_name)
     .bind(&payload.changelog)
     .bind(&release_date)
-    .bind(&download_url)
-    .bind(payload.checksum_sha256.trim())
-    .bind(&signature)
+    .bind(&header_download_url)
+    .bind(&header_checksum)
+    .bind(&header_signature)
     .bind(if payload.is_mandatory { 1 } else { 0 })
     .bind(&payload.min_license_tier)
     .bind(if payload.has_db_migration { 1 } else { 0 })
     .bind(&component)
     .bind(&payload.min_server_version)
-    .bind(&payload.file_path)
-    .bind(payload.file_size)
-    .bind(&payload.original_filename)
+    .bind(&header_file_path)
+    .bind(header_file_size)
+    .bind(&header_original_filename)
     .bind(&now_str)
     .execute(&state.pool)
     .await?;
@@ -647,19 +714,20 @@ pub async fn create_release(
         release_name: payload.release_name,
         changelog: payload.changelog,
         release_date,
-        download_url,
-        checksum_sha256: payload.checksum_sha256,
-        signature_ed25519: signature,
+        download_url: header_download_url,
+        checksum_sha256: header_checksum,
+        signature_ed25519: header_signature,
         is_mandatory: if payload.is_mandatory { 1 } else { 0 },
         min_license_tier: payload.min_license_tier,
         has_db_migration: if payload.has_db_migration { 1 } else { 0 },
         is_published: 1,
         component,
         min_server_version: payload.min_server_version,
-        file_path: payload.file_path,
-        file_size: payload.file_size,
-        original_filename: payload.original_filename,
+        file_path: header_file_path,
+        file_size: header_file_size,
+        original_filename: header_original_filename,
         created_at: now_str,
+        assets: saved_assets,
     })
 }
 
@@ -668,6 +736,11 @@ pub async fn delete_release(
     state: tauri::State<'_, AppState>,
     release_id: String,
 ) -> Result<bool, AppError> {
+    let _ = sqlx::query(&sql("DELETE FROM provider_release_assets WHERE release_id = ?"))
+        .bind(&release_id)
+        .execute(&state.pool)
+        .await;
+
     let rows = sqlx::query(&sql("DELETE FROM provider_app_releases WHERE id = ?"))
         .bind(&release_id)
         .execute(&state.pool)
