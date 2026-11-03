@@ -190,10 +190,54 @@ impl UpdateService {
                 }
             }
             Ok(res) => {
-                warn!("Update server merespons kode non-200: {}", res.status());
+                let status_code = res.status();
+                warn!("Update server merespons kode non-200: {}", status_code);
+                return UpdateCheckResponse {
+                    current_version: current_ver.clone(),
+                    has_update: false,
+                    latest_version: current_ver,
+                    release_name: None,
+                    changelog: None,
+                    release_date: None,
+                    download_url: None,
+                    checksum_sha256: None,
+                    signature: None,
+                    is_mandatory: false,
+                    license_status: license_info.status,
+                    can_update: false,
+                    message: format!("Server pembaruan di {} merespons kode HTTP {}.", license_info.provider_server_url, status_code),
+                    component: Some(target_component),
+                    min_server_version: None,
+                    server_compatible: Some(true),
+                };
             }
             Err(e) => {
-                info!("Server provider update offline atau tidak terjangkau ({}). Menggunakan status lokal.", e);
+                let err_msg = if e.is_connect() {
+                    format!("Tidak dapat terhubung ke Server Provider di {}. Pastikan Notane Manager berjalan.", license_info.provider_server_url)
+                } else if e.is_timeout() {
+                    format!("Pemeriksaan pembaruan timeout (Server {} tidak merespons dalam 6 detik).", license_info.provider_server_url)
+                } else {
+                    format!("Gagal memeriksa pembaruan: {}", e)
+                };
+                warn!("{}", err_msg);
+                return UpdateCheckResponse {
+                    current_version: current_ver.clone(),
+                    has_update: false,
+                    latest_version: current_ver,
+                    release_name: None,
+                    changelog: None,
+                    release_date: None,
+                    download_url: None,
+                    checksum_sha256: None,
+                    signature: None,
+                    is_mandatory: false,
+                    license_status: license_info.status,
+                    can_update: false,
+                    message: err_msg,
+                    component: Some(target_component),
+                    min_server_version: None,
+                    server_compatible: Some(true),
+                };
             }
         }
 
@@ -202,7 +246,7 @@ impl UpdateService {
             current_version: current_ver.clone(),
             has_update: false,
             latest_version: current_ver,
-            release_name: Some("Notane Retail Server v1.1.0".to_string()),
+            release_name: Some("Notane Retail Server".to_string()),
             changelog: Some("1. Peningkatan kestabilan server toko\n2. Pembaruan struktur data dan laporan harian\n3. Peningkatan kecepatan simpan transaksi".to_string()),
             release_date: Some(Utc::now().format("%Y-%m-%d").to_string()),
             download_url: None,
@@ -212,7 +256,7 @@ impl UpdateService {
             license_status: license_info.status,
             can_update: true,
             message: "Aplikasi server Anda sudah menggunakan versi terbaru.".to_string(),
-            component: Some("server".to_string()),
+            component: Some(target_component),
             min_server_version: None,
             server_compatible: Some(true),
         }

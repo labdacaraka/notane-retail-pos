@@ -594,12 +594,29 @@ pub async fn create_release(
 ) -> Result<AppRelease, AppError> {
     payload.validate().map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let id = uuid::Uuid::new_v4().to_string();
     let now = Utc::now();
     let now_str = now.to_rfc3339();
     let release_date = now.format("%Y-%m-%d").to_string();
-    let component = payload.component.clone().unwrap_or_else(|| "server".to_string());
+    let component = payload.component.clone().unwrap_or_else(|| "server".to_string()).to_lowercase();
     let priv_key = state.api_state.master_private_key.read().await;
+
+    // Periksa apakah rilis dengan versi dan komponen ini sudah ada sebelumnya (UPSERT)
+    let existing_id: Option<String> = sqlx::query_scalar(
+        &sql("SELECT id FROM provider_app_releases WHERE version = ? AND component = ? LIMIT 1")
+    )
+    .bind(payload.version.trim())
+    .bind(&component)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
+
+    let id = existing_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    // Hapus aset lama dari rilis ini jika sedang diperbarui / diunggah ulang
+    let _ = sqlx::query(&sql("DELETE FROM provider_release_assets WHERE release_id = ?"))
+        .bind(&id)
+        .execute(&state.pool)
+        .await;
 
     let mut saved_assets: Vec<crate::models::ReleaseAsset> = Vec::new();
 
@@ -686,7 +703,23 @@ pub async fn create_release(
             checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
             has_db_migration, is_published, component, min_server_version,
             file_path, file_size, original_filename, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)")
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (version, component) DO UPDATE SET
+            release_name = EXCLUDED.release_name,
+            changelog = EXCLUDED.changelog,
+            release_date = EXCLUDED.release_date,
+            download_url = EXCLUDED.download_url,
+            checksum_sha256 = EXCLUDED.checksum_sha256,
+            signature_ed25519 = EXCLUDED.signature_ed25519,
+            is_mandatory = EXCLUDED.is_mandatory,
+            min_license_tier = EXCLUDED.min_license_tier,
+            has_db_migration = EXCLUDED.has_db_migration,
+            is_published = 1,
+            min_server_version = EXCLUDED.min_server_version,
+            file_path = EXCLUDED.file_path,
+            file_size = EXCLUDED.file_size,
+            original_filename = EXCLUDED.original_filename,
+            created_at = EXCLUDED.created_at")
     )
     .bind(&id)
     .bind(payload.version.trim())

@@ -201,7 +201,7 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS provider_app_releases (
             id TEXT PRIMARY KEY,
-            version TEXT UNIQUE NOT NULL,
+            version TEXT NOT NULL,
             release_name TEXT NOT NULL,
             changelog TEXT NOT NULL,
             release_date TEXT NOT NULL,
@@ -217,7 +217,8 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
             file_path TEXT,
             file_size INTEGER,
             original_filename TEXT,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            UNIQUE(version, component)
         );"
     ).execute(pool).await?;
 
@@ -271,6 +272,66 @@ async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
     let _ = sqlx::query("ALTER TABLE provider_app_releases ADD COLUMN original_filename TEXT;")
         .execute(pool)
         .await;
+
+    // Migration: pastikan constraint unique pada provider_app_releases adalah kombinasi (version, component)
+    if std::env::var("MANAGER_DATABASE_URL").is_ok() {
+        let _ = sqlx::query("ALTER TABLE provider_app_releases DROP CONSTRAINT IF EXISTS provider_app_releases_version_key;").execute(pool).await;
+        let _ = sqlx::query("ALTER TABLE provider_app_releases DROP CONSTRAINT IF EXISTS provider_app_releases_version_component_key;").execute(pool).await;
+        let _ = sqlx::query("ALTER TABLE provider_app_releases ADD CONSTRAINT provider_app_releases_version_component_key UNIQUE (version, component);").execute(pool).await;
+    } else {
+        // SQLite recovery jika v2 ada tapi main belum di-rename
+        let has_v2: bool = sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'provider_app_releases_v2'").fetch_one(pool).await.unwrap_or(0) > 0;
+        let has_main: bool = sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'provider_app_releases'").fetch_one(pool).await.unwrap_or(0) > 0;
+        if has_v2 && !has_main {
+            let _ = sqlx::query("ALTER TABLE provider_app_releases_v2 RENAME TO provider_app_releases").execute(pool).await;
+        }
+
+        // SQLite: periksa apakah tabel lama masih memiliki constraint version TEXT UNIQUE
+        let schema_check: Result<Option<String>, _> = sqlx::query_scalar("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'provider_app_releases'").fetch_optional(pool).await;
+        if let Ok(Some(schema_sql)) = schema_check {
+            if schema_sql.contains("version TEXT UNIQUE") {
+                info!("[DB MIGRATION] Memperbarui tabel provider_app_releases dari version TEXT UNIQUE menjadi UNIQUE(version, component)...");
+                let _ = sqlx::query("CREATE TABLE IF NOT EXISTS provider_app_releases_v2 (
+                    id TEXT PRIMARY KEY,
+                    version TEXT NOT NULL,
+                    release_name TEXT NOT NULL,
+                    changelog TEXT NOT NULL,
+                    release_date TEXT NOT NULL,
+                    download_url TEXT NOT NULL,
+                    checksum_sha256 TEXT NOT NULL,
+                    signature_ed25519 TEXT NOT NULL,
+                    is_mandatory INTEGER NOT NULL DEFAULT 0,
+                    min_license_tier TEXT NOT NULL DEFAULT 'BASIC',
+                    has_db_migration INTEGER NOT NULL DEFAULT 1,
+                    is_published INTEGER NOT NULL DEFAULT 1,
+                    component TEXT NOT NULL DEFAULT 'server',
+                    min_server_version TEXT,
+                    file_path TEXT,
+                    file_size INTEGER,
+                    original_filename TEXT,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(version, component)
+                )").execute(pool).await;
+
+                let _ = sqlx::query("INSERT OR IGNORE INTO provider_app_releases_v2 (
+                    id, version, release_name, changelog, release_date, download_url,
+                    checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
+                    has_db_migration, is_published, component, min_server_version,
+                    file_path, file_size, original_filename, created_at
+                )
+                SELECT 
+                    id, version, release_name, changelog, release_date, download_url,
+                    checksum_sha256, signature_ed25519, is_mandatory, min_license_tier,
+                    has_db_migration, is_published, COALESCE(component, 'server'), min_server_version,
+                    file_path, file_size, original_filename, created_at
+                FROM provider_app_releases").execute(pool).await;
+
+                let _ = sqlx::query("DROP TABLE provider_app_releases").execute(pool).await;
+                let _ = sqlx::query("ALTER TABLE provider_app_releases_v2 RENAME TO provider_app_releases").execute(pool).await;
+                info!("[DB MIGRATION] Migrasi provider_app_releases ke UNIQUE(version, component) selesai!");
+            }
+        }
+    }
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS provider_release_assets (

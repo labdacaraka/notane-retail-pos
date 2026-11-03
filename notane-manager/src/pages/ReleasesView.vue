@@ -287,28 +287,47 @@ async function handleClientUpload(e: Event) {
   target.value = ''
 }
 
+function parseVersion(v: string): [number, number, number] {
+  const clean = (v || '').trim().replace(/^v/i, '')
+  const parts = clean.split('.').map((p) => parseInt(p.split('-')[0], 10) || 0)
+  return [parts[0] || 0, parts[1] || 0, parts[2] || 0]
+}
+
 function openCreateModal(comp: 'server' | 'client' = 'server') {
   serverPlatforms.value = getDefaultServerPlatforms()
   clientFile.value = { uploadMode: 'file' }
+
+  const compReleases = (providerStore.releases || []).filter((r: any) => (r.component || 'server') === comp)
+  let nextVer = '1.5.17'
+  if (compReleases.length > 0) {
+    const sorted = [...compReleases].sort((a: any, b: any) => {
+      const ta = parseVersion(a.version)
+      const tb = parseVersion(b.version)
+      return (tb[0] - ta[0]) || (tb[1] - ta[1]) || (tb[2] - ta[2])
+    })
+    const [maj, min, pat] = parseVersion(sorted[0].version)
+    nextVer = `${maj}.${min}.${pat + 1}`
+  }
+
   if (comp === 'client') {
     form.value = {
-      version: '1.2.0',
-      release_name: 'Notane Retail POS - Client Terminal UI Update',
-      changelog: '1. Desain antarmuka baru kasir & POS responsif\n2. Indikator status real-time printer & barcode scanner\n3. Dukungan modal cek & perbarui antarmuka langsung',
+      version: nextVer,
+      release_name: `Notane Retail POS - Client Terminal UI Update v${nextVer}`,
+      changelog: '1. Desain antarmuka baru kasir & POS responsif\n2. Indikator status real-time printer & barcode scanner\n3. Pembaruan performa dan stabilitas klien kasir',
       is_mandatory: false,
       min_license_tier: 'BASIC',
       has_db_migration: false,
       component: 'client',
-      min_server_version: '1.1.0',
+      min_server_version: '',
     }
   } else {
     form.value = {
-      version: '1.2.0',
-      release_name: 'Pembaruan Notane Server v1.2.0',
+      version: nextVer,
+      release_name: `Pembaruan Notane Server v${nextVer}`,
       changelog: '1. Peningkatan kecepatan simpan transaksi kasir\n2. Pembaruan struktur data laporan penjualan\n3. Peningkatan kestabilan sambungan jaringan toko',
       is_mandatory: false,
       min_license_tier: 'BASIC',
-      has_db_migration: true,
+      has_db_migration: false,
       component: 'server',
       min_server_version: '',
     }

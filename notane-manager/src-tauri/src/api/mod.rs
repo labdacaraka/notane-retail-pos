@@ -633,19 +633,21 @@ async fn handle_update_check(
 ) -> impl IntoResponse {
     let req_component = payload.component.as_deref().unwrap_or("server").to_lowercase();
 
-    let latest_row = sqlx::query_as::<_, LatestReleaseRow>(
+    let q_str = crate::db::sql(
         "SELECT id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, component, min_server_version
          FROM provider_app_releases
-         WHERE is_published = 1 AND component = $1
-         ORDER BY created_at DESC LIMIT 1"
-    )
-    .bind(&req_component)
-    .fetch_optional(&state.pool)
-    .await;
+         WHERE is_published = 1 AND (component = ? OR (component IS NULL AND ? = 'server'))"
+    );
 
-    let latest = match latest_row {
-        Ok(Some(r)) => r,
+    let all_releases_res = sqlx::query_as::<_, LatestReleaseRow>(&q_str)
+        .bind(&req_component)
+        .bind(&req_component)
+        .fetch_all(&state.pool)
+        .await;
+
+    let mut all_releases = match all_releases_res {
+        Ok(r) if !r.is_empty() => r,
         _ => {
             return Json(json!({
                 "has_update": false,
@@ -658,12 +660,19 @@ async fn handle_update_check(
         }
     };
 
+    // Urutkan rilis berdasarkan semver tertinggi
+    all_releases.sort_by(|a, b| {
+        parse_version_tuple(&b.version).cmp(&parse_version_tuple(&a.version))
+    });
+
+    let latest = all_releases.remove(0);
+
     let has_update = is_version_newer(&latest.version, &payload.current_version);
 
     if !has_update {
         return Json(json!({
             "has_update": false,
-            "latest_version": payload.current_version,
+            "latest_version": latest.version,
             "component": req_component,
             "can_update": false,
             "server_compatible": true,
