@@ -247,9 +247,52 @@ impl LicenseService {
     /// URL Provider Resmi yang dibakar ke dalam biner saat proses kompilasi (Compile-Time Baked).
     pub const BAKED_PRODUCTION_PROVIDER_URL: Option<&'static str> = option_env!("NOTANE_RELEASE_PROVIDER_URL");
 
-    /// Mengambil URL Provider Server dengan urutan prioritas environment/baked
+    /// Mengambil path file konfigurasi provider lokal
+    pub fn get_provider_config_path() -> PathBuf {
+        if let Some(mut base_dir) = dirs::data_local_dir() {
+            base_dir.push("notane-retail-pos");
+            let _ = std::fs::create_dir_all(&base_dir);
+            base_dir.push("provider_config.json");
+            base_dir
+        } else {
+            PathBuf::from("provider_config.json")
+        }
+    }
+
+    /// Menetapkan runtime memory override untuk URL Provider
+    pub fn set_provider_url_override(url: Option<String>) {
+        static PROVIDER_URL_OVERRIDE: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
+        if let Ok(mut guard) = PROVIDER_URL_OVERRIDE.write() {
+            *guard = url;
+        }
+    }
+
+    /// Mengambil URL Provider runtime memory override jika ada
+    fn get_provider_url_override() -> Option<String> {
+        static PROVIDER_URL_OVERRIDE: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
+        if let Ok(guard) = PROVIDER_URL_OVERRIDE.read() {
+            guard.clone()
+        } else {
+            None
+        }
+    }
+
+    /// Mengambil URL Provider Server dengan urutan prioritas:
+    /// 1. In-memory runtime override
+    /// 2. Environment variable (PROVIDER_SERVER_URL, dsb)
+    /// 3. File konfigurasi lokal provider_config.json di App Data
+    /// 4. Compile-time baked URL (CI/CD)
+    /// 5. Default Official Cloud Production URL
     pub fn get_provider_url() -> String {
-        // 1. Environment variable (.env atau sistem host saat development / server container)
+        // 1. In-memory runtime override (diperbarui via API/UI tanpa restart)
+        if let Some(override_url) = Self::get_provider_url_override() {
+            let trimmed = override_url.trim().trim_end_matches('/');
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+
+        // 2. Environment variable (.env atau sistem host saat development / server container)
         let env_url = env::var("PROVIDER_SERVER_URL")
             .or_else(|_| env::var("provider_server_url"))
             .or_else(|_| env::var("NOTANE_PROVIDER_SERVER_URL"))
@@ -262,7 +305,22 @@ impl LicenseService {
             }
         }
 
-        // 2. Compile-time baked URL (saat proses rilis binary CI/CD)
+        // 3. File konfigurasi lokal provider_config.json di App Data
+        let config_path = Self::get_provider_config_path();
+        if config_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&config_path) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(url_str) = val.get("provider_url").and_then(|u| u.as_str()) {
+                        let trimmed = url_str.trim().trim_end_matches('/');
+                        if !trimmed.is_empty() {
+                            return trimmed.to_string();
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Compile-time baked URL (saat proses rilis binary CI/CD)
         if let Some(baked_url) = Self::BAKED_PRODUCTION_PROVIDER_URL {
             let trimmed = baked_url.trim().trim_end_matches('/');
             if !trimmed.is_empty() {
@@ -270,8 +328,79 @@ impl LicenseService {
             }
         }
 
-        // 3. Default Official Cloud Production URL
+        // 5. Default Official Cloud Production URL
         Self::DEFAULT_OFFICIAL_PROVIDER_URL.to_string()
+    }
+
+    /// Memeriksa apakah provider yang sedang aktif adalah custom provider (bukan cloud bawaan)
+    pub fn is_custom_provider() -> bool {
+        if let Some(ref url) = Self::get_provider_url_override() {
+            let trimmed = url.trim().trim_end_matches('/');
+            if !trimmed.is_empty() && trimmed != Self::DEFAULT_OFFICIAL_PROVIDER_URL {
+                return true;
+            }
+        }
+
+        if let Ok(val) = env::var("PROVIDER_SERVER_URL") {
+            let trimmed = val.trim().trim_end_matches('/');
+            if !trimmed.is_empty() && trimmed != Self::DEFAULT_OFFICIAL_PROVIDER_URL {
+                return true;
+            }
+        }
+
+        let config_path = Self::get_provider_config_path();
+        if config_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&config_path) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(is_custom) = val.get("is_custom").and_then(|b| b.as_bool()) {
+                        return is_custom;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Menyimpan konfigurasi provider ke filesystem lokal dan database PostgreSQL
+    pub async fn save_provider_config(
+        url: &str,
+        is_custom: bool,
+        pool_opt: Option<&PgPool>,
+    ) -> Result<(), String> {
+        let clean_url = url.trim().trim_end_matches('/').to_string();
+
+        let config_path = Self::get_provider_config_path();
+        let payload = serde_json::json!({
+            "provider_url": clean_url,
+            "is_custom": is_custom,
+            "updated_at": Utc::now().to_rfc3339()
+        });
+        std::fs::write(&config_path, payload.to_string())
+            .map_err(|e| format!("Gagal menulis provider_config.json: {}", e))?;
+
+        Self::set_provider_url_override(if clean_url.is_empty() { None } else { Some(clean_url.clone()) });
+
+        if let Some(pool) = pool_opt {
+            let _ = sqlx::query(
+                "INSERT INTO provider_settings (key, value) VALUES ('provider_url', $1)
+                 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+            )
+            .bind(&clean_url)
+            .execute(pool)
+            .await;
+
+            let is_custom_str = if is_custom { "true" } else { "false" };
+            let _ = sqlx::query(
+                "INSERT INTO provider_settings (key, value) VALUES ('provider_is_custom', $1)
+                 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+            )
+            .bind(is_custom_str)
+            .execute(pool)
+            .await;
+        }
+
+        Ok(())
     }
 
     /// Mengembalikan path file vault terenkripsi primer
@@ -703,31 +832,52 @@ impl LicenseService {
         // 5. Anti-Tamper: Ambil status sinkronisasi provider langsung dari dalam vault terenkripsi (AES-256-GCM + HWID)
         // Data ini kebal dari manipulasi pgAdmin karena disegel secara kriptografis di dalam ciphertext ciphertext vault.
         let last_sync_at = vault.last_sync_at;
-        let sync_status = vault.last_sync_status.clone().unwrap_or_else(|| "INITIALIZED".to_string());
+        let mut sync_status = vault.last_sync_status.clone().unwrap_or_else(|| "INITIALIZED".to_string());
         let consecutive_failures = vault.consecutive_failures;
 
-        // Jika lisensi telah dicabut resmi oleh provider
+        // Jika lisensi ditandai REVOKED, periksa apakah revocation ini berasal dari false-positive 404/403
         if sync_status == "REVOKED" {
-            return LicenseInfoResponse {
-                status: LicenseState::Unlicensed,
-                is_valid: false,
-                license_key: Some(payload.license_key),
-                client_name: Some(payload.client_name),
-                tier: Some(payload.tier),
-                max_terminals: payload.max_terminals,
-                current_hardware_id: current_hwid,
-                licensed_hardware_id: Some(payload.hardware_id),
-                expires_at: Some(payload.expires_at),
-                days_remaining: None,
-                grace_days_remaining: None,
-                features: vec![],
-                message: "Lisensi telah dicabut atau dinonaktifkan oleh Provider Notane.".to_string(),
-                provider_server_url: provider_url,
-                last_sync_at,
-                sync_status: Some(sync_status),
-                consecutive_sync_failures: Some(consecutive_failures),
-                offline_grace_days_remaining: Some(0),
-            };
+            let is_false_positive = sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(
+                    SELECT 1 FROM license_sync_logs 
+                    WHERE status = 'REVOKED' AND (http_status = 404 OR http_status = 403)
+                    ORDER BY id DESC LIMIT 1
+                )"
+            )
+            .fetch_one(pool)
+            .await
+            .unwrap_or(false);
+
+            if is_false_positive {
+                tracing::info!("[LICENSE] Melakukan self-healing: memulihkan lisensi dari status false-positive REVOKED (404/403).");
+                sync_status = "UNVERIFIED_WITH_PROVIDER".to_string();
+                vault.last_sync_status = Some("UNVERIFIED_WITH_PROVIDER".to_string());
+                let _ = Self::save_license_vault_with_db(&vault, Some(pool)).await;
+                let _ = sqlx::query(
+                    "UPDATE license_encrypted_cache SET last_sync_status = 'UNVERIFIED_WITH_PROVIDER', updated_at = CURRENT_TIMESTAMP WHERE id = 1"
+                ).execute(pool).await;
+            } else {
+                return LicenseInfoResponse {
+                    status: LicenseState::Unlicensed,
+                    is_valid: false,
+                    license_key: Some(payload.license_key),
+                    client_name: Some(payload.client_name),
+                    tier: Some(payload.tier),
+                    max_terminals: payload.max_terminals,
+                    current_hardware_id: current_hwid,
+                    licensed_hardware_id: Some(payload.hardware_id),
+                    expires_at: Some(payload.expires_at),
+                    days_remaining: None,
+                    grace_days_remaining: None,
+                    features: vec![],
+                    message: "Lisensi telah dicabut atau dinonaktifkan oleh Provider Notane.".to_string(),
+                    provider_server_url: provider_url,
+                    last_sync_at,
+                    sync_status: Some(sync_status),
+                    consecutive_sync_failures: Some(consecutive_failures),
+                    offline_grace_days_remaining: Some(0),
+                };
+            }
         }
 
         // 6. Evaluasi Kedaluwarsa Sertifikat & Kebijakan Toleransi Offline (Offline Grace Period)
@@ -790,9 +940,9 @@ impl LicenseService {
             }
         } else {
             // Sertifikat lisensi valid. Sekarang evaluasi toleransi jaringan offline provider:
-            if sync_status == "PROVIDER_UNREACHABLE" {
+            if sync_status == "PROVIDER_UNREACHABLE" || sync_status == "UNVERIFIED_WITH_PROVIDER" || sync_status == "UNVERIFIED" {
                 if days_since_sync <= grace_limit_days {
-                    // TETAP AKTIF NORMAL! Server provider belum terhubung, namun aplikasi tetap bisa digunakan penuh
+                    // TETAP AKTIF NORMAL! Server provider belum terhubung / belum diverifikasi online, namun aplikasi tetap bisa digunakan penuh
                     LicenseInfoResponse {
                         status: LicenseState::Active,
                         is_valid: true,
@@ -809,7 +959,7 @@ impl LicenseService {
                         message: format!("Lisensi Aktif (Mode Offline: Belum terhubung ke internet sejak {} hari lalu. Sisa toleransi: {} hari).", days_since_sync, offline_grace_left),
                         provider_server_url: provider_url,
                         last_sync_at,
-                        sync_status: Some("PROVIDER_UNREACHABLE".to_string()),
+                        sync_status: Some(sync_status),
                         consecutive_sync_failures: Some(consecutive_failures),
                         offline_grace_days_remaining: Some(offline_grace_left),
                     }
@@ -831,7 +981,7 @@ impl LicenseService {
                         message: format!("Aplikasi belum terhubung ke internet selama {} hari (batas toleransi {} hari). Silakan hubungkan komputer ke internet untuk memverifikasi lisensi.", days_since_sync, grace_limit_days),
                         provider_server_url: provider_url,
                         last_sync_at,
-                        sync_status: Some("PROVIDER_UNREACHABLE".to_string()),
+                        sync_status: Some(sync_status),
                         consecutive_sync_failures: Some(consecutive_failures),
                         offline_grace_days_remaining: Some(0),
                     }
@@ -852,7 +1002,7 @@ impl LicenseService {
                         message: format!("Lisensi belum terverifikasi: Komputer tidak terhubung ke internet selama lebih dari {} hari. Silakan hubungkan kembali ke internet.", days_since_sync),
                         provider_server_url: provider_url,
                         last_sync_at,
-                        sync_status: Some("PROVIDER_UNREACHABLE".to_string()),
+                        sync_status: Some(sync_status),
                         consecutive_sync_failures: Some(consecutive_failures),
                         offline_grace_days_remaining: Some(0),
                     }
@@ -1068,33 +1218,46 @@ impl LicenseService {
                         license_info: lic_info,
                     })
                 } else if resp.status() == reqwest::StatusCode::NOT_FOUND || resp.status() == reqwest::StatusCode::FORBIDDEN {
-                    // Provider menjawab 404 atau 403 (Lisensi tidak terdaftar)
-                    vault.last_sync_status = Some("REVOKED".to_string());
+                    // Provider menjawab 404 atau 403 (Lisensi tidak ditemukan pada target provider ini)
+                    // PENTING: Jangan tandai REVOKED! Lisensi yang ditandatangani Ed25519 tetap sah secara offline.
+                    // Lisensi hanya dicabut jika provider secara eksplisit merespons 200 OK dengan status REVOKED/SUSPENDED.
+                    vault.last_sync_status = Some("UNVERIFIED_WITH_PROVIDER".to_string());
+                    vault.consecutive_failures += 1;
                     let _ = Self::save_license_vault_with_db(&vault, Some(pool)).await;
 
+                    let warn_msg = format!("Lisensi tidak ditemukan pada server provider ({}) - HTTP {}", provider_url, status_code);
                     let _ = sqlx::query(
                         "UPDATE license_encrypted_cache
-                         SET last_sync_status = 'REVOKED', last_sync_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                         SET last_sync_status = 'UNVERIFIED_WITH_PROVIDER',
+                             consecutive_failures = consecutive_failures + 1,
+                             last_failed_sync_at = CURRENT_TIMESTAMP,
+                             last_failure_reason = $1,
+                             updated_at = CURRENT_TIMESTAMP
                          WHERE id = 1"
-                    ).execute(pool).await;
+                    )
+                    .bind(&warn_msg)
+                    .execute(pool).await;
 
                     let _ = sqlx::query(
                         "INSERT INTO license_sync_logs (sync_type, status, http_status, latency_ms, provider_url, message)
-                         VALUES ($1, 'REVOKED', $2, $3, $4, 'Lisensi ditolak oleh server provider (404/403)')"
+                         VALUES ($1, 'UNVERIFIED', $2, $3, $4, $5)"
                     )
                     .bind(sync_type)
                     .bind(status_code as i32)
                     .bind(latency_ms)
                     .bind(&provider_url)
+                    .bind(&warn_msg)
                     .execute(pool).await;
 
                     let lic_info = Self::check_current_license(pool).await;
+                    warn!("[LICENSE SYNC] Provider merespons HTTP {}: {}. Lisensi tetap aktif dalam batas grace period offline.", status_code, warn_msg);
+
                     Ok(LicenseSyncResult {
                         success: false,
-                        status: "REVOKED".to_string(),
+                        status: "UNVERIFIED_WITH_PROVIDER".to_string(),
                         http_status: Some(status_code),
                         latency_ms: Some(latency_ms as u128),
-                        message: "Lisensi ditolak oleh server provider (Kunci tidak valid atau telah dihapus)".to_string(),
+                        message: format!("Lisensi tidak ditemukan di {} (HTTP {}). Lisensi tetap berlaku dalam toleransi masa tenggang offline.", provider_url, status_code),
                         provider_url,
                         license_info: lic_info,
                     })
@@ -1200,6 +1363,15 @@ impl LicenseService {
         }
 
         tokio::spawn(async move {
+            // Muat konfigurasi provider_url dari tabel provider_settings jika ada di database
+            if let Ok(Some(url)) = sqlx::query_scalar::<_, String>(
+                "SELECT value FROM provider_settings WHERE key = 'provider_url' LIMIT 1"
+            ).fetch_optional(&pool).await {
+                if !url.trim().is_empty() {
+                    Self::set_provider_url_override(Some(url.trim().to_string()));
+                }
+            }
+
             // Berikan jeda 15 detik setelah boot agar inisialisasi database dan socket OS stabil
             tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
 

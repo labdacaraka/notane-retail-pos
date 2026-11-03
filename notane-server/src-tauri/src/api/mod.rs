@@ -296,6 +296,43 @@ pub async fn spawn_pos_server(ws_state: AppState) -> Result<tokio::task::AbortHa
     Ok(handle.abort_handle())
 }
 
+pub async fn spawn_control_server(ws_state: AppState, control_port: u16) -> Result<tokio::task::AbortHandle, std::io::Error> {
+    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], control_port));
+    let mut last_err = None;
+    let mut listener_opt = None;
+    for _ in 0..5 {
+        match tokio::net::TcpListener::bind(addr).await {
+            Ok(l) => {
+                listener_opt = Some(l);
+                break;
+            }
+            Err(e) => {
+                last_err = Some(e);
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            }
+        }
+    }
+    let listener = listener_opt.ok_or_else(|| {
+        last_err.unwrap_or_else(|| std::io::Error::new(std::io::ErrorKind::AddrInUse, "Control port sedang digunakan"))
+    })?;
+
+    let router = create_control_router(ws_state);
+
+    let handle = tokio::spawn(async move {
+        tracing::info!("[CONTROL SERVER] Dedicated Control Channel listening on http://{}", addr);
+        if let Err(e) = axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        {
+            tracing::error!("[CONTROL SERVER] Error on port {}: {}", addr.port(), e);
+        }
+    });
+
+    Ok(handle.abort_handle())
+}
+
 pub fn create_router(pool: PgPool, port: u16, db_url: String, pg_port: u16) -> Router {
     let ws_state = AppState::new(Some(pool.clone()), port, db_url, pg_port);
     ws_state.start_heartbeat_scheduler();

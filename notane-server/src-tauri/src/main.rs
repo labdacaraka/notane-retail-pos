@@ -3,7 +3,6 @@
 
 use notane_retail_server_lib::db::{create_pool, run_embedded_migrations};
 use std::env;
-use std::net::SocketAddr;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -17,7 +16,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    dotenvy::dotenv().ok();
+    // Muat file .env dari berbagai lokasi potensial (CWD, App Data, Home .notane, Executable dir)
+    let _ = dotenvy::dotenv();
+    if let Some(app_data) = dirs::data_local_dir() {
+        let _ = dotenvy::from_path(app_data.join("notane-retail-pos").join(".env"));
+    }
+    if let Some(home) = dirs::home_dir() {
+        let _ = dotenvy::from_path(home.join(".notane").join(".env"));
+    }
+    if let Ok(exe_path) = env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let _ = dotenvy::from_path(exe_dir.join(".env"));
+        }
+    }
 
     let pg_port: u16 = env::var("POSTGRES_PORT")
         .ok()
@@ -117,16 +128,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ws_state.start_voucher_expiry_scheduler();
 
     // 1. Host Control Channel (Port 18081) - Selalu standby untuk mengontrol status server & aktivasi lisensi
-    let control_addr = SocketAddr::from(([0, 0, 0, 0], control_port));
-    let control_app = notane_retail_server_lib::api::create_control_router(ws_state.clone());
-    tokio::spawn(async move {
-        if let Ok(listener) = tokio::net::TcpListener::bind(control_addr).await {
-            info!("Host Control Channel berjalan di http://{}", control_addr);
-            let _ = axum::serve(listener, control_app).await;
-        } else {
-            error!("Gagal mengikat socket Host Control Channel pada port {}", control_port);
+    match notane_retail_server_lib::api::spawn_control_server(ws_state.clone(), control_port).await {
+        Ok(_handle) => {
+            info!("Host Control Channel berjalan di http://0.0.0.0:{}", control_port);
         }
-    });
+        Err(e) => {
+            error!("Gagal mengikat socket Host Control Channel pada port {}: {}", control_port, e);
+        }
+    }
 
     // 2. POS API Server di port 18080: Selalu aktif otomatis saat auto_start (Host Manager & API)
     if auto_start {
@@ -197,6 +206,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     Err(e) => {
                         tracing::error!("[WATCHDOG] Gagal memulihkan server POS: {}", e);
+                    }
+                }
+            }
+
+            // Self-healing port Control Channel (18081)
+            let is_control_live = tokio::net::TcpStream::connect(format!("127.0.0.1:{}", control_port)).await.is_ok();
+            if !is_control_live {
+                tracing::warn!("[WATCHDOG] Control Channel port {} tidak terdeteksi! Memulihkan otomatis...", control_port);
+                match notane_retail_server_lib::api::spawn_control_server(watchdog_state.clone(), control_port).await {
+                    Ok(_handle) => {
+                        tracing::info!("[WATCHDOG] Control Channel berhasil dipulihkan di port {}", control_port);
+                    }
+                    Err(e) => {
+                        tracing::error!("[WATCHDOG] Gagal memulihkan Control Channel: {}", e);
                     }
                 }
             }

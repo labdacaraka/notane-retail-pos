@@ -642,25 +642,64 @@ async fn get_license_logs_handler(
 
 async fn get_provider_config() -> impl IntoResponse {
     let current_url = crate::services::license_service::LicenseService::get_provider_url();
-    let is_production = !cfg!(debug_assertions);
+    let is_custom = crate::services::license_service::LicenseService::is_custom_provider();
 
     Json(json!({
         "current_url": current_url,
-        "is_locked": is_production,
+        "is_locked": false,
+        "is_custom": is_custom,
         "default_local_url": crate::services::license_service::LicenseService::DEFAULT_LOCAL_PROVIDER_URL,
         "default_production_url": crate::services::license_service::LicenseService::DEFAULT_OFFICIAL_PROVIDER_URL,
-        "is_production": is_production
+        "is_production": !cfg!(debug_assertions)
     }))
 }
 
-async fn save_provider_config() -> impl IntoResponse {
-    (
-        StatusCode::FORBIDDEN,
-        Json(json!({
-            "status": "error",
-            "message": "Alamat server lisensi bawaan aplikasi tidak dapat diubah."
-        })),
-    )
+async fn save_provider_config(
+    State(state): State<AppState>,
+    Json(payload): Json<SaveProviderConfigRequest>,
+) -> impl IntoResponse {
+    let pool_guard = state.pool.read().await;
+    let target_url = payload.provider_url.trim().trim_end_matches('/');
+
+    if !target_url.is_empty() {
+        if !target_url.starts_with("http://") && !target_url.starts_with("https://") {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "status": "error",
+                    "message": "URL Provider harus diawali dengan http:// atau https://"
+                })),
+            );
+        }
+    }
+
+    match crate::services::license_service::LicenseService::save_provider_config(
+        target_url,
+        payload.is_custom,
+        pool_guard.as_ref(),
+    ).await {
+        Ok(_) => {
+            info!("[SYSTEM] Konfigurasi URL Provider berhasil diperbarui ke: {}", target_url);
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "status": "success",
+                    "message": "Konfigurasi server provider berhasil disimpan.",
+                    "provider_url": target_url
+                })),
+            )
+        }
+        Err(e) => {
+            error!("[SYSTEM] Gagal menyimpan konfigurasi provider: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "status": "error",
+                    "message": format!("Gagal menyimpan konfigurasi: {}", e)
+                })),
+            )
+        }
+    }
 }
 
 async fn test_provider_connection(
