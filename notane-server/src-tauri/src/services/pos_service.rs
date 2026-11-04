@@ -1030,7 +1030,9 @@ pub async fn checkout(
     let mut total_cost = Decimal::ZERO;
     let mut total_flash_sale_discount = Decimal::ZERO;
     let mut total_member_discount = Decimal::ZERO;
+    let mut total_tier_discount = Decimal::ZERO;
     let mut total_retail_promo_discount = Decimal::ZERO;
+    let mut total_manual_discount = Decimal::ZERO;
 
     struct PreparedItem {
         product_id: Uuid,
@@ -1048,6 +1050,8 @@ pub async fn checkout(
         original_price: Decimal,
         flash_sale_discount: Decimal,
         member_discount: Decimal,
+        #[allow(dead_code)]
+        tier_discount: Decimal,
         batch_allocations: Vec<crate::services::costing_service::BatchDeductionDetail>,
     }
 
@@ -1228,6 +1232,8 @@ pub async fn checkout(
             item_orig_price,
             item_fs_disc,
             item_mem_disc,
+            item_tier_disc,
+            item_safe_manual_disc,
             line_disc,
             line_tax,
             line_subtotal,
@@ -1238,6 +1244,8 @@ pub async fn checkout(
             (
                 Decimal::ZERO,
                 normal_base_price,
+                Decimal::ZERO,
+                Decimal::ZERO,
                 Decimal::ZERO,
                 Decimal::ZERO,
                 normal_base_price * item.quantity,
@@ -1365,8 +1373,12 @@ pub async fn checkout(
             };
             let safe_manual_disc = manual_disc_amount.min(line_gross_before_manual).max(Decimal::ZERO);
 
-            // 8. Total Diskon & Pajak Resmi
-            let total_item_disc = fs_disc_total + mem_disc_total + promo_retail_disc + safe_manual_disc;
+            // 8. Evaluasi Diskon Grosir / Tier Price (Selisih harga normal vs unit selling price di luar FS & Member)
+            let base_price_drop_total = (normal_base_price - final_unit_price).max(Decimal::ZERO) * item.quantity;
+            let item_tier_disc = (base_price_drop_total - fs_disc_total - mem_disc_total).max(Decimal::ZERO);
+
+            // 9. Total Diskon & Pajak Resmi
+            let total_item_disc = base_price_drop_total + promo_retail_disc + safe_manual_disc;
             let line_gross_total = normal_base_price * item.quantity;
             let taxable_amount = (line_gross_total - total_item_disc).max(Decimal::ZERO);
 
@@ -1383,6 +1395,8 @@ pub async fn checkout(
                 normal_base_price,
                 fs_disc_total,
                 mem_disc_total,
+                item_tier_disc,
+                safe_manual_disc,
                 total_item_disc,
                 calculated_tax,
                 calculated_subtotal,
@@ -1393,6 +1407,8 @@ pub async fn checkout(
 
         total_flash_sale_discount += item_fs_disc;
         total_member_discount += item_mem_disc;
+        total_tier_discount += item_tier_disc;
+        total_manual_discount += item_safe_manual_disc;
         if let Some(r_disc) = retail_promo_discounts.get(&product.id) {
             total_retail_promo_discount += *r_disc;
         }
@@ -1439,6 +1455,7 @@ pub async fn checkout(
             original_price: item_orig_price,
             flash_sale_discount: item_fs_disc,
             member_discount: item_mem_disc,
+            tier_discount: item_tier_disc,
             batch_allocations,
         });
     }
@@ -1472,10 +1489,12 @@ pub async fn checkout(
                 }
 
                 let min_purchase: Decimal = v.get("min_purchase_amount");
-                if subtotal < min_purchase {
+                // Basis belanja dihitung dari subtotal produk di keranjang (setara dengan subtotal frontend)
+                let cart_effective_subtotal: Decimal = prepared_items.iter().map(|pi| pi.selling_price * pi.qty).sum();
+                if cart_effective_subtotal < min_purchase {
                     return Err(format!(
                         "Syarat minimal belanja untuk voucher '{}' adalah Rp {}, total belanja saat ini: Rp {}",
-                        clean_vcode, min_purchase, subtotal
+                        clean_vcode, min_purchase, cart_effective_subtotal
                     ));
                 }
 
@@ -1485,7 +1504,7 @@ pub async fn checkout(
 
                 let v_disc = match dtype.as_str() {
                     "PERCENTAGE" => {
-                        let calc = (subtotal * dval) / Decimal::from(100);
+                        let calc = ((cart_effective_subtotal * dval) / Decimal::from(100)).round_dp(2);
                         if let Some(max_d) = max_disc {
                             calc.min(max_d)
                         } else {
@@ -1495,8 +1514,12 @@ pub async fn checkout(
                     _ => dval,
                 };
 
-                voucher_discount = v_disc;
-                total_discount += v_disc;
+                // Pastikan diskon voucher tidak melebihi sisa netto belanja sebelum voucher
+                let net_before_voucher = (subtotal - total_discount).max(Decimal::ZERO);
+                let safe_v_disc = v_disc.min(net_before_voucher);
+
+                voucher_discount = safe_v_disc;
+                total_discount += safe_v_disc;
                 voucher_id = Some(v.get::<Uuid, _>("id"));
             } else {
                 return Err(format!("Kode voucher '{}' tidak valid atau telah kadaluarsa", clean_vcode));
@@ -1718,16 +1741,29 @@ pub async fn checkout(
     let payable_total = (final_total + rounding_amount).max(Decimal::ZERO);
 
     let total_paid: Decimal = resolved_payments.iter().map(|p| p.amount).sum();
-    if total_paid.round_dp(2) < payable_total.round_dp(2) {
-        return Err(format!(
-            "Pembayaran kurang! Total tagihan: Rp {}, Pembayaran: Rp {}",
-            payable_total, total_paid
-        ));
-    }
-    let change_amount = (total_paid - payable_total).max(Decimal::ZERO);
+    let payable_rounded = payable_total.round_dp(2);
+    let paid_rounded = total_paid.round_dp(2);
 
-    // Total penghematan belanja: flash sale + diskon member + diskon voucher/item
-    let total_savings_amount = total_flash_sale_discount + total_member_discount + total_discount;
+    let mut actual_rounding_amount = rounding_amount;
+    let effective_payable_total = if paid_rounded < payable_rounded {
+        let diff = payable_rounded - paid_rounded;
+        // Toleransi sub-rupiah (< Rp 1) untuk selisih pembulatan desimal JavaScript / floating point
+        if diff <= Decimal::from_str("0.99").unwrap() {
+            actual_rounding_amount -= diff;
+            paid_rounded
+        } else {
+            return Err(format!(
+                "Pembayaran kurang! Total tagihan: Rp {}, Pembayaran: Rp {}",
+                payable_total, total_paid
+            ));
+        }
+    } else {
+        payable_rounded
+    };
+    let change_amount = (total_paid - effective_payable_total).max(Decimal::ZERO);
+
+    // Total penghematan belanja: flash sale + diskon member + tier grosir + diskon voucher/item/promo
+    let total_savings_amount = total_flash_sale_discount + total_member_discount + total_tier_discount + total_retail_promo_discount + total_manual_discount + voucher_discount;
 
     let sale = sqlx::query_as::<_, Sale>(
         "INSERT INTO sales (
@@ -1751,7 +1787,7 @@ pub async fn checkout(
     .bind(subtotal)
     .bind(total_discount)
     .bind(total_tax)
-    .bind(payable_total)
+    .bind(effective_payable_total)
     .bind(total_paid)
     .bind(change_amount)
     .bind(total_cost)
@@ -1759,7 +1795,7 @@ pub async fn checkout(
     .bind(total_flash_sale_discount)
     .bind(total_member_discount)
     .bind(total_savings_amount)
-    .bind(rounding_amount)
+    .bind(actual_rounding_amount)
     .bind(user_id)
     .fetch_one(&mut *tx)
     .await
@@ -1968,19 +2004,20 @@ pub async fn checkout(
     let journal_id = Uuid::new_v4();
     let journal_number = format!("JRN-POS-{}-{}", now.format("%Y%m%d%H%M%S"), &journal_id.to_string()[..4].to_uppercase());
 
-    let manual_item_discount: Decimal = prepared_items.iter().map(|pi| pi.disc_amount).sum();
-    let gross_sales_revenue = subtotal + total_flash_sale_discount + total_member_discount;
+    let gross_sales_revenue = subtotal;
 
-    let rounding_down_amount = if rounding_amount < Decimal::ZERO {
-        rounding_amount.abs()
+    let rounding_down_amount = if actual_rounding_amount < Decimal::ZERO {
+        actual_rounding_amount.abs()
     } else {
         Decimal::ZERO
     };
-    let rounding_up_amount = if rounding_amount > Decimal::ZERO {
-        rounding_amount
+    let rounding_up_amount = if actual_rounding_amount > Decimal::ZERO {
+        actual_rounding_amount
     } else {
         Decimal::ZERO
     };
+
+    let other_item_discounts = total_tier_discount + total_retail_promo_discount + total_manual_discount;
 
     let total_debits = net_cash_in_drawer
         + total_non_cash_paid
@@ -1988,7 +2025,7 @@ pub async fn checkout(
         + total_flash_sale_discount
         + total_member_discount
         + voucher_discount
-        + manual_item_discount
+        + other_item_discounts
         + rounding_down_amount
         + total_cost;
     let total_credits = gross_sales_revenue
@@ -2108,14 +2145,14 @@ pub async fn checkout(
         }
     }
 
-    if manual_item_discount > Decimal::ZERO {
+    if other_item_discounts > Decimal::ZERO {
         if let Some(acc_id) = acc_disc_item {
             sqlx::query(
-                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Potongan Penjualan Diskon Kasir / Item', $4)",
+                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Potongan Penjualan Diskon Kasir / Grosir / Promo', $4)",
             )
             .bind(journal_id)
             .bind(acc_id)
-            .bind(manual_item_discount)
+            .bind(other_item_discounts)
             .bind(line_outlet_id)
             .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
         }

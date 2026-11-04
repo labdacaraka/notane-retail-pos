@@ -37,6 +37,7 @@ export interface CustomerDisplayState {
     invoiceNumber: string
   } | null
   outletName?: string
+  theme?: 'light' | 'dark'
   updatedAt: number
 }
 

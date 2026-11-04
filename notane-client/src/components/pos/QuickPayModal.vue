@@ -438,7 +438,7 @@ async function handleCompletePayment() {
         quantity: it.quantity,
         unit_selling_price: it.unit_price,
         discount_percent: it.discount_percent,
-        discount_amount: Number(((it.discount_amount || 0) + (it.promo_discount || 0)).toFixed(2)),
+        discount_amount: Number((it.discount_amount || 0).toFixed(2)),
         flash_sale_id: it.flash_sale_id,
         original_price: it.original_price,
         flash_sale_discount: it.flash_sale_discount,

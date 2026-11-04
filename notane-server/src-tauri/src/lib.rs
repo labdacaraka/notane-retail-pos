@@ -99,11 +99,20 @@ pub fn run_server_manager(context: tauri::Context<tauri::Wry>) {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // Jangan keluar aplikasi, sembunyikan window ke background / system tray
-                let _ = window.hide();
-                api.prevent_close();
-                tracing::info!("Notane Server disembunyikan ke System Tray (Engine tetap berjalan di background).");
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    // Jangan keluar aplikasi, sembunyikan window ke background / system tray
+                    let _ = window.hide();
+                    api.prevent_close();
+                    tracing::info!("Notane Server disembunyikan ke System Tray (Engine tetap berjalan di background).");
+                }
+                tauri::WindowEvent::Resized(..) => {
+                    if window.is_minimized().unwrap_or(false) {
+                        let _ = window.hide();
+                        tracing::info!("Notane Server diminimalkan, langsung dialihkan ke System Tray.");
+                    }
+                }
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![

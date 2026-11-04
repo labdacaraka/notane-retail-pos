@@ -29,7 +29,6 @@ import {
   DownloadCloud,
   Globe,
   ExternalLink,
-  Minimize2,
 } from 'lucide-vue-next'
 import { useNetworkStore } from '@/stores/networkStore'
 import { useLicenseStore } from '@/stores/licenseStore'
@@ -66,16 +65,6 @@ async function handleRestoreSuccess() {
   await licenseStore.fetchVersionInfo()
   await storeBrandingStore.fetchBranding()
   dialog.toast('Database toko berhasil dipulihkan secara penuh dari berkas cadangan!', 'success')
-}
-
-async function minimizeToTray() {
-  try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window')
-    await getCurrentWindow().hide()
-    dialog.toast('Notane Server disembunyikan ke System Tray (Engine tetap berjalan aktif).', 'info')
-  } catch {
-    dialog.toast('Engine berjalan di latar belakang.', 'info')
-  }
 }
 
 // Store Branding State
@@ -479,99 +468,103 @@ const restartServer = async () => {
 
 <template>
   <div class="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col select-none">
-    <!-- Top Header (Clean Light Desktop Bar) -->
-    <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between shadow-xs sticky top-0 z-30">
+    <!-- Top Header (Clean Light/Dark Desktop Bar) -->
+    <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between shadow-xs sticky top-0 z-30 transition-colors duration-200">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-xs">
           <Server class="w-5 h-5" />
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-base font-extrabold text-slate-900 tracking-tight">Notane Retail Server</h1>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <h1 class="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">Notane Retail Server</h1>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
               Komputer Utama Toko
             </span>
           </div>
-          <p class="text-xs text-slate-500">Pusat data dan layanan kasir toko</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Pusat data dan layanan kasir toko</p>
         </div>
       </div>
 
-      <!-- Header Right: Quick Status & License Button -->
-      <div class="flex items-center gap-3">
-        <button
-          type="button"
-          @click="showInitialSetupModal = true"
-          class="px-3 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:opacity-90 active:scale-95"
-          title="Buka panduan pengaturan awal toko dan data"
-        >
-          <Sparkles class="w-3.5 h-3.5 text-indigo-600" />
-          <span>Panduan Awal Toko</span>
-        </button>
-
-        <!-- Tombol Cadangan & Pemulihan Database -->
-        <button
-          type="button"
-          @click="showBackupModal = true"
-          class="px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:opacity-90 active:scale-95"
-          title="Ekspor berkas cadangan database SQL (.zip) atau pulihkan data"
-        >
-          <Database class="w-3.5 h-3.5 text-sky-600" />
-          <span>Cadangan & Pemulihan</span>
-        </button>
-
-        <!-- Tombol Cek & Pembaruan Server -->
-        <button
-          type="button"
-          @click="licenseModalTab = 'UPDATE'; showLicenseModal = true"
-          class="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:opacity-90 active:scale-95"
-          title="Periksa dan terapkan pembaruan server toko"
-        >
-          <DownloadCloud class="w-3.5 h-3.5 text-emerald-600" />
-          <span>Pembaruan Server</span>
-          <span
-            v-if="licenseStore.updateInfo?.has_update"
-            class="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-bold"
+      <!-- Header Right: Organized Action & Status Toolbar -->
+      <div class="flex items-center gap-2.5">
+        <!-- Action Tools Group -->
+        <div class="flex items-center gap-1.5">
+          <button
+            type="button"
+            @click="showInitialSetupModal = true"
+            class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+            title="Buka panduan pengaturan awal toko dan data"
           >
-            Ada Versi Baru
-          </span>
-        </button>
+            <Sparkles class="w-3.5 h-3.5 text-indigo-500" />
+            <span class="hidden sm:inline">Panduan Awal</span>
+          </button>
 
-        <button
-          type="button"
-          @click="licenseModalTab = 'LICENSE'; showLicenseModal = true"
-          class="px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-2xs hover:opacity-90 active:scale-95"
-          :class="isLicenseActive
-            ? 'bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100'
-            : isGracePeriod
-            ? 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
-            : 'bg-rose-50 text-rose-900 border-rose-200 hover:bg-rose-100'"
-        >
-          <Key class="w-3.5 h-3.5" :class="isLicenseActive ? 'text-purple-600' : 'text-rose-600'" />
-          <span>Lisensi: {{ isLicenseActive ? (licenseStore.licenseInfo.tier || 'Aktif') : isGracePeriod ? 'Masa Tenggang' : 'Belum Diaktivasi' }}</span>
-        </button>
+          <button
+            type="button"
+            @click="showBackupModal = true"
+            class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+            title="Ekspor berkas cadangan database SQL (.zip) atau pulihkan data"
+          >
+            <Database class="w-3.5 h-3.5 text-sky-500" />
+            <span class="hidden sm:inline">Cadangan Data</span>
+          </button>
 
-        <div
-          class="px-3 py-1.5 rounded-xl border text-xs font-extrabold flex items-center gap-2"
-          :class="isServerRunning
-            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-            : !isLicenseValid
-            ? 'bg-rose-50 text-rose-800 border-rose-200'
-            : 'bg-amber-50 text-amber-800 border-amber-200'"
-        >
-          <span class="w-2.5 h-2.5 rounded-full" :class="isServerRunning ? 'bg-emerald-500' : !isLicenseValid ? 'bg-rose-500' : 'bg-amber-500'"></span>
-          <span>{{ isServerRunning ? 'SERVER AKTIF' : !isLicenseValid ? 'BELUM DIAKTIVASI' : 'SERVER BERHENTI' }}</span>
+          <button
+            type="button"
+            @click="licenseModalTab = 'UPDATE'; showLicenseModal = true"
+            class="relative px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+            title="Periksa dan terapkan pembaruan server toko"
+          >
+            <DownloadCloud class="w-3.5 h-3.5 text-emerald-500" />
+            <span class="hidden sm:inline">Pembaruan</span>
+            <span
+              v-if="licenseStore.updateInfo?.has_update"
+              class="relative flex h-2 w-2"
+              title="Ada versi baru"
+            >
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+          </button>
         </div>
 
-        <!-- Minimize ke System Tray -->
-        <button
-          type="button"
-          @click="minimizeToTray"
-          title="Sembunyikan jendela ke System Tray (Server tetap aktif di latar belakang)"
-          class="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
-        >
-          <Minimize2 class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-          <span class="hidden sm:inline">Ke Tray</span>
-        </button>
+        <div class="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+
+        <!-- License & Server Engine Status Group -->
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            @click="licenseModalTab = 'LICENSE'; showLicenseModal = true"
+            class="px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+            :class="isLicenseActive
+              ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/80 hover:bg-purple-100 dark:hover:bg-purple-900/40'
+              : isGracePeriod
+              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/80 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/80 hover:bg-rose-100 dark:hover:bg-rose-900/40'"
+            title="Kelola Lisensi Notane Server"
+          >
+            <Key class="w-3.5 h-3.5" :class="isLicenseActive ? 'text-purple-600 dark:text-purple-400' : 'text-rose-600 dark:text-rose-400'" />
+            <span class="hidden md:inline">Lisensi:</span>
+            <span>{{ isLicenseActive ? (licenseStore.licenseInfo.tier || 'Aktif') : isGracePeriod ? 'Masa Tenggang' : 'Belum Aktif' }}</span>
+          </button>
+
+          <div
+            class="px-3 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-2 select-none shadow-2xs"
+            :class="isServerRunning
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/80'
+              : !isLicenseValid
+              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/80'
+              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/80'"
+          >
+            <span class="relative flex h-2 w-2">
+              <span v-if="isServerRunning" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2" :class="isServerRunning ? 'bg-emerald-500' : !isLicenseValid ? 'bg-rose-500' : 'bg-amber-500'"></span>
+            </span>
+            <span class="tracking-wide text-[11px]">{{ isServerRunning ? 'SERVER AKTIF' : !isLicenseValid ? 'BELUM AKTIF' : 'SERVER BERHENTI' }}</span>
+          </div>
+        </div>
+
+        <div class="h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
 
         <!-- Switch Dark / Light Mode -->
         <ThemeToggle />

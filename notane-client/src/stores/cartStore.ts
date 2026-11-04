@@ -9,8 +9,26 @@ import { useShiftStore } from './shiftStore'
 export const useCartStore = defineStore('cart', () => {
   const items = ref<CartItem[]>([])
   const selectedCustomer = ref<Customer | null>(null)
-  const voucherCode = ref<string>('')
-  const voucherDiscount = ref<number>(0)
+  const appliedVoucher = ref<any | null>(null)
+
+  const voucherDiscount = computed(() => {
+    if (!appliedVoucher.value) return 0
+    const v = appliedVoucher.value
+    const minPurchase = Number(v.min_purchase_amount || 0)
+    if (subtotal.value < minPurchase) {
+      return 0
+    }
+    if (v.discount_type === 'PERCENTAGE') {
+      const calc = (subtotal.value * Number(v.discount_value)) / 100
+      const maxDisc = v.max_discount_amount ? Number(v.max_discount_amount) : Infinity
+      return Math.round(Math.min(calc, maxDisc))
+    }
+    return Number(v.discount_value || 0)
+  })
+
+  const voucherCode = computed(() => {
+    return appliedVoucher.value && voucherDiscount.value > 0 ? appliedVoucher.value.code : (appliedVoucher.value?.code || '')
+  })
   const activeFlashSales = ref<ActivePromoProduct[]>([])
   const activePromotions = ref<ActivePromotion[]>([])
   const eligibleGifts = ref<EligibleGift[]>([])
@@ -656,8 +674,8 @@ export const useCartStore = defineStore('cart', () => {
     const promoDisc = item.promo_discount || 0
     const totalItemDisc = manualDisc + promoDisc
     const taxable = Math.max(0, gross - totalItemDisc)
-    item.tax_amount = (taxable * item.product.tax_percent) / 100
-    item.subtotal = taxable + item.tax_amount
+    item.tax_amount = Number(((taxable * (item.product.tax_percent || 0)) / 100).toFixed(2))
+    item.subtotal = Number((taxable + item.tax_amount).toFixed(2))
   }
 
   let isEvaluatingPromotions = false
@@ -946,8 +964,7 @@ export const useCartStore = defineStore('cart', () => {
   function clearCart() {
     items.value = []
     selectedCustomer.value = null
-    voucherCode.value = ''
-    voucherDiscount.value = 0
+    appliedVoucher.value = null
     eligibleGifts.value = []
     outOfStockGifts.value = []
     dismissedGiftRuleIds.value.clear()
@@ -965,24 +982,17 @@ export const useCartStore = defineStore('cart', () => {
       if (v.quota > 0 && v.used_count >= v.quota) {
         throw new Error(`Kuota penggunaan kupon voucher '${v.code}' telah habis (${v.used_count}/${v.quota})`)
       }
-      if (subtotal.value < v.min_purchase_amount) {
-        throw new Error(`Minimal belanja untuk voucher ini adalah Rp ${v.min_purchase_amount.toLocaleString('id-ID')}`)
+      if (subtotal.value < Number(v.min_purchase_amount || 0)) {
+        throw new Error(`Minimal belanja untuk voucher ini adalah Rp ${Number(v.min_purchase_amount).toLocaleString('id-ID')}`)
       }
 
-      voucherCode.value = v.code
-      if (v.discount_type === 'PERCENTAGE') {
-        const calc = (subtotal.value * v.discount_value) / 100
-        voucherDiscount.value = v.max_discount_amount ? Math.min(calc, v.max_discount_amount) : calc
-      } else {
-        voucherDiscount.value = v.discount_value
-      }
+      appliedVoucher.value = v
       return v
     }
   }
 
   function removeVoucher() {
-    voucherCode.value = ''
-    voucherDiscount.value = 0
+    appliedVoucher.value = null
   }
 
   function holdCurrentOrder(notes = ''): HeldOrder | null {
@@ -1051,6 +1061,7 @@ export const useCartStore = defineStore('cart', () => {
       grandTotal: grandTotal.value,
       totalItemsCount: totalItemsCount.value,
       lastScannedItem: displayItems.length > 0 ? displayItems[0] : null,
+      theme: (typeof localStorage !== 'undefined' ? (localStorage.getItem('notane_theme') as 'light' | 'dark') : null) || 'light',
       updatedAt: Date.now(),
     }
   }
@@ -1074,6 +1085,7 @@ export const useCartStore = defineStore('cart', () => {
   return {
     items,
     selectedCustomer,
+    appliedVoucher,
     voucherCode,
     activeFlashSales,
     activePromotions,
