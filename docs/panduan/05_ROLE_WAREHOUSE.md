@@ -56,3 +56,4 @@ Untuk memudahkan pelanggan melihat harga dan kasir memindai barcode, staf gudang
 3. Tentukan jumlah lembar label yang ingin dicetak per item.
 4. Pilih **[2] Format Kertas Label** (misal: kertas stiker thermal 3-kolom, label barcode tunggal, atau label harga rak mini).
 5. Klik tombol **[1] "Cetak Label"**. Tempelkan label harga pada rak pajang barang di toko.
+

@@ -20,6 +20,7 @@ Selamat datang di dokumentasi resmi panduan operasional **Notane Retail POS**. P
 | **08** | **Auditor Internal (INTERNAL_AUDIT)** | [08_ROLE_INTERNAL_AUDIT.md](./08_ROLE_INTERNAL_AUDIT.md) | Penelusuran jejak audit (Audit Logs), investigasi void kasir, selisih stok (*shrinkage*), dan margin laba. |
 | **09** | **Merchandiser (MERCHANDISER)** | [09_ROLE_MERCHANDISER.md](./09_ROLE_MERCHANDISER.md) | Master produk & varian, banner layar pelanggan (*Customer Display*), voucher kupon, dan member. |
 | **10** | **Super Admin (SUPERADMIN)** | [10_ROLE_SUPERADMIN.md](./10_ROLE_SUPERADMIN.md) | Manajemen staf pengguna, matriks hak akses peran (RBAC), pengaturan global, dan pemulihan data. |
+| **ALL** | **Kamus Fitur Seluruh Menu** | [PANDUAN_FITUR_BERDASARKAN_MENU.md](./PANDUAN_FITUR_BERDASARKAN_MENU.md) | Panduan lengkap eksplorasi seluruh tombol, aksi, dan kapabilitas sistem berdasarkan menu aplikasi. |
 
 ---
 
@@ -56,3 +57,4 @@ Seluruh pengguna bawaan (*default seed*) dikonfigurasi dengan kredensial standar
 
 > [!IMPORTANT]
 > Segera ubah password dan PIN default setelah sistem pertama kali dipasang di toko operasional melalui menu **Pengguna & Hak Akses**.
+

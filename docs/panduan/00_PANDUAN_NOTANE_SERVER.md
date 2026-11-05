@@ -80,3 +80,4 @@ Notane Server dilengkapi dengan fitur pembaruan satu klik (*One-Click Update*) y
 2. Klik tombol **[1] "Periksa Pembaruan"**.
 3. Jika tersedia versi baru, klik tombol **"Pasang Pembaruan"**.
 4. Server akan otomatis mengunduh biner baru, melakukan pencadangan otomatis biner lama (`.old`), menukar file biner, dan memuat ulang proses secara aman tanpa kehilangan data transaksi.
+

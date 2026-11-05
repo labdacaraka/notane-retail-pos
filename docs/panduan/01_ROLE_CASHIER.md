@@ -80,3 +80,4 @@ Di akhir jam kerja kasir, kasir wajib melakukan penutupan shift (*End of Shift S
 4. Masukkan catatan kas jika terdapat selisih uang receh.
 5. Klik **"Tutup Shift & Cetak Ringkasan"**.
 6. Struk ringkasan shift kasir akan dicetak untuk diserahkan bersama uang tunai ke Supervisor toko.
+

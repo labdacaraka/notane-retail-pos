@@ -61,3 +61,4 @@ Kepala Toko berhak menyetujui atau menolak pengeluaran operasional toko (misal: 
 2. Periksa nota bukti pengeluaran yang diinput oleh staf.
 3. Pastikan nominal dan kategori pos pengeluaran sesuai anggaran gerai.
 4. Setujui atau batalkan transaksi beban kas yang tidak sesuai prosedur.
+

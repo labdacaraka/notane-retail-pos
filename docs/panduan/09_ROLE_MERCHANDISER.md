@@ -49,3 +49,4 @@ Voucher kupon digunakan untuk menarik pelanggan kembali berbelanja (*repeat orde
 4. Tentukan besaran potongan diskon voucher (persentase atau nominal tetap).
 5. Atur **Batas Kuota Penggunaan** (misal: hanya untuk 100 transaksi pertama).
 6. Simpan voucher. Kasir dapat langsung memasukkan kode kupon ini di layar kasir dengan menekan tombol `Voucher` atau shortcut keyboard.
+

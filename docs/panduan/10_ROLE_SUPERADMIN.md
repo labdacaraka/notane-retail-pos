@@ -60,3 +60,4 @@ Superadmin mengonfigurasi format struk dan kebijakan perhitungan belanja kasir:
    - Kebijakan tarif Pajak Pertambahan Nilai (PPN 11% atau 12%).
    - Kebijakan pembulatan kembalian kasir (*Rounding Rules*, misal: pembulatan Rp 100 ke bawah atau ke atas).
    - Kebijakan batas maksimal diskon manual kasir tanpa persetujuan pimpinan.
+

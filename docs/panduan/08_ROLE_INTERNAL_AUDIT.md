@@ -43,3 +43,4 @@ Auditor Internal secara berkala membandingkan saldo kartu stok sistem dengan has
    - Kerusakan fisik barang yang tidak dilaporkan (*damaged/expired*).
    - Pengutilan oleh pembeli (*shoplifting*) atau pencurian internal (*internal theft*).
 4. Buat Berita Acara Temuan Audit dan serahkan rekomendasi perbaikan pencegahan kehilangan (*loss prevention*) kepada Kepala Toko dan Manajemen Pusat.
+

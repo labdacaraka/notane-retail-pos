@@ -61,3 +61,4 @@ Kasir atau supervisor yang lupa nomor PIN otorisasi transaksi dapat meminta bant
 3. Klik ikon gembok / **"Ganti PIN"**.
 4. Masukkan nomor PIN baru (6-digit angka).
 5. Konfirmasi PIN baru, lalu klik **"Simpan PIN Baru"**. Staf dapat langsung menggunakan PIN baru tersebut untuk otorisasi di kasir.
+

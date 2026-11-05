@@ -62,3 +62,4 @@ Jika terdapat barang kiriman supplier yang rusak, kadaluarsa, atau tidak sesuai 
 3. Masukkan item dan kuantitas barang yang dikembalikan ke supplier.
 4. Pilih opsi kompensasi: **Pemotongan Saldo Utang** atau **Pengembalian Uang Tunai/Transfer**.
 5. Klik **"Konfirmasi Retur Supplier"**. Stok barang rusak otomatis dikeluarkan dan tagihan utang supplier dikurangi.
+

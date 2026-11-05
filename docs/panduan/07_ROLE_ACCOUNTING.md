@@ -58,3 +58,4 @@ Pada akhir tahun buku atau setelah pelaksanaan audit eksternal/pajak selesai, st
 2. Pilih periode akuntansi yang telah berstatus *Soft-Close*.
 3. Klik tombol **"Tutup Permanen (Hard-Close / Audit Final)"**.
 4. Periode akan terkunci permanen. Seluruh saldo pendapatan dan beban ditutup ke akun **Ikhtisar Laba Rugi** dan dialokasikan ke **Laba Ditahan (Retained Earnings)**.
+

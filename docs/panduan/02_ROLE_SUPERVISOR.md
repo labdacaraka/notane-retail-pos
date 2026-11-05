@@ -75,3 +75,4 @@ Supervisor memimpin pelaksanaan *cycle count* (stock opname harian untuk barang 
 4. Masukkan jumlah fisik aktual yang ada di rak toko.
 5. Pilih alasan selisih (misal: *Barang Hilang/Shrinkage*, *Selisih Hitung Awal*, *Barang Pecah/Bocor*).
 6. Klik **"Terapkan Penyesuaian"**. Sistem akan mengoreksi saldo persediaan dan membukukan beban selisih opname secara otomatis.
+
