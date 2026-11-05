@@ -478,6 +478,11 @@ const permissionModuleIcons: Record<string, string> = {
   supervisor: 'fluent-color:person-passkey-24',
   settings: 'fluent-color:settings-24',
   audit: 'fluent-color:shield-checkmark-24',
+  database: 'fluent-color:server-multiple-24',
+  display_banners: 'fluent-color:image-24',
+  other_income: 'fluent-color:money-calculator-24',
+  analytics: 'fluent-color:data-pie-24',
+  system: 'fluent-color:plug-disconnected-24',
 }
 
 const permissionModuleLabels: Record<string, string> = {
@@ -508,6 +513,11 @@ const permissionModuleLabels: Record<string, string> = {
   supervisor: 'Otorisasi & Biometrik Supervisor',
   settings: 'Pengaturan Sistem & Struk',
   audit: 'Jejak Audit Keamanan',
+  database: 'Cadangan & Pemulihan Database',
+  display_banners: 'Banner Layar Pelanggan',
+  other_income: 'Pendapatan Lain-lain',
+  analytics: 'Statistik & Analisis Bisnis',
+  system: 'Sistem & Lisensi Toko',
 }
 
 function openCreateRole() {
@@ -578,9 +588,14 @@ function toast(msg: string, type: 'success' | 'error' | 'info' = 'info') {
 const roleColors: Record<string, { bg: string; text: string; border: string }> = {
   SUPERADMIN: { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-400' },
   STORE_MANAGER: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-400' },
+  ASSISTANT_MANAGER: { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-400' },
   SUPERVISOR: { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-400' },
   CASHIER: { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-400' },
   WAREHOUSE: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-400' },
+  PURCHASING: { bg: 'bg-teal-100', text: 'text-teal-800', border: 'border-teal-400' },
+  ACCOUNTING: { bg: 'bg-indigo-100', text: 'text-indigo-800', border: 'border-indigo-400' },
+  INTERNAL_AUDIT: { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-400' },
+  MERCHANDISER: { bg: 'bg-fuchsia-100', text: 'text-fuchsia-800', border: 'border-fuchsia-400' },
 }
 
 function getRoleColor(name: string) {

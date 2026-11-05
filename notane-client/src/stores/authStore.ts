@@ -27,7 +27,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value)
   const isSupervisor = computed(() =>
-    ['SUPERVISOR', 'STORE_MANAGER', 'SUPERADMIN'].includes(user.value?.role_name || '')
+    ['SUPERVISOR', 'ASSISTANT_MANAGER', 'STORE_MANAGER', 'SUPERADMIN'].includes(user.value?.role_name || '')
   )
   const isImpersonating = computed(() => !!impersonatorBackup.value)
   const impersonator = computed(() => impersonatorBackup.value?.originalUser || null)
