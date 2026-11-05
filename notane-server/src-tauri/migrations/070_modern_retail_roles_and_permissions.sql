@@ -199,8 +199,7 @@ INSERT INTO permissions (code, description) VALUES
 ('database:restore', 'Memulihkan database dari berkas ZIP cadangan SQL setelah validasi kompatibilitas versi'),
 ('system:license_sync', 'Melakukan sinkronisasi lisensi retail dengan server lisensi Notane'),
 ('system:license_logs', 'Melihat riwayat log koneksi dan ketahanan verifikasi lisensi offline')
-ON CONFLICT (code) DO UPDATE SET
-    description = EXCLUDED.description;
+ON CONFLICT (code) DO NOTHING;
 
 
 -- ============================================================================
