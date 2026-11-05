@@ -637,7 +637,7 @@ async fn handle_update_check(
         "SELECT id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, component, min_server_version
          FROM provider_app_releases
-         WHERE (is_published = 1 OR is_published = true OR is_published IS NULL)
+         WHERE (is_published IS NULL OR CAST(is_published AS TEXT) IN ('1', 'true', 't', 'TRUE'))
            AND (component = ? OR (component IS NULL AND ? = 'server'))"
     );
 
