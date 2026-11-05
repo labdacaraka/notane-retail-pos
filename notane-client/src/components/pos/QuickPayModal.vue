@@ -432,18 +432,24 @@ async function handleCompletePayment() {
     const payload = {
       customer_id: cartStore.selectedCustomer?.id,
       voucher_code: cartStore.voucherCode || undefined,
-      items: cartStore.items.map((it) => ({
-        product_id: it.product.id,
-        unit_id: it.selected_unit.unit_id,
-        quantity: it.quantity,
-        unit_selling_price: it.unit_price,
-        discount_percent: it.discount_percent,
-        discount_amount: Number((it.discount_amount || 0).toFixed(2)),
-        flash_sale_id: it.flash_sale_id,
-        original_price: it.original_price,
-        flash_sale_discount: it.flash_sale_discount,
-        member_discount: it.member_discount,
-      })),
+      items: cartStore.items.map((it) => {
+        const isFreeGift = Boolean(it.is_auto_gift || it.is_free_item)
+        const unitPriceForGift = Number(it.selected_unit?.selling_price || it.original_price || it.unit_price || 0)
+        return {
+          product_id: it.product.id,
+          unit_id: it.selected_unit.unit_id,
+          quantity: it.quantity,
+          unit_selling_price: isFreeGift ? 0 : it.unit_price,
+          discount_percent: isFreeGift ? 0 : it.discount_percent,
+          discount_amount: isFreeGift
+            ? Number((unitPriceForGift * it.quantity).toFixed(2))
+            : Number((it.discount_amount || 0).toFixed(2)),
+          flash_sale_id: it.flash_sale_id,
+          original_price: it.original_price,
+          flash_sale_discount: it.flash_sale_discount,
+          member_discount: it.member_discount,
+        }
+      }),
       payments: finalPayments.map((p) => ({
         payment_method_id: p.payment_method_id,
         amount: p.category === 'POINTS' ? 0 : p.amount,

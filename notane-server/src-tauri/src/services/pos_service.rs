@@ -1033,6 +1033,7 @@ pub async fn checkout(
     let mut total_tier_discount = Decimal::ZERO;
     let mut total_retail_promo_discount = Decimal::ZERO;
     let mut total_manual_discount = Decimal::ZERO;
+    let mut total_free_gift_discount = Decimal::ZERO;
 
     struct PreparedItem {
         product_id: Uuid,
@@ -1428,6 +1429,9 @@ pub async fn checkout(
         total_member_discount += item_mem_disc;
         total_tier_discount += item_tier_disc;
         total_manual_discount += item_safe_manual_disc;
+        if is_valid_free_gift {
+            total_free_gift_discount += line_disc;
+        }
         if let Some(r_disc) = retail_promo_discounts.get(&product.id) {
             total_retail_promo_discount += *r_disc;
         }
@@ -1781,8 +1785,8 @@ pub async fn checkout(
     };
     let change_amount = (total_paid - effective_payable_total).max(Decimal::ZERO);
 
-    // Total penghematan belanja: flash sale + diskon member + tier grosir + diskon voucher/item/promo
-    let total_savings_amount = total_flash_sale_discount + total_member_discount + total_tier_discount + total_retail_promo_discount + total_manual_discount + voucher_discount;
+    // Total penghematan belanja: flash sale + diskon member + tier grosir + diskon voucher/item/promo/hadiah gratis
+    let total_savings_amount = total_flash_sale_discount + total_member_discount + total_tier_discount + total_retail_promo_discount + total_manual_discount + total_free_gift_discount + voucher_discount;
 
     let sale = sqlx::query_as::<_, Sale>(
         "INSERT INTO sales (
@@ -2036,7 +2040,7 @@ pub async fn checkout(
         Decimal::ZERO
     };
 
-    let other_item_discounts = total_tier_discount + total_retail_promo_discount + total_manual_discount;
+    let other_item_discounts = total_tier_discount + total_retail_promo_discount + total_manual_discount + total_free_gift_discount;
 
     let total_debits = net_cash_in_drawer
         + total_non_cash_paid
@@ -2120,61 +2124,57 @@ pub async fn checkout(
     }
 
     if total_flash_sale_discount > Decimal::ZERO {
-        if let Some(acc_id) = acc_disc_fs {
-            sqlx::query(
-                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Potongan Penjualan Flash Sale', $4)",
-            )
-            .bind(journal_id)
-            .bind(acc_id)
-            .bind(total_flash_sale_discount)
-            .bind(line_outlet_id)
-            .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
-        }
+        let acc_id = acc_disc_fs.unwrap_or(acc_sales);
+        sqlx::query(
+            "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Potongan Penjualan Flash Sale', $4)",
+        )
+        .bind(journal_id)
+        .bind(acc_id)
+        .bind(total_flash_sale_discount)
+        .bind(line_outlet_id)
+        .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
     }
 
     if total_member_discount > Decimal::ZERO {
-        if let Some(acc_id) = acc_disc_mem {
-            sqlx::query(
-                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Potongan Penjualan Diskon Member', $4)",
-            )
-            .bind(journal_id)
-            .bind(acc_id)
-            .bind(total_member_discount)
-            .bind(line_outlet_id)
-            .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
-        }
+        let acc_id = acc_disc_mem.unwrap_or(acc_sales);
+        sqlx::query(
+            "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Potongan Penjualan Diskon Member', $4)",
+        )
+        .bind(journal_id)
+        .bind(acc_id)
+        .bind(total_member_discount)
+        .bind(line_outlet_id)
+        .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
     }
 
     if voucher_discount > Decimal::ZERO {
-        if let Some(acc_id) = acc_disc_vch {
-            let memo = if let Some(vc) = &req.voucher_code {
-                format!("Potongan Penjualan Voucher ({})", vc)
-            } else {
-                "Potongan Penjualan Voucher".to_string()
-            };
-            sqlx::query(
-                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, $4, $5)",
-            )
-            .bind(journal_id)
-            .bind(acc_id)
-            .bind(voucher_discount)
-            .bind(memo)
-            .bind(line_outlet_id)
-            .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
-        }
+        let acc_id = acc_disc_vch.unwrap_or(acc_sales);
+        let memo = if let Some(vc) = &req.voucher_code {
+            format!("Potongan Penjualan Voucher ({})", vc)
+        } else {
+            "Potongan Penjualan Voucher".to_string()
+        };
+        sqlx::query(
+            "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, $4, $5)",
+        )
+        .bind(journal_id)
+        .bind(acc_id)
+        .bind(voucher_discount)
+        .bind(memo)
+        .bind(line_outlet_id)
+        .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
     }
 
     if other_item_discounts > Decimal::ZERO {
-        if let Some(acc_id) = acc_disc_item {
-            sqlx::query(
-                "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Potongan Penjualan Diskon Kasir / Grosir / Promo', $4)",
-            )
-            .bind(journal_id)
-            .bind(acc_id)
-            .bind(other_item_discounts)
-            .bind(line_outlet_id)
-            .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
-        }
+        let acc_id = acc_disc_item.unwrap_or(acc_sales);
+        sqlx::query(
+            "INSERT INTO journal_lines (journal_id, account_id, debit, credit, memo, outlet_id) VALUES ($1, $2, $3, 0, 'Potongan Penjualan Diskon Kasir / Grosir / Promo / Hadiah', $4)",
+        )
+        .bind(journal_id)
+        .bind(acc_id)
+        .bind(other_item_discounts)
+        .bind(line_outlet_id)
+        .execute(&mut *tx).await.map_err(|e| format!("Gagal membuat baris jurnal: {}", e))?;
     }
 
     if rounding_down_amount > Decimal::ZERO {

@@ -407,11 +407,14 @@ async fn checkout_handler(
     let user_id = claims.sub;
     match crate::services::pos_service::checkout(&pool, user_id, payload).await {
         Ok(res) => (StatusCode::OK, Json(json!({ "success": true, "data": res }))).into_response(),
-        Err(err) => (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "success": false, "message": err })),
-        )
-            .into_response(),
+        Err(err) => {
+            tracing::error!("[CHECKOUT ERROR] {}", err);
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "success": false, "message": err })),
+            )
+                .into_response()
+        }
     }
 }
 
