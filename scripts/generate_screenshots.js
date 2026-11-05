@@ -449,3 +449,4 @@ async function loginUser(page, username, password = 'admin123') {
   console.log('🎉 Semua screenshot panduan berhasil diambil dan ditandai!');
   await browser.close();
 })();
+

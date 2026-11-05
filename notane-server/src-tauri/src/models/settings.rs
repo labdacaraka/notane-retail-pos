@@ -48,8 +48,22 @@ pub struct ReceiptSettings {
     pub supervisor_biometric_policy: String,
     #[serde(default = "default_face_threshold")]
     pub face_match_threshold: rust_decimal::Decimal,
+    #[serde(default = "default_true")]
+    pub enable_tax: bool,
+    #[serde(default = "default_tax_rate")]
+    pub default_tax_rate: rust_decimal::Decimal,
+    #[serde(default)]
+    pub tax_inclusive: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_tax_rate() -> rust_decimal::Decimal {
+    rust_decimal::Decimal::from(11)
 }
 
 fn default_rounding_mode() -> String {
@@ -103,6 +117,9 @@ pub struct UpdateReceiptSettingsRequest {
     pub supervisor_biometric_mode: Option<String>,
     pub supervisor_biometric_policy: Option<String>,
     pub face_match_threshold: Option<rust_decimal::Decimal>,
+    pub enable_tax: Option<bool>,
+    pub default_tax_rate: Option<rust_decimal::Decimal>,
+    pub tax_inclusive: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

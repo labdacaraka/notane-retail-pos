@@ -1058,6 +1058,15 @@ pub async fn checkout(
     let mut prepared_items = Vec::new();
     let mut allocated_free_items: std::collections::HashMap<Uuid, Decimal> = std::collections::HashMap::new();
 
+    let (enable_tax, _default_tax_rate) = sqlx::query_as::<_, (bool, Decimal)>(
+        "SELECT enable_tax, default_tax_rate FROM receipt_settings WHERE outlet_id = $1 OR outlet_id IS NULL ORDER BY outlet_id NULLS LAST LIMIT 1"
+    )
+    .bind(outlet_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .unwrap_or(None)
+    .unwrap_or((true, Decimal::from(11)));
+
     for item in &req.items {
         let mut product = sqlx::query_as::<_, Product>(
             "SELECT * FROM products WHERE id = $1",
@@ -1382,7 +1391,7 @@ pub async fn checkout(
             let line_gross_total = normal_base_price * item.quantity;
             let taxable_amount = (line_gross_total - total_item_disc).max(Decimal::ZERO);
 
-            let calculated_tax = if product.tax_percent > Decimal::ZERO {
+            let calculated_tax = if enable_tax && product.tax_percent > Decimal::ZERO {
                 ((taxable_amount * product.tax_percent) / Decimal::from(100)).round_dp(2)
             } else {
                 Decimal::ZERO

@@ -48,16 +48,24 @@ Notane Retail menerapkan arsitektur perizinan granular di mana setiap tombol, ak
 
 ---
 
-## 3. PENGATURAN PARAMETER RETAIL & FORMAT STRUK BELANJA
+## 3. PENGATURAN STRUK, PEMBULATAN, PAJAK & PARAMETER RETAIL
 
-Superadmin mengonfigurasi format struk dan kebijakan perhitungan belanja kasir:
-1. **Pengaturan Desain Struk (`/admin/receipt-settings`):**
-   - Menentukan lebar kertas printer thermal (58mm atau 80mm).
-   - Mengatur header struk (nama toko, alamat cabang, nomor telepon, NPWP).
-   - Mengatur footer struk (pesan terima kasih, kebijakan retur barang maksimal 1x24 jam dengan membawa struk, akun Instagram toko).
-   - Pengaturan cetak logo toko pada printer thermal.
-2. **Parameter Retail (`/admin/parameters`):**
-   - Kebijakan tarif Pajak Pertambahan Nilai (PPN 11% atau 12%).
-   - Kebijakan pembulatan kembalian kasir (*Rounding Rules*, misal: pembulatan Rp 100 ke bawah atau ke atas).
-   - Kebijakan batas maksimal diskon manual kasir tanpa persetujuan pimpinan.
+Superadmin mengonfigurasi format struk belanja, pembulatan kembalian kas, kebijakan tarif pajak PPN, serta master klasifikasi retail:
+
+1. **Pengaturan Desain Struk, Pembulatan & Pajak (`/admin/receipt-settings`):**
+   - **Profil Toko & Header:** Menentukan nama toko, slogan, alamat gerai, nomor telepon/WhatsApp, dan NPWP toko.
+   - **Pesan Footer:** Mengatur pesan keramahan, syarat retur barang membawa struk asli, dan akun media sosial.
+   - **Format Cetak Thermal:** Memilih lebar kertas thermal 58mm atau 80mm, menguji cetak thermal (*Uji Cetak*), serta visibilitas barcode dan rincian diskon.
+   - **Kebijakan Pembulatan Kas Kasir (*Cash Rounding*):** Menentukan metode pembulatan nominal uang kembalian tunai (Tanpa Pembulatan, Bulatkan Turun Rp 100 / Rp 500, Bulatkan Naik Rp 100 / Rp 500, atau Opsi Donasi Receh ke Akun Titipan Donasi Konsumen 2104).
+   - **Ambang Batas Kas Laci Kasir (*Max Cash Drawer Limit*):** Menetapkan limit saldo fisik laci kasir (misal Rp 2.000.000,-) untuk peringatan otomatis setor kas laci (*Cash Drop*).
+   - **Kebijakan & Tarif Pajak PPN:** Mengaktifkan/menonaktifkan pemungutan PPN toko (status PKP / non-PKP), mengatur persentase tarif PPN standar toko (11%, 12%, atau 0%), serta opsi harga jual katalog termasuk pajak (*Tax-Inclusive*) atau terpisah (*Tax-Exclusive*).
+
+2. **Parameter Retail & Master Klasifikasi Toko (`/admin/parameters`):**
+   - **Satuan Produk (*Units*):** Menambah dan mengelola satuan barang (`PCS`, `PACK`, `BOX`, `KG`, dll.) serta penanda bilangan pecahan (*is_fractional*).
+   - **Kategori Produk (*Categories*):** Hierarki kategori dan sub-kategori produk ritel toko.
+   - **Merek Produk (*Brands*):** Master daftar nama brand/prinsipal produk.
+   - **Pemasok / Vendor (*Suppliers*):** Master data rekanan distributor pemasok barang dagang beserta termin jatuh tempo pembayaran (TOP).
+   - **Metode Penilaian HPP Persediaan (*Costing Method*):** Menetapkan metode biaya persediaan (FIFO atau Moving Average / WMA).
+   - **Keamanan Biometrik Supervisor:** Konfigurasi pemindai sidik jari (*fingerprint*) USB atau kamera pengenal wajah (*face recognition*) untuk otorisasi supervisor di meja kasir.
+   - **Direktori Penyimpanan & Backup:** Konfigurasi path folder lokal penyimpanan berkas cadangan database.
 

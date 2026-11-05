@@ -597,6 +597,17 @@ async fn create_product_handler(
 
     let prod_id = Uuid::new_v4();
 
+    let default_tax = match sqlx::query_as::<_, (bool, Decimal)>(
+        "SELECT enable_tax, default_tax_rate FROM receipt_settings ORDER BY created_at ASC LIMIT 1"
+    )
+    .fetch_optional(&mut *tx)
+    .await
+    .unwrap_or(None) {
+        Some((true, rate)) => rate,
+        Some((false, _)) => Decimal::ZERO,
+        None => Decimal::from(11),
+    };
+
     let res = sqlx::query_as::<_, Product>(
         "INSERT INTO products (
             id, category_id, base_unit_id, sku, barcode, name, brand_id, costing_method,
@@ -617,7 +628,7 @@ async fn create_product_handler(
     .bind(payload.base_selling_price)
     .bind(payload.min_stock.unwrap_or(Decimal::ZERO))
     .bind(payload.max_stock.unwrap_or(Decimal::ZERO))
-    .bind(payload.tax_percent.unwrap_or_else(|| Decimal::from(11)))
+    .bind(payload.tax_percent.unwrap_or(default_tax))
     .bind(payload.is_weight_embedded.unwrap_or(false))
     .bind(payload.image_url)
     .bind(payload.auto_adjust_selling_price.unwrap_or(false))
@@ -3428,6 +3439,9 @@ async fn save_receipt_settings_handler(
     let bio_mode = payload.supervisor_biometric_mode.unwrap_or_else(|| "OFF".to_string());
     let bio_policy = payload.supervisor_biometric_policy.unwrap_or_else(|| "OPTIONAL".to_string());
     let face_thresh = payload.face_match_threshold.unwrap_or_else(|| rust_decimal::Decimal::from(75));
+    let enable_tax = payload.enable_tax.unwrap_or(true);
+    let default_tax_rate = payload.default_tax_rate.unwrap_or_else(|| rust_decimal::Decimal::from(11));
+    let tax_inclusive = payload.tax_inclusive.unwrap_or(false);
 
     let result = if let Some(id) = existing_id {
         sqlx::query_as::<_, ReceiptSettings>(
@@ -3441,8 +3455,9 @@ async fn save_receipt_settings_handler(
                  show_tax_summary = $22, show_savings_summary = $23,
                  cash_rounding_mode = $24, max_cash_drawer_limit = $25, store_logo_url = $26,
                  supervisor_biometric_mode = $27, supervisor_biometric_policy = $28, face_match_threshold = $29,
+                 enable_tax = $30, default_tax_rate = $31, tax_inclusive = $32,
                  updated_at = CURRENT_TIMESTAMP
-             WHERE id = $30
+             WHERE id = $33
              RETURNING *"
         )
         .bind(&payload.store_name)
@@ -3474,6 +3489,9 @@ async fn save_receipt_settings_handler(
         .bind(&bio_mode)
         .bind(&bio_policy)
         .bind(face_thresh)
+        .bind(enable_tax)
+        .bind(default_tax_rate)
+        .bind(tax_inclusive)
         .bind(id)
         .fetch_one(&pool)
         .await
@@ -3488,8 +3506,9 @@ async fn save_receipt_settings_handler(
                 show_barcode, show_flash_sale_discount, show_member_discount,
                 show_tax_summary, show_savings_summary,
                 cash_rounding_mode, max_cash_drawer_limit, store_logo_url,
-                supervisor_biometric_mode, supervisor_biometric_policy, face_match_threshold
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
+                supervisor_biometric_mode, supervisor_biometric_policy, face_match_threshold,
+                enable_tax, default_tax_rate, tax_inclusive
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
              RETURNING *"
         )
         .bind(&payload.store_name)
@@ -3521,6 +3540,9 @@ async fn save_receipt_settings_handler(
         .bind(&bio_mode)
         .bind(&bio_policy)
         .bind(face_thresh)
+        .bind(enable_tax)
+        .bind(default_tax_rate)
+        .bind(tax_inclusive)
         .fetch_one(&pool)
         .await
     };
@@ -4050,6 +4072,17 @@ async fn import_products_handler(
         group_map.insert(format!("{}", id), id);
     }
 
+    let default_tax = match sqlx::query_as::<_, (bool, Decimal)>(
+        "SELECT enable_tax, default_tax_rate FROM receipt_settings ORDER BY created_at ASC LIMIT 1"
+    )
+    .fetch_optional(&mut *tx)
+    .await
+    .unwrap_or(None) {
+        Some((true, rate)) => rate,
+        Some((false, _)) => Decimal::ZERO,
+        None => Decimal::from(11),
+    };
+
     for item in payload.products {
         let sku = item.sku.trim();
         let barcode = item.barcode.trim();
@@ -4144,7 +4177,7 @@ async fn import_products_handler(
         let base_selling_price = item.base_selling_price;
         let min_stock = item.min_stock.unwrap_or(Decimal::ZERO);
         let max_stock = item.max_stock.unwrap_or(Decimal::ZERO);
-        let tax_percent = item.tax_percent.unwrap_or_else(|| Decimal::from(11));
+        let tax_percent = item.tax_percent.unwrap_or(default_tax);
         let is_weight = item.is_weight_embedded.unwrap_or(false);
         let has_image = item.image_url.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false);
 

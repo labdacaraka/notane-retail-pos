@@ -870,6 +870,13 @@ async function setupInvoiceFromGrn(grnInput: any) {
   showInvoiceModal.value = true
 }
 
+function autoCalculatePurchaseTax() {
+  const sub = Number(invoiceForm.value.subtotal) || 0
+  const disc = Number(invoiceForm.value.discount_amount) || 0
+  const dpp = Math.max(0, sub - disc)
+  invoiceForm.value.tax_amount = Math.round((dpp * 11) / 100)
+}
+
 async function handleSaveInvoice() {
   if (!authStore.hasPermission(['purchasing:create', 'purchasing:update', 'purchasing:write'])) {
     showToast('Akses ditolak: Anda tidak memiliki wewenang menerbitkan faktur pembelian (purchasing:create / purchasing:update)', 'error')
@@ -3366,7 +3373,17 @@ async function handleDeleteSupplier(supp: any) {
                   />
                 </div>
                 <div class="flex items-center justify-between gap-2 text-slate-600">
-                  <span class="shrink-0">PPN / Pajak Masukan (Rp):</span>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <span>PPN / Pajak Masukan (Rp):</span>
+                    <button
+                      type="button"
+                      @click="autoCalculatePurchaseTax"
+                      class="text-[10px] bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-300 font-semibold px-1.5 py-0.5 rounded cursor-pointer transition"
+                      title="Hitung PPN otomatis 11% dari DPP (Subtotal - Diskon)"
+                    >
+                      Hitung 11%
+                    </button>
+                  </div>
                   <input
                     v-model.number="invoiceForm.tax_amount"
                     type="number"

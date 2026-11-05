@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import { api } from '@/services/api'
 import { usePrinterStore } from '@/stores/printerStore'
@@ -16,6 +16,7 @@ import {
   Database,
   Banknote,
   Coins,
+  Percent,
 } from 'lucide-vue-next'
 
 const printerStore = usePrinterStore()
@@ -47,6 +48,9 @@ interface ReceiptSettingsState {
   show_savings_summary: boolean
   cash_rounding_mode: string
   max_cash_drawer_limit: number
+  enable_tax: boolean
+  default_tax_rate: number
+  tax_inclusive: boolean
 }
 
 const form = reactive<ReceiptSettingsState>({
@@ -71,42 +75,60 @@ const form = reactive<ReceiptSettingsState>({
   show_savings_summary: true,
   cash_rounding_mode: 'NONE',
   max_cash_drawer_limit: 2000000,
+  enable_tax: true,
+  default_tax_rate: 11,
+  tax_inclusive: false,
 })
 
 const isLoading = ref(false)
 const isSaving = ref(false)
 const notification = ref<{ type: 'success' | 'error'; message: string } | null>(null)
-const activeTab = ref<'identity' | 'notes' | 'display' | 'cash'>('identity')
+const activeTab = ref<'identity' | 'notes' | 'display' | 'cash' | 'tax'>('identity')
 
-// Mock sample transaction data for live receipt preview
-const mockReceipt = {
-  invoiceNumber: 'INV/20260920/0042',
-  date: '20-09-2026 11:25:00',
-  cashierName: 'Asep Saepul (Kasir-01)',
-  customerName: 'Bpk. Hendra Wijaya (MEMBER)',
-  items: [
-    { name: 'Kopi Susu Gula Aren 250ml', qty: 2, catalogPrice: 21000, price: 18000, total: 42000, flash_sale_discount: 6000 },
-    { name: 'Roti Panggang Keju Coklat', qty: 1, catalogPrice: 25000, price: 22000, total: 25000, member_discount: 3000 },
-    { name: 'Mineral Water 600ml', qty: 3, catalogPrice: 5000, price: 5000, total: 15000 },
-  ],
-  subtotal: 82000,
-  discount: 2000,
-  flashSaleDiscount: 6000,
-  memberDiscount: 3000,
-  voucherDiscount: 2000,
-  total_flash_sale_discount: 6000,
-  total_member_discount: 3000,
-  itemDiscount: 0,
-  tax: 7810,
-  tax_amount: 7810,
-  total: 78810,
-  total_amount: 78810,
-  totalSavings: 11000,
-  total_savings_amount: 11000,
-  paymentMethod: 'CASH',
-  paidAmount: 100000,
-  change: 21190,
-}
+// Dynamic sample transaction data for live receipt preview reacting to tax & settings
+const mockReceipt = computed(() => {
+  const isTax = form.enable_tax !== false
+  const rate = Number(form.default_tax_rate) || 0
+  const subtotal = 82000
+  const flashSaleDiscount = 6000
+  const memberDiscount = 3000
+  const voucherDiscount = 2000
+  const totalSavings = flashSaleDiscount + memberDiscount + voucherDiscount
+  const taxable = Math.max(0, subtotal - totalSavings)
+  const tax = isTax ? Math.round((taxable * rate) / 100) : 0
+  const total = taxable + tax
+  const paidAmount = 100000
+  const change = Math.max(0, paidAmount - total)
+
+  return {
+    invoiceNumber: 'INV/20260920/0042',
+    date: '20-09-2026 11:25:00',
+    cashierName: 'Asep Saepul (Kasir-01)',
+    customerName: 'Bpk. Hendra Wijaya (MEMBER)',
+    items: [
+      { name: 'Kopi Susu Gula Aren 250ml', qty: 2, catalogPrice: 21000, price: 18000, total: 42000, flash_sale_discount: 6000 },
+      { name: 'Roti Panggang Keju Coklat', qty: 1, catalogPrice: 25000, price: 22000, total: 25000, member_discount: 3000 },
+      { name: 'Mineral Water 600ml', qty: 3, catalogPrice: 5000, price: 5000, total: 15000 },
+    ],
+    subtotal,
+    discount: voucherDiscount,
+    flashSaleDiscount,
+    memberDiscount,
+    voucherDiscount,
+    total_flash_sale_discount: flashSaleDiscount,
+    total_member_discount: memberDiscount,
+    itemDiscount: 0,
+    tax,
+    tax_amount: tax,
+    total,
+    total_amount: total,
+    totalSavings,
+    total_savings_amount: totalSavings,
+    paymentMethod: 'CASH',
+    paidAmount,
+    change,
+  }
+})
 
 onMounted(async () => {
   await fetchSettings()
@@ -140,6 +162,9 @@ async function fetchSettings() {
       form.show_savings_summary = data.show_savings_summary !== false
       form.cash_rounding_mode = data.cash_rounding_mode || 'NONE'
       form.max_cash_drawer_limit = Number(data.max_cash_drawer_limit) || 2000000
+      form.enable_tax = data.enable_tax !== false
+      form.default_tax_rate = data.default_tax_rate !== undefined ? Number(data.default_tax_rate) : 11
+      form.tax_inclusive = Boolean(data.tax_inclusive)
 
       // Sync with printer store
       printerStore.receiptSettings = data
@@ -203,6 +228,9 @@ async function resetToDefault() {
     form.show_flash_sale_discount = true
     form.show_member_discount = true
     form.show_savings_summary = true
+    form.enable_tax = true
+    form.default_tax_rate = 11
+    form.tax_inclusive = false
     showNotification('success', 'Formulir telah diisi dengan konfigurasi default. Klik Simpan untuk memperbarui database.')
 }
 
@@ -213,18 +241,18 @@ async function handleTestPrint() {
     printerStore.paperWidth = form.paper_width
 
     const testReceiptData = {
-      invoiceNumber: mockReceipt.invoiceNumber,
+      invoiceNumber: mockReceipt.value.invoiceNumber,
       date: new Date().toLocaleString('id-ID'),
-      cashierName: mockReceipt.cashierName,
-      customerName: mockReceipt.customerName,
-      items: mockReceipt.items,
-      subtotal: mockReceipt.subtotal,
-      discount: mockReceipt.discount,
-      tax: mockReceipt.tax,
-      total: mockReceipt.total,
-      paymentMethod: mockReceipt.paymentMethod,
-      paidAmount: mockReceipt.paidAmount,
-      change: mockReceipt.change,
+      cashierName: mockReceipt.value.cashierName,
+      customerName: mockReceipt.value.customerName,
+      items: mockReceipt.value.items,
+      subtotal: mockReceipt.value.subtotal,
+      discount: mockReceipt.value.discount,
+      tax: mockReceipt.value.tax,
+      total: mockReceipt.value.total,
+      paymentMethod: mockReceipt.value.paymentMethod,
+      paidAmount: mockReceipt.value.paidAmount,
+      change: mockReceipt.value.change,
     }
 
     const res = await printerStore.printReceipt(testReceiptData)
@@ -368,6 +396,17 @@ const formatRupiah = (val: any) => formatCurrency(val, true)
             >
               <Coins class="w-3.5 h-3.5" />
               <span>4. Pembulatan & Limit Kasir</span>
+            </button>
+
+            <button
+              @click="activeTab = 'tax'"
+              class="px-4 py-2 rounded-t-lg text-xs font-bold transition flex items-center gap-2 border-t border-x cursor-pointer"
+              :class="activeTab === 'tax'
+                ? 'bg-white text-purple-700 border-slate-300 border-b-white -mb-px shadow-2xs'
+                : 'text-slate-500 hover:text-slate-800 border-transparent hover:bg-slate-100'"
+            >
+              <Percent class="w-3.5 h-3.5" />
+              <span>5. Tarif Pajak (PPN)</span>
             </button>
           </div>
 
@@ -814,6 +853,138 @@ const formatRupiah = (val: any) => formatCurrency(val, true)
                 <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
                   Ketika total akumulasi uang tunai di laci register melebihi batas ini (misal Rp 2.000.000,-), sistem POS akan menampilkan peringatan keamanan mencolok agar kasir segera melakukan <strong>Setor Kas (Cash Drop)</strong> ke brankas/supervisor.
                 </p>
+              </div>
+            </div>
+
+            <!-- TAB 5: PENGATURAN TARIF PAJAK (PPN) -->
+            <div v-show="activeTab === 'tax'" class="space-y-5">
+              <div class="bg-sky-50/80 border border-sky-200 rounded-xl p-3.5 text-xs text-sky-950 space-y-1">
+                <div class="font-bold flex items-center gap-1.5 text-sky-900">
+                  <Percent class="w-4 h-4 shrink-0 text-sky-700" />
+                  <span>Pengaturan Kebijakan & Tarif Pajak Pertambahan Nilai (PPN)</span>
+                </div>
+                <p class="text-[11.5px] text-slate-700 leading-relaxed">
+                  Konfigurasikan tarif PPN toko sesuai status Pengusaha Kena Pajak (PKP) atau non-PKP. Sistem secara otomatis menerapkan tarif ini pada kasir POS, faktur pembelian, dan pencatatan akuntansi jurnal umum (Hutang PPN Keluaran 2102 & Pajak Masukan 1104).
+                </p>
+              </div>
+
+              <!-- Status Pemungutan PPN -->
+              <div class="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <div class="text-xs font-bold text-slate-800">Aktifkan Pemungutan PPN Toko</div>
+                  <div class="text-[11px] text-slate-500">
+                    Aktifkan jika toko berstatus Pengusaha Kena Pajak (PKP). Jika dinonaktifkan (non-PKP/Bebas Pajak), kalkulasi pajak kasir menjadi Rp 0.
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    v-model="form.enable_tax"
+                    class="sr-only peer"
+                  />
+                  <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              <!-- Input Tarif Pajak PPN Standar -->
+              <div :class="{ 'opacity-60 pointer-events-none': !form.enable_tax }" class="space-y-3 transition">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">
+                    Tarif Pajak PPN Standar Toko (%) <span class="text-rose-500">*</span>
+                  </label>
+                  <div class="relative w-full sm:w-64">
+                    <input
+                      v-model.number="form.default_tax_rate"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      placeholder="11"
+                      class="w-full pl-3.5 pr-8 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition font-mono"
+                    />
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-xs font-bold text-slate-500">
+                      %
+                    </div>
+                  </div>
+                  <p class="text-[11px] text-slate-400 mt-1">
+                    Tarif acuan saat pendaftaran produk baru, kalkulasi checkout kasir POS, dan impor katalog barang.
+                  </p>
+                </div>
+
+                <!-- Quick Preset Buttons -->
+                <div class="flex items-center gap-2 pt-1 flex-wrap">
+                  <span class="text-[11px] text-slate-500 font-semibold">Preset Cepat:</span>
+                  <button
+                    type="button"
+                    @click="form.default_tax_rate = 11"
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md border transition cursor-pointer"
+                    :class="form.default_tax_rate === 11 ? 'bg-purple-50 text-purple-700 border-purple-300' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'"
+                  >
+                    11% (Standar Saat Ini)
+                  </button>
+                  <button
+                    type="button"
+                    @click="form.default_tax_rate = 12"
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md border transition cursor-pointer"
+                    :class="form.default_tax_rate === 12 ? 'bg-purple-50 text-purple-700 border-purple-300' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'"
+                  >
+                    12% (Regulasi UU HPP)
+                  </button>
+                  <button
+                    type="button"
+                    @click="form.default_tax_rate = 0"
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-md border transition cursor-pointer"
+                    :class="form.default_tax_rate === 0 ? 'bg-purple-50 text-purple-700 border-purple-300' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'"
+                  >
+                    0% (Bebas PPN)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Pajak Inklusif vs Eksklusif & Tampilan Struk -->
+              <div :class="{ 'opacity-60 pointer-events-none': !form.enable_tax }" class="border-t border-slate-200 pt-4 space-y-3 transition">
+                <div class="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <div>
+                    <div class="text-xs font-bold text-slate-800">Harga Jual Katalog Termasuk PPN (Pajak Inklusif)</div>
+                    <div class="text-[11px] text-slate-500">
+                      Aktifkan jika harga jual di rak kasir sudah bersih termasuk pajak. Matikan jika PPN ditambahkan di atas harga subtotal transaksi.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    v-model="form.tax_inclusive"
+                    class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 cursor-pointer"
+                  />
+                </div>
+
+                <div class="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <div>
+                    <div class="text-xs font-bold text-slate-800">Tampilkan Rincian Pajak (PPN) pada Struk Thermal</div>
+                    <div class="text-[11px] text-slate-500">
+                      Cetak baris "Pajak (PPN): Rp ..." pada struk belanja kertas pelanggan.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    v-model="form.show_tax_summary"
+                    class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">
+                    Nomor Pokok Wajib Pajak Toko (NPWP / Tax ID)
+                  </label>
+                  <input
+                    v-model="form.tax_id"
+                    type="text"
+                    placeholder="Misal: 01.234.567.8-901.000"
+                    class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition font-mono"
+                  />
+                  <p class="text-[11px] text-slate-400 mt-1">
+                    NPWP toko akan dicetak di bagian header struk belanja sebagai bukti kepatuhan faktur pajak ritel.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

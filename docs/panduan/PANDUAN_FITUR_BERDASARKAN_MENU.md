@@ -28,8 +28,8 @@ Dokumen ini memuat panduan komprehensif mengenai **seluruh fitur dan kapabilitas
    - [2.17. Pendapatan Lain-lain (`/admin/other-income`)](#217-pendapatan-lain-lain-adminother-income)
 3. [Grup Menu Pengaturan & Keamanan Sistem](#3-grup-menu-pengaturan--keamanan-sistem)
    - [3.1. Pengguna & Hak Akses Peran RBAC (`/admin/users`)](#31-pengguna--hak-akses-peran-rbac-adminusers)
-   - [3.2. Desain Struk Belanja (`/admin/receipt-settings`)](#32-desain-struk-belanja-adminreceipt-settings)
-   - [3.3. Parameter Retail & Kebijakan Toko (`/admin/parameters`)](#33-parameter-retail--kebijakan-toko-adminparameters)
+   - [3.2. Desain Struk Belanja, Pembulatan Kas & Pengaturan Pajak (`/admin/receipt-settings`)](#32-desain-struk-belanja-pembulatan-kas--pengaturan-pajak-adminreceipt-settings)
+   - [3.3. Parameter Retail & Master Klasifikasi Toko (`/admin/parameters`)](#33-parameter-retail--master-klasifikasi-toko-adminparameters)
    - [3.4. Jejak Audit Keamanan / Audit Logs (`/admin/audit-logs`)](#34-jejak-audit-keamanan--audit-logs-adminaudit-logs)
 4. [Fitur Kontrol Notane Retail Server](#4-fitur-kontrol-notane-retail-server)
 
@@ -277,20 +277,64 @@ Menu Kasir adalah antarmuka utama yang digunakan oleh staf kasir untuk melayani 
 
 ---
 
-### 3.2. Desain Struk Belanja (`/admin/receipt-settings`)
+### 3.2. Desain Struk Belanja, Pembulatan Kas & Pengaturan Pajak (`/admin/receipt-settings`)
 *Ikon: `Document Text` | Akses: SUPERADMIN, STORE_MANAGER*
-- **Kustomisasi Cetakan Thermal:** Mendukung format lebar printer thermal standar kasir: **58mm** dan **80mm**.
-- **Header Struk Toko:** Mengatur nama badan usaha, alamat cabang toko, nomor telepon layanan pelanggan, dan NPWP toko.
-- **Footer Pesan Struk:** Mengatur pesan keramahan (*"Terima kasih atas kunjungan Anda"*), syarat penukaran barang retur (maksimal 1x24 jam membawa struk asli), dan akun media sosial toko.
-- **Logo Struk Kasir:** Mengaktifkan opsi cetak logo monokrom pada printer thermal yang kompatibel dengan protokol ESC/POS.
+
+Menu ini merupakan pusat pengaturan terpadu untuk format cetak struk thermal kasir, profil identitas toko, metode pembulatan uang kembalian kasir, serta kebijakan dan tarif Pajak Pertambahan Nilai (PPN):
+
+- **1. Profil & Identitas Toko (Tab 1):**
+  - **Nama Toko / Unit Usaha:** Dicetak paling atas pada struk dengan format teks tebal (*Bold & Double Height*).
+  - **Slogan / Tagline Usaha:** Memperkuat citra brand gerai ritel tepat di bawah nama toko.
+  - **Alamat Lengkap Toko / Outlet:** Otomatis dibungkus (*word-wrap*) sesuai batas kolom kertas thermal.
+  - **Kontak & Website:** Nomor telepon/WhatsApp kasir dan alamat situs online toko.
+  - **NPWP / Tax ID Toko:** Nomor Pokok Wajib Pajak untuk dicetak pada header struk kasir (bagi toko PKP).
+
+- **2. Pesan Header & Footer (Tab 2):**
+  - **Catatan Pembuka (*Header Note*):** Teks salam pembuka (misal: *"Selamat Datang & Selamat Berbelanja"*).
+  - **Ketentuan Transaksi (*Footer Note 1*):** Kebijakan retur barang (misal: *"Barang yang sudah dibeli tidak dapat ditukar/dikembalikan"*).
+  - **Layanan Pelanggan (*Footer Note 2*):** Kontak saluran kritik, saran, atau aduan konsumen.
+  - **Media Sosial:** Akun promosi Instagram atau TikTok toko.
+
+- **3. Format Cetak & Kertas Thermal (Tab 3):**
+  - **Standar Lebar Kertas Thermal Toko:** Memilih ukuran standar kertas **58mm** (lebar 32 kolom karakter) atau ukuran supermarket **80mm** (lebar 48 kolom karakter).
+  - **Visibilitas Elemen Struk:** Toggle untuk menampilkan/menyembunyikan alamat toko, nomor telepon, nama kasir bertugas, barcode faktur transaksi, rincian diskon Flash Sale, rincian diskon member, rincian pajak (PPN), dan banner ucapan total penghematan pelanggan (*"ANDA TELAH HEMAT Rp ..."*).
+  - **Uji Cetak Thermal Langsung:** Tombol *"Uji Cetak Thermal"* untuk mengirimkan contoh struk pengujian langsung ke hardware printer kasir yang sedang terhubung.
+
+- **4. Kebijakan Pembulatan Pecahan Kas & Limit Laci Kasir (Tab 4):**
+  - **Metode Pembulatan Kas Tunai (*Cash Rounding Mode*):**
+    - *Tidak Ada Pembulatan (NONE):* Perhitungan kembalian kasir dihitung presisi sampai pecahan Rupiah asli (Rp 1,-).
+    - *Bulatkan ke Bawah ke Rp 100 Terdekat (ROUND_100_DOWN):* Menguntungkan konsumen (contoh: Total Rp 15.340 dibulatkan menjadi Rp 15.300, toko memberikan diskon selisih Rp 40).
+    - *Bulatkan ke Bawah ke Rp 500 Terdekat (ROUND_500_DOWN):* Memudahkan kembalian pecahan koin (contoh: Total Rp 15.750 dibulatkan menjadi Rp 15.500).
+    - *Bulatkan ke Atas ke Rp 100 Terdekat (ROUND_100_UP):* Penyesuaian kasir ke atas (contoh: Total Rp 15.340 dibulatkan menjadi Rp 15.400).
+    - *Bulatkan ke Atas ke Rp 500 Terdekat (ROUND_500_UP):* Penyesuaian kasir ke pecahan Rp 500 berikutnya.
+    - *Opsi Donasi Receh Kasir (DONATION_ROUND):* Kasir dapat menawarkan penyaluran sisa uang kembalian receh ke Dana Sosial / Donasi Konsumen (tercatat resmi pada akun akuntansi Titipan Donasi Konsumen COA 2104).
+  - **Ambang Batas Maksimal Uang Fisik di Laci Kasir (*Max Cash Drawer Limit*):** Menetapkan limit nominal uang kas laci (misal Rp 2.000.000,-). Ketika kas laci melampaui limit ini, kasir otomatis diperingatkan untuk melakukan **Setor Kas Laci (Cash Drop)** ke brankas/supervisor demi keamanan gerai.
+
+- **5. Kebijakan & Tarif Pajak Toko / PPN (Tab 5):**
+  - **Status Pemungutan PPN Toko:** Mengaktifkan atau menonaktifkan pemungutan PPN. Jika toko berstatus non-PKP / bebas pajak, opsi ini dimatikan sehingga perhitungan pajak di kasir otomatis menjadi Rp 0.
+  - **Tarif Pajak PPN Standar (%):** Menetapkan besaran persentase tarif PPN toko dengan tombol preset instan (**11%** Standar Saat Ini, **12%** Regulasi UU HPP, atau **0%** Bebas PPN).
+  - **Harga Katalog Termasuk PPN (Pajak Inklusif):** Menentukan apakah harga jual di rak kasir sudah bersih termasuk pajak (*Tax-Inclusive*) atau pajak baru ditambahkan di atas subtotal saat checkout (*Tax-Exclusive*).
+  - **Tampilkan Rincian Pajak (PPN) pada Struk Thermal:** Mengatur pencetakan baris ringkasan nilai PPN pada struk kertas pelanggan.
 
 ---
 
-### 3.3. Parameter Retail & Kebijakan Toko (`/admin/parameters`)
+### 3.3. Parameter Retail & Master Klasifikasi Toko (`/admin/parameters`)
 *Ikon: `Settings` | Akses: SUPERADMIN, STORE_MANAGER*
-- **Pengaturan Pajak PPN:** Mengaktifkan pemungutan PPN, menentukan tarif pajak (misal 11% atau 12%), dan opsi apakah harga barang di katalog sudah termasuk pajak (*Tax-Inclusive*) atau pajak ditambahkan saat checkout (*Tax-Exclusive*).
-- **Aturan Pembulatan Nota Kasir (*Rounding Rules*):** Mengatur penyesuaian nominal uang receh saat bayar tunai (misal: pembulatan Rp 100 terdekat ke atas, ke bawah, atau pembulatan matematis).
-- **Pengaturan Biometrik Supervisor:** Mengaktifkan otorisasi menggunakan pembaca sidik jari (*fingerprint scanner*) USB untuk verifikasi void dan diskon di meja kasir.
+
+Menu ini mengelola master klasifikasi operasional barang dagang, rekanan pemasok, metode akuntansi persediaan, dan keamanan perangkat keras biometrik:
+
+- **1. Satuan Produk (*Units* - Tab 1):** Mengelola unit satuan ukuran barang (misal: `PCS`, `PACK`, `BOX`, `DUS`, `KG`, `LTR`, `IKAT`) beserta penanda apakah satuan mendukung bilangan desimal/pecahan (*is_fractional* untuk produk timbangan buah/sayur).
+- **2. Kategori Produk (*Categories* - Tab 2):** Struktur hierarki pengelompokan jenis barang (misal: *Makanan Ringan*, *Minuman Dingin*, *Sembako*, *Perlengkapan Mandi*) dengan dukungan sub-kategori bertingkat (*Parent-Child Category*).
+- **3. Merek Produk (*Brands* - Tab 3):** Master data nama brand atau prinsipal produsen barang ritel untuk pelaporan omzet per merek.
+- **4. Pemasok & Vendor (*Suppliers* - Tab 4):** Database pemasok barang dagang gerai, mencakup kode supplier, nama perusahaan, narahubung (*contact person*), nomor WhatsApp, alamat kantor, dan termin jatuh tempo pembayaran (*Term of Payment / TOP* dalam hitungan hari).
+- **5. Metode Penilaian Biaya Persediaan / HPP (*Costing Method* - Tab 5):**
+  - *FIFO (First In, First Out):* Menetapkan harga pokok penjualan berdasarkan batch stok barang yang masuk paling awal.
+  - *Moving Average (WMA):* Menghitung nilai HPP persediaan berdasarkan rata-rata tertimbang harga beli setiap kali terjadi penerimaan barang baru.
+- **6. Konfigurasi Biometrik & Keamanan Supervisor (Tab 6):**
+  - *Mode Biometrik:* Pilihan integrasi sensor sidik jari (*fingerprint USB*) atau kamera pengenal wajah (*face recognition camera*) untuk supervisor toko.
+  - *Kebijakan Otorisasi Supervisor:* Mengatur apakah otorisasi pembatalan nota (void), diskon manual, dan retur wajib menggunakan biometrik (*MANDATORY*), opsional dengan PIN (*OPTIONAL*), atau PIN biasa (*OFF*).
+  - *Ambang Batas Pencocokan Wajah (*Face Match Threshold*):* Menentukan skor akurasi minimal (default 75%) untuk persetujuan pengenalan wajah.
+- **7. Direktori Penyimpanan & Backup (Tab 7):** Mengonfigurasi lokasi folder lokal pada komputer server tempat file arsip cadangan basis data (*database backup*) dan dokumen ekspor disimpan secara aman.
 
 ---
 
@@ -319,3 +363,4 @@ Menu Kasir adalah antarmuka utama yang digunakan oleh staf kasir untuk melayani 
 - **Pemulihan Basis Data (*Disaster Recovery Restore*):** Memulihkan data toko secara utuh dari file cadangan ZIP saat terjadi pergantian komputer atau pemulihan bencana.
 - **Personalisasi Identitas Toko (*White-Label Branding*):** Mengatur nama bisnis retail resmi, slogan toko, dan mengunggah logo utama toko yang otomatis disinkronkan ke seluruh kasir dan layar display pelanggan.
 - **Pembaruan Sistem Otomatis (*One-Click OTA Update*):** Memeriksa ketersediaan rilis versi software terbaru langsung ke server lisensi resmi Notane (`https://lisensi.notane.id`), mengunduh paket pembaruan, dan menerapkan instalasi secara otomatis tanpa perlu setup ulang.
+
