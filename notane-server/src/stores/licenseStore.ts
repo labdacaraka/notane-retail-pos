@@ -335,7 +335,10 @@ export const useLicenseStore = defineStore('license', {
       let lastErr = 'Gagal memeriksa pembaruan'
       for (const base of this.getCandidateUrls()) {
         try {
-          const res = await axios.post(`${base}/api/v1/system/updates/check`, {}, { timeout: 7000 })
+          const res = await axios.post(`${base}/api/v1/system/updates/check`, {
+            component: 'server',
+            current_version: this.versionInfo.version,
+          }, { timeout: 7000 })
           if (res.data) {
             this.updateInfo = res.data
             this.isCheckingUpdate = false

@@ -73,7 +73,8 @@ async function handleActivate() {
 }
 
 async function handleCheckUpdate() {
-  await licenseStore.checkForUpdates()
+  await licenseStore.fetchVersionInfo()
+  await licenseStore.checkForUpdates('server')
 }
 
 async function handleApplyUpdate() {

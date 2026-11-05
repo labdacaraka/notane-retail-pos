@@ -637,25 +637,74 @@ async fn handle_update_check(
         "SELECT id, version, release_name, changelog, release_date, download_url,
                 checksum_sha256, signature_ed25519, is_mandatory, component, min_server_version
          FROM provider_app_releases
-         WHERE is_published = 1 AND (component = ? OR (component IS NULL AND ? = 'server'))"
+         WHERE (is_published = 1 OR is_published = true OR is_published IS NULL)
+           AND (component = ? OR (component IS NULL AND ? = 'server'))"
     );
 
-    let all_releases_res = sqlx::query_as::<_, LatestReleaseRow>(&q_str)
+    let rows_res = sqlx::query(&q_str)
         .bind(&req_component)
         .bind(&req_component)
         .fetch_all(&state.pool)
         .await;
 
-    let mut all_releases = match all_releases_res {
-        Ok(r) if !r.is_empty() => r,
-        _ => {
+    use sqlx::Row;
+    let mut all_releases: Vec<LatestReleaseRow> = match rows_res {
+        Ok(rows) if !rows.is_empty() => {
+            let mut list = Vec::new();
+            for r in rows {
+                let id: String = r.try_get("id").unwrap_or_default();
+                let version: String = r.try_get("version").unwrap_or_default();
+                let release_name: String = r.try_get("release_name").unwrap_or_default();
+                let changelog: String = r.try_get("changelog").unwrap_or_default();
+                let release_date: String = r.try_get("release_date").unwrap_or_default();
+                let download_url: String = r.try_get("download_url").unwrap_or_default();
+                let checksum_sha256: String = r.try_get("checksum_sha256").unwrap_or_default();
+                let signature_ed25519: String = r.try_get("signature_ed25519").unwrap_or_default();
+                let is_mandatory: i64 = r.try_get::<i64, _>("is_mandatory")
+                    .or_else(|_| r.try_get::<i32, _>("is_mandatory").map(|v| v as i64))
+                    .or_else(|_| r.try_get::<bool, _>("is_mandatory").map(|b| if b { 1 } else { 0 }))
+                    .unwrap_or(0);
+                let component: String = r.try_get("component").unwrap_or_else(|_| "server".to_string());
+                let min_server_version: Option<String> = r.try_get("min_server_version").ok();
+
+                list.push(LatestReleaseRow {
+                    id,
+                    version,
+                    release_name,
+                    changelog,
+                    release_date,
+                    download_url,
+                    checksum_sha256,
+                    signature_ed25519,
+                    is_mandatory,
+                    component,
+                    min_server_version,
+                });
+            }
+            list
+        }
+        Ok(_) => {
+            tracing::info!("handle_update_check: Tidak ada rilis yang cocok untuk component '{}'", req_component);
             return Json(json!({
+                "current_version": payload.current_version,
                 "has_update": false,
                 "latest_version": payload.current_version,
                 "component": req_component,
                 "can_update": false,
                 "server_compatible": true,
                 "message": format!("Belum ada rilis update tersedia untuk komponen {}", req_component)
+            }));
+        }
+        Err(e) => {
+            tracing::error!("handle_update_check database query error: {}", e);
+            return Json(json!({
+                "current_version": payload.current_version,
+                "has_update": false,
+                "latest_version": payload.current_version,
+                "component": req_component,
+                "can_update": false,
+                "server_compatible": true,
+                "message": format!("Gagal memuat rilis dari basis data: {}", e)
             }));
         }
     };
@@ -671,6 +720,7 @@ async fn handle_update_check(
 
     if !has_update {
         return Json(json!({
+            "current_version": payload.current_version,
             "has_update": false,
             "latest_version": latest.version,
             "component": req_component,
@@ -686,22 +736,29 @@ async fn handle_update_check(
     let mut final_signature = latest.signature_ed25519.clone();
     let mut matched_platform: Option<String> = None;
 
-    if req_component == "server" {
-        let assets_query = crate::db::sql(
-            "SELECT id, release_id, platform, os, arch, download_url, checksum_sha256, signature_ed25519, file_path, file_size, original_filename, created_at
-             FROM provider_release_assets WHERE release_id = ?"
-        );
-        let assets_res = sqlx::query_as::<_, crate::models::ReleaseAsset>(&assets_query)
-            .bind(&latest.id)
-            .fetch_all(&state.pool)
-            .await;
+    let assets_query = crate::db::sql(
+        "SELECT id, release_id, platform, os, arch, download_url, checksum_sha256, signature_ed25519, file_path, file_size, original_filename, created_at
+         FROM provider_release_assets WHERE release_id = ?"
+    );
+    let assets_res = sqlx::query_as::<_, crate::models::ReleaseAsset>(&assets_query)
+        .bind(&latest.id)
+        .fetch_all(&state.pool)
+        .await;
 
-        if let Ok(assets) = assets_res {
-            if !assets.is_empty() {
-                let req_os = payload.os.as_deref().unwrap_or("").trim().to_lowercase();
-                let req_arch = payload.arch.as_deref().unwrap_or("").trim().to_lowercase();
+    if let Ok(assets) = assets_res {
+        if !assets.is_empty() {
+            let req_os = payload.os.as_deref().unwrap_or("").trim().to_lowercase();
+            let req_arch = payload.arch.as_deref().unwrap_or("").trim().to_lowercase();
 
-                let matched_asset = assets.iter().find(|a| {
+            let matched_asset = if req_component == "client" {
+                // Untuk client, cari asset universal atau first asset
+                assets.iter().find(|a| {
+                    let a_plat = a.platform.trim().to_lowercase();
+                    let a_os = a.os.trim().to_lowercase();
+                    a_plat == "universal" || a_os == "all" || a_os == "universal"
+                }).or_else(|| assets.first())
+            } else {
+                assets.iter().find(|a| {
                     let a_os = a.os.trim().to_lowercase();
                     let a_arch = a.arch.trim().to_lowercase();
 
@@ -722,14 +779,14 @@ async fn handle_update_check(
                     };
 
                     os_match && arch_match
-                });
+                })
+            };
 
-                if let Some(asset) = matched_asset {
-                    final_download_url = asset.download_url.clone();
-                    final_checksum = asset.checksum_sha256.clone();
-                    final_signature = asset.signature_ed25519.clone();
-                    matched_platform = Some(asset.platform.clone());
-                }
+            if let Some(asset) = matched_asset {
+                final_download_url = asset.download_url.clone();
+                final_checksum = asset.checksum_sha256.clone();
+                final_signature = asset.signature_ed25519.clone();
+                matched_platform = Some(asset.platform.clone());
             }
         }
     }
@@ -754,6 +811,7 @@ async fn handle_update_check(
     }
 
     Json(json!({
+        "current_version": payload.current_version,
         "has_update": true,
         "latest_version": latest.version,
         "release_name": latest.release_name,

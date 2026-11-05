@@ -333,7 +333,11 @@ export const useLicenseStore = defineStore('license', {
       this.isCheckingUpdate = true
       this.errorMessage = ''
       try {
-        await this.initClientVersion()
+        if (component === 'client') {
+          await this.initClientVersion()
+        } else {
+          await this.fetchVersionInfo()
+        }
         const currentVersion = component === 'client' ? this.clientVersionInfo.version : this.versionInfo.version
         const res = await axios.post(`${this.getBaseUrl()}/api/v1/system/updates/check`, {
           component,

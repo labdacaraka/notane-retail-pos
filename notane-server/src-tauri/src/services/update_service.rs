@@ -41,6 +41,7 @@ pub struct AppVersionInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateCheckResponse {
+    #[serde(default)]
     pub current_version: String,
     pub has_update: bool,
     pub latest_version: String,
@@ -160,33 +161,43 @@ impl UpdateService {
 
         match client.post(&check_url).json(&req_body).send().await {
             Ok(res) if res.status().is_success() => {
-                if let Ok(mut server_resp) = res.json::<UpdateCheckResponse>().await {
-                    server_resp.license_status = license_info.status;
-
-                    // Buat token terenkripsi yang membawa nomor mesin dan nomor lisensi
-                    if let Some(ref d_url) = server_resp.download_url {
-                        let token_payload = crate::utils::ota::OtaDownloadPayload {
-                            license_key: license_info.license_key.clone().unwrap_or_default(),
-                            machine_id: license_info.current_hardware_id.clone(),
-                            timestamp: chrono::Utc::now().timestamp(),
-                            component: Some(target_component.clone()),
-                            current_version: Some(current_ver.clone()),
-                            os: Some(env::consts::OS.to_string()),
-                            arch: Some(env::consts::ARCH.to_string()),
-                        };
-                        let master_pub_key = get_master_public_key_hex();
-                        if let Ok(enc_token) = crate::utils::ota::encrypt_ota_payload(&token_payload, &master_pub_key) {
-                            let full_url = if d_url.starts_with("http://") || d_url.starts_with("https://") {
-                                d_url.clone()
-                            } else {
-                                format!("{}{}", license_info.provider_server_url.trim_end_matches('/'), d_url)
-                            };
-                            let sep = if full_url.contains('?') { "&" } else { "?" };
-                            server_resp.download_url = Some(format!("{}{}token={}", full_url, sep, enc_token));
+                let status_code = res.status();
+                let resp_text = res.text().await.unwrap_or_default();
+                match serde_json::from_str::<UpdateCheckResponse>(&resp_text) {
+                    Ok(mut server_resp) => {
+                        if server_resp.current_version.trim().is_empty() {
+                            server_resp.current_version = current_ver.clone();
                         }
-                    }
+                        server_resp.license_status = license_info.status;
 
-                    return server_resp;
+                        // Buat token terenkripsi yang membawa nomor mesin dan nomor lisensi
+                        if let Some(ref d_url) = server_resp.download_url {
+                            let token_payload = crate::utils::ota::OtaDownloadPayload {
+                                license_key: license_info.license_key.clone().unwrap_or_default(),
+                                machine_id: license_info.current_hardware_id.clone(),
+                                timestamp: chrono::Utc::now().timestamp(),
+                                component: Some(target_component.clone()),
+                                current_version: Some(current_ver.clone()),
+                                os: Some(env::consts::OS.to_string()),
+                                arch: Some(env::consts::ARCH.to_string()),
+                            };
+                            let master_pub_key = get_master_public_key_hex();
+                            if let Ok(enc_token) = crate::utils::ota::encrypt_ota_payload(&token_payload, &master_pub_key) {
+                                let full_url = if d_url.starts_with("http://") || d_url.starts_with("https://") {
+                                    d_url.clone()
+                                } else {
+                                    format!("{}{}", license_info.provider_server_url.trim_end_matches('/'), d_url)
+                                };
+                                let sep = if full_url.contains('?') { "&" } else { "?" };
+                                server_resp.download_url = Some(format!("{}{}token={}", full_url, sep, enc_token));
+                            }
+                        }
+
+                        return server_resp;
+                    }
+                    Err(e) => {
+                        warn!("Gagal mendeserialisasi respons dari server pembaruan (status {}): {}. Raw text: {}", status_code, e, resp_text);
+                    }
                 }
             }
             Ok(res) => {
