@@ -339,4 +339,118 @@ impl UpdateService {
         info!("Riwayat pembaruan berhasil dicatat: {} -> {}", from_version, to_version);
         Ok(())
     }
+
+    /// Ekstraksi dan penukaran biner server secara otomatis (Binary Hot-Swap & Installer Launch)
+    pub fn apply_binary_update(bytes: &[u8], target_version: &str) -> Result<String, String> {
+        let mut update_saved_path: Option<std::path::PathBuf> = None;
+        if let Some(mut cache_dir) = dirs::data_local_dir() {
+            cache_dir.push("notane-retail-pos");
+            cache_dir.push("updates");
+            let _ = std::fs::create_dir_all(&cache_dir);
+            let target_file = cache_dir.join(format!("update-{}.pkg", target_version));
+            let _ = std::fs::write(&target_file, bytes);
+            update_saved_path = Some(target_file);
+        }
+
+        // 1. Cek apakah berkas unduhan adalah arsip ZIP (magic bytes PK\x03\x04)
+        if bytes.len() >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4B && bytes[2] == 0x03 && bytes[3] == 0x04 {
+            let cursor = std::io::Cursor::new(bytes);
+            if let Ok(mut archive) = zip::ZipArchive::new(cursor) {
+                let mut extracted_binary: Option<Vec<u8>> = None;
+                let mut extracted_installer: Option<(String, Vec<u8>)> = None;
+
+                for i in 0..archive.len() {
+                    if let Ok(mut file) = archive.by_index(i) {
+                        let name = file.name().to_string();
+                        let base_name = std::path::Path::new(&name)
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("")
+                            .to_lowercase();
+
+                        if base_name == "notane-retail-server" || base_name == "notane-retail-server.exe" {
+                            use std::io::Read;
+                            let mut buf = Vec::new();
+                            if file.read_to_end(&mut buf).is_ok() && !buf.is_empty() {
+                                extracted_binary = Some(buf);
+                                break;
+                            }
+                        } else if base_name.ends_with(".exe") || base_name.ends_with(".msi") || base_name.ends_with(".dmg") || base_name.ends_with(".deb") || base_name.ends_with(".appimage") {
+                            use std::io::Read;
+                            let mut buf = Vec::new();
+                            if file.read_to_end(&mut buf).is_ok() && !buf.is_empty() {
+                                extracted_installer = Some((base_name, buf));
+                            }
+                        }
+                    }
+                }
+
+                // A. Jika biner server ditemukan di dalam ZIP -> Hot-swap biner saat ini
+                if let Some(new_bin) = extracted_binary {
+                    let current_exe = std::env::current_exe()
+                        .map_err(|e| format!("Tidak dapat mendeteksi lokasi file biner aktif: {}", e))?;
+
+                    let backup_exe = current_exe.with_extension("old");
+                    let _ = std::fs::remove_file(&backup_exe);
+
+                    std::fs::rename(&current_exe, &backup_exe)
+                        .map_err(|e| format!("Gagal memindahkan biner lama: {}", e))?;
+
+                    if let Err(e) = std::fs::write(&current_exe, &new_bin) {
+                        let _ = std::fs::rename(&backup_exe, &current_exe);
+                        return Err(format!("Gagal menulis biner baru: {}", e));
+                    }
+
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        let _ = std::fs::set_permissions(&current_exe, std::fs::Permissions::from_mode(0o755));
+                    }
+
+                    info!("Biner Notane Server berhasil diperbarui ke versi {} di {:?}", target_version, current_exe);
+                    return Ok(format!("Biner Notane Server berhasil diperbarui ke versi {}. Silakan restart aplikasi.", target_version));
+                }
+
+                // B. Jika ada installer di dalam ZIP
+                if let Some((inst_name, inst_bytes)) = extracted_installer {
+                    if let Some(mut cache_dir) = dirs::data_local_dir() {
+                        cache_dir.push("notane-retail-pos");
+                        cache_dir.push("updates");
+                        let inst_file = cache_dir.join(&inst_name);
+                        let _ = std::fs::write(&inst_file, &inst_bytes);
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::PermissionsExt;
+                            let _ = std::fs::set_permissions(&inst_file, std::fs::Permissions::from_mode(0o755));
+                        }
+                        Self::launch_file(&inst_file);
+                        return Ok(format!("Installer {} berhasil diekstrak dan dijalankan.", inst_name));
+                    }
+                }
+            }
+        }
+
+        // 2. Jika paket unduhan langsung berupa installer (.exe / .dmg / .msi)
+        if let Some(ref saved_path) = update_saved_path {
+            Self::launch_file(saved_path);
+            return Ok(format!("Paket pembaruan v{} berhasil diunduh dan dibuka.", target_version));
+        }
+
+        Ok(format!("Pembaruan v{} berhasil diunduh.", target_version))
+    }
+
+    pub fn launch_file(path: &std::path::Path) {
+        #[cfg(target_os = "windows")]
+        {
+            let _ = std::process::Command::new("explorer").arg(path).spawn();
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let _ = std::process::Command::new("open").arg(path).spawn();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = std::process::Command::new("xdg-open").arg(path).spawn();
+        }
+    }
 }

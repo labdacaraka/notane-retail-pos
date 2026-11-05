@@ -144,8 +144,15 @@ async function handleCheckUpdate() {
 async function handleApplyUpdate() {
   const ok = await licenseStore.applyOneClickUpdate()
   if (ok) {
-    await dialog.alert('Pembaruan sistem berhasil disiapkan! Aplikasi akan dimuat ulang.', 'success')
-    window.location.reload()
+    await dialog.alert('Pembaruan sistem berhasil dipasang! Aplikasi server sedang memuat ulang ke biner baru.', 'success')
+    try {
+      await axios.post('/api/v1/system/server/restart-process')
+    } catch (_) {
+      // server exits immediately
+    }
+    setTimeout(() => {
+      window.location.reload()
+    }, 2500)
   }
 }
 </script>

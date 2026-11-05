@@ -11,6 +11,7 @@ import {
   Monitor,
   Calendar,
   Layers,
+  ExternalLink,
 } from 'lucide-vue-next'
 import { useLicenseStore } from '@/stores/licenseStore'
 import { useNetworkStore } from '@/stores/networkStore'
@@ -65,18 +66,22 @@ async function handleApplyUpdate() {
   isUpdating.value = true
   try {
     const res = await licenseStore.applyClientUiUpdate()
-    if (res.success) {
-      updateSuccess.value = true
+    if (res.success && res.download_url) {
+      window.open(res.download_url, '_blank')
       dialog.toast(res.message, 'success')
-      setTimeout(() => {
-        window.location.reload()
-      }, 1500)
+      await dialog.alert('Berkas pembaruan/installer kasir sedang diunduh di peramban Anda. Setelah selesai mengunduh, buka berkas tersebut untuk memperbarui aplikasi kasir.', 'info')
     } else {
       dialog.alert(res.message, 'danger')
     }
   } finally {
     isUpdating.value = false
   }
+}
+
+function openGitHubRelease() {
+  const ver = licenseStore.updateInfo?.latest_version || 'latest'
+  const url = `https://github.com/labdacaraka/notane-retail-pos/releases/tag/v${ver}`
+  window.open(url, '_blank')
 }
 
 const isServerCompatible = computed(() => {
@@ -253,26 +258,38 @@ const isServerCompatible = computed(() => {
               </div>
 
               <!-- Action Update Button -->
-              <div class="pt-2 flex items-center justify-between">
+              <div class="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <div class="text-[11px] text-slate-500">
                   <span v-if="!isServerCompatible" class="text-rose-600 font-semibold">
                     Pembaruan belum dapat dilakukan sebelum server toko diperbarui.
                   </span>
                   <span v-else>
-                    Klik tombol di samping untuk menerapkan pembaruan.
+                    Klik tombol di samping untuk mengunduh paket pembaruan resmi.
                   </span>
                 </div>
 
-                <button
-                  type="button"
-                  @click="handleApplyUpdate"
-                  :disabled="!isServerCompatible || isUpdating"
-                  class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-md shadow-cyan-600/20 active:scale-95"
-                >
-                  <RefreshCw v-if="isUpdating" class="w-3.5 h-3.5 animate-spin" />
-                  <Sparkles v-else class="w-3.5 h-3.5" />
-                  <span>{{ isUpdating ? 'Menerapkan Pembaruan...' : 'Perbarui Aplikasi Sekarang' }}</span>
-                </button>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    @click="openGitHubRelease"
+                    class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    title="Buka rilis resmi di GitHub untuk mengunduh installer .exe / .dmg"
+                  >
+                    <ExternalLink class="w-3.5 h-3.5 text-slate-500" />
+                    <span>Rilis GitHub</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    @click="handleApplyUpdate"
+                    :disabled="!isServerCompatible || isUpdating"
+                    class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-md shadow-cyan-600/20 active:scale-95"
+                  >
+                    <RefreshCw v-if="isUpdating" class="w-3.5 h-3.5 animate-spin" />
+                    <Sparkles v-else class="w-3.5 h-3.5" />
+                    <span>{{ isUpdating ? 'Mempersiapkan...' : 'Unduh Pembaruan' }}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

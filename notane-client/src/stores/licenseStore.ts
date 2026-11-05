@@ -356,22 +356,35 @@ export const useLicenseStore = defineStore('license', {
       }
     },
 
-    async applyClientUiUpdate(): Promise<{ success: boolean; message: string }> {
+    async applyClientUiUpdate(): Promise<{ success: boolean; message: string; download_url?: string }> {
       if (!this.updateInfo) {
         return { success: false, message: 'Belum ada data pembaruan rilis' }
       }
       if (this.updateInfo.server_compatible === false) {
         return {
           success: false,
-          message: `Pembaruan diblokir: Notane Server harus diperbarui minimal ke versi ${this.updateInfo.min_server_version || 'terbaru'} sebelum memperbarui UI Klien.`
+          message: `Pembaruan diblokir: Notane Server harus diperbarui minimal ke versi ${this.updateInfo.min_server_version || 'terbaru'} sebelum memperbarui Klien.`
         }
       }
       this.isApplyingUpdate = true
       try {
-        await new Promise(r => setTimeout(r, 1200))
-        this.clientVersionInfo.version = this.updateInfo.latest_version
-        this.successMessage = `Antarmuka Notane Client berhasil diperbarui ke versi ${this.updateInfo.latest_version}`
-        return { success: true, message: this.successMessage }
+        const dUrl = this.updateInfo.download_url
+        if (dUrl) {
+          const providerBase = this.licenseInfo?.provider_server_url || 'https://lisensi.notane.id'
+          const fullUrl = dUrl.startsWith('http')
+            ? dUrl
+            : `${providerBase.replace(/\/$/, '')}${dUrl}`
+          return {
+            success: true,
+            message: `Mengunduh berkas pembaruan klien v${this.updateInfo.latest_version}...`,
+            download_url: fullUrl
+          }
+        }
+        return {
+          success: true,
+          message: `Silakan unduh installer resmi versi ${this.updateInfo.latest_version}`,
+          download_url: `https://github.com/labdacaraka/notane-retail-pos/releases/tag/v${this.updateInfo.latest_version}`
+        }
       } finally {
         this.isApplyingUpdate = false
       }

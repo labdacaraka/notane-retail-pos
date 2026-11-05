@@ -41,6 +41,7 @@ pub fn system_routes(state: AppState) -> Router {
         .route("/server/start", post(start_server))
         .route("/server/stop", post(stop_server))
         .route("/server/restart", post(restart_server))
+        .route("/server/restart-process", post(restart_process))
         .route("/pairing-code", get(get_pairing_code))
         .route("/pairing-code/regenerate", post(regenerate_pairing_code))
         .route("/pairing-code/update", post(update_pairing_code))
@@ -451,6 +452,25 @@ async fn restart_server(State(state): State<AppState>) -> impl IntoResponse {
             )
         }
     }
+}
+
+async fn restart_process() -> impl IntoResponse {
+    tracing::info!("[SERVER HOST] Menerima instruksi restart proses aplikasi secara penuh...");
+    tokio::spawn(async {
+        tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
+        if let Ok(current_exe) = std::env::current_exe() {
+            let _ = std::process::Command::new(current_exe).spawn();
+        }
+        std::process::exit(0);
+    });
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "success",
+            "message": "Aplikasi sedang dimuat ulang ke biner baru..."
+        })),
+    )
 }
 
 #[derive(Debug, Deserialize)]
@@ -1010,6 +1030,11 @@ async fn apply_update(
                             let target_file = cache_dir.join(format!("update-{}.pkg", req.target_version));
                             let _ = tokio::fs::write(&target_file, &bytes).await;
                             tracing::info!("Berkas pembaruan berhasil disimpan ke: {:?}", target_file);
+
+                            // Ekstrak dan terapkan biner server pembaruan (Hot-swap)
+                            if let Err(e) = crate::services::update_service::UpdateService::apply_binary_update(&bytes, &req.target_version) {
+                                tracing::warn!("Catatan penukaran biner server: {}", e);
+                            }
                         }
                     }
                     Err(e) => {
