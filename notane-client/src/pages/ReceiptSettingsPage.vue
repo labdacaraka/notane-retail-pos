@@ -912,7 +912,7 @@ const formatRupiah = (val: any) => formatCurrency(val, true)
                     </div>
                   </div>
                   <p class="text-[11px] text-slate-400 mt-1">
-                    Tarif acuan saat pendaftaran produk baru, kalkulasi checkout kasir POS, dan impor katalog barang.
+                    Tarif acuan saat pendaftaran produk baru, kalkulasi checkout kasir POS, dan impor katalog barang. Saat disimpan, tarif ini otomatis diterapkan ke seluruh produk kena pajak yang aktif di toko.
                   </p>
                 </div>
 

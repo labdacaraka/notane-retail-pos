@@ -140,8 +140,8 @@ function handleQuantityChange(index: number, val: number) {
               >
                 Sisa Stok: {{ cartStore.getMaxAllowedQuantity(item) }} {{ item.selected_unit.unit_code }}
               </span>
-              <span v-if="cartStore.isTaxEnabled && item.product.tax_percent > 0" class="text-sky-700 font-bold">
-                (PPN {{ item.product.tax_percent }}%)
+              <span v-if="cartStore.isTaxEnabled && cartStore.getItemTaxRate(item.product.tax_percent) > 0" class="text-sky-700 font-bold">
+                (PPN {{ cartStore.getItemTaxRate(item.product.tax_percent) }}%)
               </span>
             </div>
           </td>

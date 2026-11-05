@@ -874,7 +874,8 @@ function autoCalculatePurchaseTax() {
   const sub = Number(invoiceForm.value.subtotal) || 0
   const disc = Number(invoiceForm.value.discount_amount) || 0
   const dpp = Math.max(0, sub - disc)
-  invoiceForm.value.tax_amount = Math.round((dpp * 11) / 100)
+  const defaultRate = Number(localStorage.getItem('notane_default_tax_rate')) || 11
+  invoiceForm.value.tax_amount = Math.round((dpp * defaultRate) / 100)
 }
 
 async function handleSaveInvoice() {

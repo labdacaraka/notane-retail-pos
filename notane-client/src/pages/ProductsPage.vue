@@ -268,7 +268,7 @@ const editForm = ref({
   markup_percent: null as number | null,
   min_stock: 0,
   max_stock: 0,
-  tax_percent: 11,
+  tax_percent: Number(localStorage.getItem('notane_default_tax_rate')) || 11,
   image_url: '',
 })
 
@@ -463,7 +463,7 @@ function openEditModal(prod: any) {
     is_weight_embedded: Boolean(prod.is_weight_embedded),
     min_stock: Number(prod.min_stock || 0),
     max_stock: Number(prod.max_stock || 0),
-    tax_percent: Number(prod.tax_percent || 11),
+    tax_percent: Number(prod.tax_percent !== undefined && prod.tax_percent !== null ? prod.tax_percent : 11),
     image_url: prod.image_url || '',
   }
   showEditModal.value = true

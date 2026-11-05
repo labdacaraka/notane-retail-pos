@@ -3548,7 +3548,17 @@ async fn save_receipt_settings_handler(
     };
 
     match result {
-        Ok(s) => (StatusCode::OK, Json(json!({ "success": true, "message": "Pengaturan struk berhasil disimpan ke database", "data": s }))).into_response(),
+        Ok(s) => {
+            if enable_tax {
+                let _ = sqlx::query(
+                    "UPDATE products SET tax_percent = $1 WHERE tax_percent > 0"
+                )
+                .bind(default_tax_rate)
+                .execute(&pool)
+                .await;
+            }
+            (StatusCode::OK, Json(json!({ "success": true, "message": "Pengaturan struk berhasil disimpan ke database", "data": s }))).into_response()
+        },
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "message": format!("Gagal menyimpan pengaturan struk: {}", e) }))).into_response(),
     }
 }

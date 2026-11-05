@@ -82,7 +82,12 @@ export const useCartStore = defineStore('cart', () => {
     if (!isTaxEnabled.value) {
       return 0
     }
-    return Number(prodTaxPercent ?? defaultTaxRate.value ?? 0)
+    // Jika produk bebas pajak (0%), jangan pungut pajak
+    if (prodTaxPercent !== undefined && prodTaxPercent !== null && Number(prodTaxPercent) === 0) {
+      return 0
+    }
+    // Jika produk kena pajak, gunakan tarif standar toko aktif (defaultTaxRate)
+    return Number(defaultTaxRate.value ?? 0)
   }
 
   // Muat status pajak toko saat store diinisialisasi

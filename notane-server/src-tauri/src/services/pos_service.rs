@@ -1058,16 +1058,18 @@ pub async fn checkout(
     let mut prepared_items = Vec::new();
     let mut allocated_free_items: std::collections::HashMap<Uuid, Decimal> = std::collections::HashMap::new();
 
-    let enable_tax: bool = sqlx::query_scalar(
-        "SELECT enable_tax FROM receipt_settings WHERE outlet_id = $1 OR outlet_id IS NULL ORDER BY (outlet_id IS NOT NULL) DESC, created_at ASC LIMIT 1"
+    let (enable_tax, default_tax_rate): (bool, Decimal) = match sqlx::query_as::<_, (bool, Decimal)>(
+        "SELECT enable_tax, default_tax_rate FROM receipt_settings WHERE outlet_id = $1 OR outlet_id IS NULL ORDER BY (outlet_id IS NOT NULL) DESC, created_at ASC LIMIT 1"
     )
     .bind(outlet_id)
     .fetch_optional(&mut *tx)
     .await
-    .unwrap_or(None)
-    .unwrap_or(true);
+    .unwrap_or(None) {
+        Some((en, rate)) => (en, rate),
+        None => (true, Decimal::from(11)),
+    };
 
-    tracing::info!("[CHECKOUT] Status pemungutan pajak outlet {:?}: enable_tax = {}", outlet_id, enable_tax);
+    tracing::info!("[CHECKOUT] Status pemungutan pajak outlet {:?}: enable_tax = {}, default_tax_rate = {}", outlet_id, enable_tax, default_tax_rate);
 
     for item in &req.items {
         let mut product = sqlx::query_as::<_, Product>(
@@ -1393,8 +1395,14 @@ pub async fn checkout(
             let line_gross_total = normal_base_price * item.quantity;
             let taxable_amount = (line_gross_total - total_item_disc).max(Decimal::ZERO);
 
-            let calculated_tax = if enable_tax && product.tax_percent > Decimal::ZERO {
-                ((taxable_amount * product.tax_percent) / Decimal::from(100)).round_dp(2)
+            let effective_tax_rate = if !enable_tax || product.tax_percent == Decimal::ZERO {
+                Decimal::ZERO
+            } else {
+                default_tax_rate
+            };
+
+            let calculated_tax = if effective_tax_rate > Decimal::ZERO {
+                ((taxable_amount * effective_tax_rate) / Decimal::from(100)).round_dp(2)
             } else {
                 Decimal::ZERO
             };
