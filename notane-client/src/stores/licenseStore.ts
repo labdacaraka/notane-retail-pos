@@ -368,9 +368,9 @@ export const useLicenseStore = defineStore('license', {
       }
       this.isApplyingUpdate = true
       try {
+        const providerBase = this.licenseInfo?.provider_server_url || 'https://lisensi.notane.id'
         const dUrl = this.updateInfo.download_url
         if (dUrl) {
-          const providerBase = this.licenseInfo?.provider_server_url || 'https://lisensi.notane.id'
           const fullUrl = dUrl.startsWith('http')
             ? dUrl
             : `${providerBase.replace(/\/$/, '')}${dUrl}`
@@ -382,8 +382,8 @@ export const useLicenseStore = defineStore('license', {
         }
         return {
           success: true,
-          message: `Silakan unduh installer resmi versi ${this.updateInfo.latest_version}`,
-          download_url: `https://github.com/labdacaraka/notane-retail-pos/releases/tag/v${this.updateInfo.latest_version}`
+          message: `Silakan unduh paket pembaruan resmi versi ${this.updateInfo.latest_version} melalui portal resmi Notane.`,
+          download_url: `${providerBase.replace(/\/$/, '')}`
         }
       } finally {
         this.isApplyingUpdate = false

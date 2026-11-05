@@ -11,7 +11,6 @@ import {
   Monitor,
   Calendar,
   Layers,
-  ExternalLink,
 } from 'lucide-vue-next'
 import { useLicenseStore } from '@/stores/licenseStore'
 import { useNetworkStore } from '@/stores/networkStore'
@@ -76,12 +75,6 @@ async function handleApplyUpdate() {
   } finally {
     isUpdating.value = false
   }
-}
-
-function openGitHubRelease() {
-  const ver = licenseStore.updateInfo?.latest_version || 'latest'
-  const url = `https://github.com/labdacaraka/notane-retail-pos/releases/tag/v${ver}`
-  window.open(url, '_blank')
 }
 
 const isServerCompatible = computed(() => {
@@ -269,16 +262,6 @@ const isServerCompatible = computed(() => {
                 </div>
 
                 <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    @click="openGitHubRelease"
-                    class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                    title="Buka rilis resmi di GitHub untuk mengunduh installer .exe / .dmg"
-                  >
-                    <ExternalLink class="w-3.5 h-3.5 text-slate-500" />
-                    <span>Rilis GitHub</span>
-                  </button>
-
                   <button
                     type="button"
                     @click="handleApplyUpdate"

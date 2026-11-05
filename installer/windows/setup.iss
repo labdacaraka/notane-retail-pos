@@ -7,7 +7,7 @@
 #define MyAppName "Notane Retail POS Enterprise"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "Labda Caraka / Notane Retail"
-#define MyAppURL "https://github.com/labdacaraka/notane-retail-pos"
+#define MyAppURL "https://notane.id"
 #define MyAppExeName "notane-retail-pos.exe"
 
 [Setup]
