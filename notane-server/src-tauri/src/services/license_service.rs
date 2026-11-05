@@ -310,10 +310,19 @@ impl LicenseService {
         if config_path.exists() {
             if let Ok(content) = std::fs::read_to_string(&config_path) {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    let is_custom = val.get("is_custom").and_then(|b| b.as_bool()).unwrap_or(false);
                     if let Some(url_str) = val.get("provider_url").and_then(|u| u.as_str()) {
                         let trimmed = url_str.trim().trim_end_matches('/');
                         if !trimmed.is_empty() {
-                            return trimmed.to_string();
+                            // Pada release production, jika file konfigurasi berisi 127.0.0.1 / localhost
+                            // dan is_custom bernilai false atau tidak disetel, jangan gunakan 127.0.0.1 lokal,
+                            // melainkan lanjutkan fallback ke Official Production Cloud URL.
+                            let is_local = trimmed.contains("127.0.0.1") || trimmed.contains("localhost");
+                            if !cfg!(debug_assertions) && is_local && !is_custom {
+                                // Lanjutkan fallback ke baked / official cloud
+                            } else {
+                                return trimmed.to_string();
+                            }
                         }
                     }
                 }

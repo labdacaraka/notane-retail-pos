@@ -110,6 +110,33 @@ async function handleTestConnection() {
   await licenseStore.testProviderConnection()
 }
 
+const isEditingProvider = ref(false)
+const customProviderUrl = ref('')
+
+function startEditProvider() {
+  customProviderUrl.value = licenseStore.providerConfig.current_url || 'https://lisensi.notane.id'
+  isEditingProvider.value = true
+}
+
+async function handleSaveCustomProvider() {
+  const target = customProviderUrl.value.trim()
+  if (!target) return
+  const isCustom = target !== 'https://lisensi.notane.id'
+  const ok = await licenseStore.saveProviderConfig(target, isCustom)
+  if (ok) {
+    isEditingProvider.value = false
+    await dialog.toast('Alamat server lisensi berhasil disimpan!', 'success')
+  }
+}
+
+async function handleResetToOfficial() {
+  const ok = await licenseStore.saveProviderConfig('https://lisensi.notane.id', false)
+  if (ok) {
+    isEditingProvider.value = false
+    await dialog.toast('Berhasil beralih ke Server Resmi Notane Cloud (https://lisensi.notane.id)!', 'success')
+  }
+}
+
 async function handleCheckUpdate() {
   await licenseStore.checkForUpdates()
 }
@@ -429,9 +456,66 @@ async function handleApplyUpdate() {
                   <Globe class="w-3.5 h-3.5 text-indigo-600" />
                   <span>Alamat Server Layanan</span>
                 </label>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    v-if="!isEditingProvider && licenseStore.providerConfig.current_url !== 'https://lisensi.notane.id'"
+                    type="button"
+                    @click="handleResetToOfficial"
+                    :disabled="licenseStore.isLoading"
+                    class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md transition cursor-pointer"
+                  >
+                    Reset ke Server Resmi
+                  </button>
+                  <button
+                    v-if="!isEditingProvider"
+                    type="button"
+                    @click="startEditProvider"
+                    class="text-[10px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-md transition cursor-pointer"
+                  >
+                    Ubah Alamat
+                  </button>
+                </div>
               </div>
 
-              <div class="p-2.5 bg-slate-900 text-emerald-400 font-mono text-xs rounded-lg select-all flex items-center justify-between">
+              <!-- Input Edit Mode -->
+              <div v-if="isEditingProvider" class="space-y-2 pt-1">
+                <input
+                  v-model="customProviderUrl"
+                  type="text"
+                  placeholder="https://lisensi.notane.id atau URL custom"
+                  class="w-full text-xs font-mono p-2 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600"
+                />
+                <div class="flex items-center justify-between">
+                  <button
+                    type="button"
+                    @click="handleResetToOfficial"
+                    class="text-[10px] text-indigo-600 font-semibold hover:underline cursor-pointer"
+                  >
+                    Gunakan https://lisensi.notane.id (Default)
+                  </button>
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      @click="isEditingProvider = false"
+                      class="px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      @click="handleSaveCustomProvider"
+                      :disabled="licenseStore.isLoading"
+                      class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md transition cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      {{ licenseStore.isLoading ? 'Menyimpan...' : 'Simpan Alamat' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Normal Display Mode -->
+              <div v-else class="p-2.5 bg-slate-900 text-emerald-400 font-mono text-xs rounded-lg select-all flex items-center justify-between">
                 <span class="truncate">{{ licenseStore.providerConfig.current_url || 'Memuat alamat server...' }}</span>
               </div>
             </div>
