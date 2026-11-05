@@ -1410,9 +1410,7 @@ async fn admin_upload_release_file(
     State(_state): State<ApiState>,
     mut multipart: axum::extract::Multipart,
 ) -> impl axum::response::IntoResponse {
-    let mut dir = dirs::data_local_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    dir.push("notane-license-manager");
-    dir.push("releases");
+    let dir = crate::api::get_releases_dir();
     if let Err(e) = tokio::fs::create_dir_all(&dir).await {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,

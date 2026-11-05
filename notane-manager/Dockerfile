@@ -59,6 +59,7 @@ RUN mkdir -p /data /app/releases
 # Environment defaults
 ENV PROVIDER_PORT=19090
 ENV DATABASE_PATH=/data/notane_provider.db
+ENV RELEASES_DIR=/app/releases
 ENV WEB_DIST=/app/dist
 ENV RUST_LOG=notane_manager=info,tower_http=info
 

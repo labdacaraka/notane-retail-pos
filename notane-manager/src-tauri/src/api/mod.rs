@@ -830,6 +830,27 @@ async fn handle_update_check(
     }))
 }
 
+pub fn get_releases_dir() -> std::path::PathBuf {
+    if let Ok(env_path) = std::env::var("RELEASES_DIR") {
+        let trimmed = env_path.trim();
+        if !trimmed.is_empty() {
+            return std::path::PathBuf::from(trimmed);
+        }
+    }
+    let app_releases = std::path::PathBuf::from("/app/releases");
+    if app_releases.exists() {
+        return app_releases;
+    }
+    let data_releases = std::path::PathBuf::from("/data/releases");
+    if data_releases.exists() {
+        return data_releases;
+    }
+    let mut dir = dirs::data_local_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    dir.push("notane-license-manager");
+    dir.push("releases");
+    dir
+}
+
 #[derive(Debug, Deserialize)]
 pub struct DownloadQuery {
     pub token: Option<String>,
@@ -1079,46 +1100,64 @@ async fn handle_update_download(
     };
 
     // 6. Alirkan berkas dari penyimpanan lokal jika tersedia
+    let mut resolved_file: Option<std::path::PathBuf> = None;
     if let Some(ref fp) = file_path {
         let p = std::path::Path::new(fp);
         if p.exists() && p.is_file() {
-            match tokio::fs::File::open(p).await {
-                Ok(file) => {
-                    log_audit(
-                        &state.pool,
-                        Some(&payload.license_key),
-                        Some(&payload.machine_id),
-                        "DOWNLOAD_UPDATE",
-                        None,
-                        "SUCCESS",
-                        &format!("Berhasil mengunduh rilis v{} ({})", rel_ver, orig_name.as_deref().unwrap_or("file")),
-                    ).await;
+            resolved_file = Some(p.to_path_buf());
+        } else if let Some(fname) = p.file_name() {
+            let alt = get_releases_dir().join(fname);
+            if alt.exists() && alt.is_file() {
+                resolved_file = Some(alt);
+            }
+        }
+    }
+    if resolved_file.is_none() {
+        if let Some(ref oname) = orig_name {
+            let alt = get_releases_dir().join(oname);
+            if alt.exists() && alt.is_file() {
+                resolved_file = Some(alt);
+            }
+        }
+    }
 
-                    let filename = orig_name.unwrap_or_else(|| format!("notane-release-{}.zip", rel_ver));
-                    let stream = tokio_util::io::ReaderStream::new(file);
-                    let body = axum::body::Body::from_stream(stream);
+    if let Some(ref p) = resolved_file {
+        match tokio::fs::File::open(p).await {
+            Ok(file) => {
+                log_audit(
+                    &state.pool,
+                    Some(&payload.license_key),
+                    Some(&payload.machine_id),
+                    "DOWNLOAD_UPDATE",
+                    None,
+                    "SUCCESS",
+                    &format!("Berhasil mengunduh rilis v{} ({})", rel_ver, orig_name.as_deref().unwrap_or("file")),
+                ).await;
 
-                    let mut resp = body.into_response();
-                    let headers = resp.headers_mut();
+                let filename = orig_name.unwrap_or_else(|| format!("notane-release-{}.zip", rel_ver));
+                let stream = tokio_util::io::ReaderStream::new(file);
+                let body = axum::body::Body::from_stream(stream);
+
+                let mut resp = body.into_response();
+                let headers = resp.headers_mut();
+                headers.insert(
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::HeaderValue::from_static("application/octet-stream"),
+                );
+                let disposition = format!("attachment; filename=\"{}\"", filename);
+                if let Ok(val) = axum::http::HeaderValue::from_str(&disposition) {
+                    headers.insert(axum::http::header::CONTENT_DISPOSITION, val);
+                }
+                if let Some(sz) = file_size {
                     headers.insert(
-                        axum::http::header::CONTENT_TYPE,
-                        axum::http::HeaderValue::from_static("application/octet-stream"),
+                        axum::http::header::CONTENT_LENGTH,
+                        axum::http::HeaderValue::from(sz),
                     );
-                    let disposition = format!("attachment; filename=\"{}\"", filename);
-                    if let Ok(val) = axum::http::HeaderValue::from_str(&disposition) {
-                        headers.insert(axum::http::header::CONTENT_DISPOSITION, val);
-                    }
-                    if let Some(sz) = file_size {
-                        headers.insert(
-                            axum::http::header::CONTENT_LENGTH,
-                            axum::http::HeaderValue::from(sz),
-                        );
-                    }
-                    return resp;
                 }
-                Err(e) => {
-                    tracing::error!("Gagal membuka file rilis di {}: {}", fp, e);
-                }
+                return resp;
+            }
+            Err(e) => {
+                tracing::error!("Gagal membuka file rilis di {:?}: {}", p, e);
             }
         }
     }
