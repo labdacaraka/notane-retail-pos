@@ -13,3 +13,4 @@ SET
     default_tax_rate = COALESCE(default_tax_rate, 11.00),
     tax_inclusive = COALESCE(tax_inclusive, FALSE)
 WHERE id IS NOT NULL;
+
