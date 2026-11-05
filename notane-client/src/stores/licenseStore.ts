@@ -21,7 +21,7 @@ export const FEATURE_ALIASES: Record<string, string[]> = {
 }
 
 declare const __APP_VERSION__: string | undefined
-const defaultAppVersion = (import.meta as any).env?.VITE_APP_VERSION || (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0')
+const defaultAppVersion = (typeof __APP_VERSION__ !== 'undefined' && __APP_VERSION__) ? __APP_VERSION__ : '1.5.24'
 
 export type LicenseStatus = 'ACTIVE' | 'GRACE_PERIOD' | 'EXPIRED' | 'HARDWARE_MISMATCH' | 'CLOCK_TAMPERED' | 'UNLICENSED'
 

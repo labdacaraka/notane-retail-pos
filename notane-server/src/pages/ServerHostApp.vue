@@ -480,6 +480,9 @@ const restartServer = async () => {
             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
               Komputer Utama Toko
             </span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+              v{{ licenseStore.versionInfo.version }}
+            </span>
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400">Pusat data dan layanan kasir toko</p>
         </div>

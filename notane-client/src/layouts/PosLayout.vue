@@ -659,7 +659,7 @@ onUnmounted(() => {
         <span class="flex items-center gap-1 font-mono"><kbd class="bg-white border border-slate-300 text-slate-800 shadow-xs px-1.5 py-0.5 rounded text-[10px]">Esc</kbd> Batal / Tutup</span>
       </div>
       <div class="font-mono text-[10px] text-slate-500 font-semibold hidden sm:block">
-        Notane Retail POS v1.0.0
+        Notane Retail POS v{{ licenseStore.clientVersionInfo.version }}
       </div>
     </footer>
 

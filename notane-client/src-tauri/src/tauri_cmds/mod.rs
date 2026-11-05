@@ -22,7 +22,7 @@ pub fn get_app_version() -> String {
     if !pkg_ver.is_empty() {
         return pkg_ver.to_string();
     }
-    "1.0.0".to_string()
+    "1.5.24".to_string()
 }
 
 #[tauri::command]

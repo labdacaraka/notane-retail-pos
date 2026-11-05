@@ -188,6 +188,7 @@ onMounted(async () => {
   locationStore.fetchAccessibleOutlets()
   storeBrandingStore.fetchBranding()
   licenseStore.fetchLicenseInfo()
+  licenseStore.fetchVersionInfo()
 
   restoreNavScroll()
 })
@@ -372,7 +373,7 @@ async function handleExitImpersonation() {
           title="Periksa pembaruan aplikasi kasir"
         >
           <Icon icon="fluent:arrow-sync-circle-16-filled" class="w-3.5 h-3.5 text-cyan-600" />
-          <span>Pembaruan</span>
+          <span>v{{ licenseStore.clientVersionInfo.version }}</span>
           <span
             v-if="licenseStore.updateInfo?.has_update && licenseStore.updateInfo?.component === 'client'"
             class="px-1.5 py-0.5 rounded-full text-[9px] bg-cyan-600 text-white font-bold"
