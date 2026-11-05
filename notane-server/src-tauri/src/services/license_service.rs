@@ -278,11 +278,13 @@ impl LicenseService {
     }
 
     /// Mengambil URL Provider Server dengan urutan prioritas:
-    /// 1. In-memory runtime override
-    /// 2. Environment variable (PROVIDER_SERVER_URL, dsb)
-    /// 3. File konfigurasi lokal provider_config.json di App Data
-    /// 4. Compile-time baked URL (CI/CD)
-    /// 5. Default Official Cloud Production URL
+    /// 1. In-memory runtime override (jika diubah via UI sesi ini)
+    /// 2. Production Hardening: Pada binary rilis resmi (Release Bundle / Production),
+    ///    URL hasil kompilasi resmi (Baked CI/CD URL / Official Cloud) adalah PRIORITAS UTAMA
+    ///    dan TERKUNCI untuk mencegah manipulasi/pembajakan berkas JSON lokal ke web palsu.
+    /// 3. Environment variable (PROVIDER_SERVER_URL di level host / Docker container)
+    /// 4. File konfigurasi lokal provider_config.json (Hanya diizinkan di mode Debug / Dev,
+    ///    atau jika custom URL menggunakan HTTPS valid pada production).
     pub fn get_provider_url() -> String {
         // 1. In-memory runtime override (diperbarui via API/UI tanpa restart)
         if let Some(override_url) = Self::get_provider_url_override() {
@@ -292,7 +294,13 @@ impl LicenseService {
             }
         }
 
-        // 2. Environment variable (.env atau sistem host saat development / server container)
+        let official_baked = Self::BAKED_PRODUCTION_PROVIDER_URL
+            .map(|s| s.trim().trim_end_matches('/'))
+            .filter(|s| !s.is_empty());
+
+        let official_default = Self::DEFAULT_OFFICIAL_PROVIDER_URL.trim().trim_end_matches('/');
+
+        // 2. Environment variable resmi sistem host / Docker container (opsional untuk sysadmin enterprise)
         let env_url = env::var("PROVIDER_SERVER_URL")
             .or_else(|_| env::var("provider_server_url"))
             .or_else(|_| env::var("NOTANE_PROVIDER_SERVER_URL"))
@@ -301,74 +309,74 @@ impl LicenseService {
         if let Ok(val) = env_url {
             let trimmed = val.trim().trim_end_matches('/');
             if !trimmed.is_empty() {
-                return trimmed.to_string();
+                // Di mode produksi, jika env menyetel localhost tanpa sengaja, abaikan
+                let is_local = trimmed.contains("127.0.0.1") || trimmed.contains("localhost");
+                if cfg!(debug_assertions) || !is_local {
+                    return trimmed.to_string();
+                }
             }
         }
 
-        // 3. File konfigurasi lokal provider_config.json di App Data
-        let config_path = Self::get_provider_config_path();
-        if config_path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&config_path) {
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                    let is_custom = val.get("is_custom").and_then(|b| b.as_bool()).unwrap_or(false);
-                    if let Some(url_str) = val.get("provider_url").and_then(|u| u.as_str()) {
-                        let trimmed = url_str.trim().trim_end_matches('/');
-                        if !trimmed.is_empty() {
-                            // Pada release production, jika file konfigurasi berisi 127.0.0.1 / localhost
-                            // dan is_custom bernilai false atau tidak disetel, jangan gunakan 127.0.0.1 lokal,
-                            // melainkan lanjutkan fallback ke Official Production Cloud URL.
+        // 3. KEAMANAN PRODUKSI: Pada binary rilis resmi (Release Bundle),
+        // UTAMAKAN SELALU URL RESMI HASIL KOMPILASI (BAKED URL).
+        // File JSON lokal di AppData DILARANG mengalahkan URL kompilasi resmi secara sepihak
+        // guna mencegah serangan injeksi file liar ke server palsu (rogue server redirect).
+        if !cfg!(debug_assertions) {
+            // Periksa apakah pengguna secara sadar menyimpan konfigurasi custom provider sah
+            let config_path = Self::get_provider_config_path();
+            if config_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(&config_path) {
+                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                        let is_custom = val.get("is_custom").and_then(|b| b.as_bool()).unwrap_or(false);
+                        if let Some(url_str) = val.get("provider_url").and_then(|u| u.as_str()) {
+                            let trimmed = url_str.trim().trim_end_matches('/');
                             let is_local = trimmed.contains("127.0.0.1") || trimmed.contains("localhost");
-                            if !cfg!(debug_assertions) && is_local && !is_custom {
-                                // Lanjutkan fallback ke baked / official cloud
-                            } else {
+                            // Di binary produksi, hanya izinkan custom jika:
+                            // - is_custom = true
+                            // - BUKAN 127.0.0.1 / localhost (mencegah hijack sisa pengujian lokal)
+                            // - Menggunakan HTTPS aman
+                            if is_custom && !is_local && trimmed.starts_with("https://") {
                                 return trimmed.to_string();
                             }
                         }
                     }
                 }
             }
-        }
 
-        // 4. Compile-time baked URL (saat proses rilis binary CI/CD)
-        if let Some(baked_url) = Self::BAKED_PRODUCTION_PROVIDER_URL {
-            let trimmed = baked_url.trim().trim_end_matches('/');
-            if !trimmed.is_empty() {
-                return trimmed.to_string();
+            // Kembalikan URL Resmi Hasil Kompilasi (Default Mutlak Produksi)
+            if let Some(baked) = official_baked {
+                return baked.to_string();
             }
+            return official_default.to_string();
         }
 
-        // 5. Default Official Cloud Production URL
-        Self::DEFAULT_OFFICIAL_PROVIDER_URL.to_string()
-    }
-
-    /// Memeriksa apakah provider yang sedang aktif adalah custom provider (bukan cloud bawaan)
-    pub fn is_custom_provider() -> bool {
-        if let Some(ref url) = Self::get_provider_url_override() {
-            let trimmed = url.trim().trim_end_matches('/');
-            if !trimmed.is_empty() && trimmed != Self::DEFAULT_OFFICIAL_PROVIDER_URL {
-                return true;
-            }
-        }
-
-        if let Ok(val) = env::var("PROVIDER_SERVER_URL") {
-            let trimmed = val.trim().trim_end_matches('/');
-            if !trimmed.is_empty() && trimmed != Self::DEFAULT_OFFICIAL_PROVIDER_URL {
-                return true;
-            }
-        }
-
+        // 4. Mode DEBUG / DEVELOPMENT (cargo run / dev):
+        // Membaca file konfigurasi lokal untuk kenyamanan pengujian simulator lokal (port 19090)
         let config_path = Self::get_provider_config_path();
         if config_path.exists() {
             if let Ok(content) = std::fs::read_to_string(&config_path) {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let Some(is_custom) = val.get("is_custom").and_then(|b| b.as_bool()) {
-                        return is_custom;
+                    if let Some(url_str) = val.get("provider_url").and_then(|u| u.as_str()) {
+                        let trimmed = url_str.trim().trim_end_matches('/');
+                        if !trimmed.is_empty() {
+                            return trimmed.to_string();
+                        }
                     }
                 }
             }
         }
 
-        false
+        if let Some(baked) = official_baked {
+            return baked.to_string();
+        }
+        official_default.to_string()
+    }
+
+    /// Memeriksa apakah provider yang sedang aktif adalah custom provider (bukan cloud bawaan)
+    pub fn is_custom_provider() -> bool {
+        let current = Self::get_provider_url();
+        let official_baked = Self::BAKED_PRODUCTION_PROVIDER_URL.unwrap_or(Self::DEFAULT_OFFICIAL_PROVIDER_URL);
+        current != Self::DEFAULT_OFFICIAL_PROVIDER_URL && current != official_baked
     }
 
     /// Menyimpan konfigurasi provider ke filesystem lokal dan database PostgreSQL
@@ -380,13 +388,17 @@ impl LicenseService {
         let clean_url = url.trim().trim_end_matches('/').to_string();
 
         let config_path = Self::get_provider_config_path();
-        let payload = serde_json::json!({
-            "provider_url": clean_url,
-            "is_custom": is_custom,
-            "updated_at": Utc::now().to_rfc3339()
-        });
-        std::fs::write(&config_path, payload.to_string())
-            .map_err(|e| format!("Gagal menulis provider_config.json: {}", e))?;
+        if !is_custom || clean_url.is_empty() || clean_url == Self::DEFAULT_OFFICIAL_PROVIDER_URL {
+            let _ = std::fs::remove_file(&config_path);
+        } else {
+            let payload = serde_json::json!({
+                "provider_url": clean_url,
+                "is_custom": is_custom,
+                "updated_at": Utc::now().to_rfc3339()
+            });
+            std::fs::write(&config_path, payload.to_string())
+                .map_err(|e| format!("Gagal menulis provider_config.json: {}", e))?;
+        }
 
         Self::set_provider_url_override(if clean_url.is_empty() { None } else { Some(clean_url.clone()) });
 
