@@ -26,6 +26,50 @@ export const useCartStore = defineStore('cart', () => {
   )
   const currentOutletId = ref<string>('')
 
+  // Konfigurasi Status Pajak Toko (PPN)
+  const isTaxEnabled = ref<boolean>(
+    localStorage.getItem('notane_enable_tax') !== null
+      ? localStorage.getItem('notane_enable_tax') === 'true'
+      : true
+  )
+  const defaultTaxRate = ref<number>(
+    localStorage.getItem('notane_default_tax_rate') !== null
+      ? Number(localStorage.getItem('notane_default_tax_rate')) || 11
+      : 11
+  )
+
+  async function fetchTaxSettings() {
+    try {
+      const res = await api.get('/settings/receipt')
+      if (res.data?.success && res.data?.data) {
+        const d = res.data.data
+        const newTaxEnabled = d.enable_tax !== false
+        const newTaxRate = d.default_tax_rate !== undefined ? Number(d.default_tax_rate) : 11
+        isTaxEnabled.value = newTaxEnabled
+        defaultTaxRate.value = newTaxRate
+        localStorage.setItem('notane_enable_tax', String(newTaxEnabled))
+        localStorage.setItem('notane_default_tax_rate', String(newTaxRate))
+
+        // Hitung ulang semua item yang ada di keranjang sesuai konfigurasi pajak terbaru
+        for (const item of items.value) {
+          recalculateItem(item)
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal memuat pengaturan pajak toko:', e)
+    }
+  }
+
+  function getItemTaxRate(prodTaxPercent?: number | null): number {
+    if (!isTaxEnabled.value) {
+      return 0
+    }
+    return Number(prodTaxPercent ?? defaultTaxRate.value ?? 0)
+  }
+
+  // Muat status pajak toko saat store diinisialisasi
+  fetchTaxSettings()
+
   async function fetchProductForGift(productId: string, barcode?: string): Promise<ProductDetail | null> {
     if (productDetailCache.has(productId)) {
       return productDetailCache.get(productId)!
@@ -200,6 +244,7 @@ export const useCartStore = defineStore('cart', () => {
   })
 
   const totalTax = computed(() => {
+    if (!isTaxEnabled.value) return 0
     return items.value.reduce((sum, item) => sum + item.tax_amount, 0)
   })
 
@@ -363,7 +408,7 @@ export const useCartStore = defineStore('cart', () => {
 
       const price = getBasePriceForCustomer(detail, baseUnit)
       const gross = price * qtyToAdd
-      const taxPercent = Number(detail.product.tax_percent) || 0
+      const taxPercent = getItemTaxRate(detail.product.tax_percent)
       const tax = (gross * taxPercent) / 100
 
       const newItem: CartItem = {
@@ -432,7 +477,7 @@ export const useCartStore = defineStore('cart', () => {
 
     const price = Number(prod.base_selling_price || prod.selling_price || 0)
     const gross = price * qtyToAdd
-    const taxPercent = Number(prod.tax_percent) || 0
+    const taxPercent = getItemTaxRate(prod.tax_percent)
     const tax = (gross * taxPercent) / 100
 
     const unit: ProductUnitDetail = {
@@ -567,8 +612,9 @@ export const useCartStore = defineStore('cart', () => {
     const promoDisc = item.promo_discount || 0
     const totalItemDisc = manualDisc + promoDisc
     const taxable = Math.max(0, gross - totalItemDisc)
-    item.tax_amount = (taxable * item.product.tax_percent) / 100
-    item.subtotal = taxable + item.tax_amount
+    const taxRate = getItemTaxRate(item.product.tax_percent)
+    item.tax_amount = Number(((taxable * taxRate) / 100).toFixed(2))
+    item.subtotal = Number((taxable + item.tax_amount).toFixed(2))
   }
 
   let isEvaluatingPromotions = false
@@ -1010,6 +1056,10 @@ export const useCartStore = defineStore('cart', () => {
     voucherDiscount,
     totalDiscount,
     totalTax,
+    isTaxEnabled,
+    defaultTaxRate,
+    fetchTaxSettings,
+    getItemTaxRate,
     grandTotal,
     totalItemsCount,
     scanBarcode,

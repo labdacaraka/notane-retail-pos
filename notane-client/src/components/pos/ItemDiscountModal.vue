@@ -3,6 +3,9 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { Percent, Tag, X, Check, Zap } from 'lucide-vue-next'
 import { formatCurrency, formatQty } from '@/utils/formatters'
 import type { CartItem } from '@/types'
+import { useCartStore } from '@/stores/cartStore'
+
+const cartStore = useCartStore()
 
 const props = defineProps<{
   show: boolean
@@ -59,7 +62,8 @@ const calculatedDiscountAmount = computed(() => {
 const finalSubtotalPreview = computed(() => {
   if (!props.item) return 0
   const taxable = Math.max(0, itemGross.value - calculatedDiscountAmount.value)
-  const tax = (taxable * (props.item.product.tax_percent || 0)) / 100
+  const taxRate = cartStore.getItemTaxRate(props.item.product.tax_percent)
+  const tax = (taxable * taxRate) / 100
   return taxable + tax
 })
 

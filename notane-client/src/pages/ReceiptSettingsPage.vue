@@ -3,6 +3,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import { api } from '@/services/api'
 import { usePrinterStore } from '@/stores/printerStore'
+import { useCartStore } from '@/stores/cartStore'
 import {
   Save,
   RotateCcw,
@@ -20,6 +21,7 @@ import {
 } from 'lucide-vue-next'
 
 const printerStore = usePrinterStore()
+const cartStore = useCartStore()
 import { useDialog } from '@/composables/useDialog'
 import { formatCurrency } from '@/utils/formatters'
 
@@ -187,6 +189,9 @@ async function saveSettings() {
       printerStore.receiptSettings = res.data.data
       printerStore.paperWidth = form.paper_width
       printerStore.saveConfig()
+      localStorage.setItem('notane_enable_tax', String(form.enable_tax))
+      localStorage.setItem('notane_default_tax_rate', String(form.default_tax_rate))
+      cartStore.fetchTaxSettings()
     } else {
       showNotification('error', res.data?.message || 'Gagal menyimpan pengaturan.')
     }

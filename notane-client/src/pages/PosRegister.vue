@@ -27,6 +27,7 @@ const licenseStore = useLicenseStore()
 const dialog = useDialog()
 
 onMounted(async () => {
+  await cartStore.fetchTaxSettings()
   await shiftStore.checkCurrentShift()
   if (shiftStore.isShiftOpen) {
     await cartStore.initOutlet()
@@ -451,7 +452,7 @@ function handleOpenVoucherModal() {
             <span>🎉 Total Penghematan: {{ formatCurrency(cartStore.totalSavings) }}</span>
           </div>
 
-          <div class="flex justify-between text-slate-600">
+          <div v-if="cartStore.isTaxEnabled && cartStore.totalTax > 0" class="flex justify-between text-slate-600">
             <span>Pajak (PPN):</span>
             <span class="font-mono font-bold text-sky-800">{{ formatCurrency(cartStore.totalTax) }}</span>
           </div>

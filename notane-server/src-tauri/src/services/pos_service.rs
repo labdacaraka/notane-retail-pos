@@ -1058,14 +1058,16 @@ pub async fn checkout(
     let mut prepared_items = Vec::new();
     let mut allocated_free_items: std::collections::HashMap<Uuid, Decimal> = std::collections::HashMap::new();
 
-    let (enable_tax, _default_tax_rate) = sqlx::query_as::<_, (bool, Decimal)>(
-        "SELECT enable_tax, default_tax_rate FROM receipt_settings WHERE outlet_id = $1 OR outlet_id IS NULL ORDER BY outlet_id NULLS LAST LIMIT 1"
+    let enable_tax: bool = sqlx::query_scalar(
+        "SELECT enable_tax FROM receipt_settings WHERE outlet_id = $1 OR outlet_id IS NULL ORDER BY (outlet_id IS NOT NULL) DESC, created_at ASC LIMIT 1"
     )
     .bind(outlet_id)
     .fetch_optional(&mut *tx)
     .await
     .unwrap_or(None)
-    .unwrap_or((true, Decimal::from(11)));
+    .unwrap_or(true);
+
+    tracing::info!("[CHECKOUT] Status pemungutan pajak outlet {:?}: enable_tax = {}", outlet_id, enable_tax);
 
     for item in &req.items {
         let mut product = sqlx::query_as::<_, Product>(
