@@ -123,13 +123,13 @@ jobs:
             server_bin: notane-retail-server.exe
             use_zip_shell: windows
             installer_pattern: "*.msi,*.exe"
-          - os: macos-14
+          - os: macos-latest
             platform: macos-x64
             target: x86_64-apple-darwin
             server_bin: notane-retail-server
             use_zip_shell: unix
             installer_pattern: "*.dmg"
-          - os: macos-14
+          - os: macos-latest
             platform: macos-arm64
             target: aarch64-apple-darwin
             server_bin: notane-retail-server
